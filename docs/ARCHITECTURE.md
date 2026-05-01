@@ -1,44 +1,68 @@
-# Hermes Brain Architecture
+# Architecture
 
-## brain/rules/ vs Hermes export — structural separation
-
-These two rule delivery paths serve **different concerns** and must not overlap:
-
-| Path | What it delivers | Format | Consumer | Deployment |
-|------|-------------------|--------|----------|------------|
-| `brain/rules/` | Command approval policies | Codex `prefix_rule()` | Codex shell sandbox | `brain-sync --apply` → `~/.codex/rules/` |
-| `brain/skills/` | Tool skill packages | SKILL.md + references/ | Codex & Claude | `brain-sync --apply` → `~/.claude/skills/`, `~/.codex/skills/` |
-| Hermes export `global.md` | Natural language behavioral rules | Markdown bullets | Human audit | Syncthing → stays in `exports/` |
-| Hermes export `CLAUDE.md` | Imperative agent instructions | Markdown with keyword markers | Claude Code / Codex / Hermes | Syncthing → `brain-sync --apply` → `~/.claude/CLAUDE.md` |
-
-**Rule**: `brain/rules/` only contains Codex `prefix_rule()` command approvals. Natural language behavioral rules belong exclusively in Hermes proposals → export. No overlap.
-
-## CLAUDE.md Export
-
-CLAUDE.md format specification: `/root/knowledge/hermes-claude-md-spec.md`
-
-Key design:
-- Each proposal gets a `### category: slug` heading
-- Multi-assertion bullets decomposed with `**Always**`/`**Never**`/`**Prefer**`/`**Avoid**`/`**If**` keywords
-- No rationale in agent-facing output — instructions only
-- Deduplicated by `semantic_hash`, higher risk wins
-- Only `approved_for_export` proposals go into CLAUDE.md; `approved_db_only` stays DB-only
-- Merge strategy: `<!-- Hermes Brain sync -->` markers preserve user-written content above/below
-
-## Deployment Pipeline
+## Data Flow
 
 ```
-Agent writes proposal.md → ~/hermes-sync/inbox/proposals/
-  ↓ Syncthing
-VPS hermes-watch ingests → DB (pending/auto-approved)
-  ↓ Telegram notification (if high-risk/pending)
-Human reviews via Web UI → approve/reject
-  ↓ Approval
-Hermes exports → global.md + CLAUDE.md
-  ↓ Syncthing (back to local)
-Local brain-sync --apply projects:
-  - ~/.claude/CLAUDE.md (agent instructions)
-  - ~/.claude/skills/ (skill packages)
-  - ~/.codex/rules/ (command approvals)
-  - ~/.codex/skills/ (skill packages)
+Agent (Telegram / CLI / Web / Codex / Claude)
+  ↓ proposal.md (via Syncthing or API)
+Inbox → Ingest (dedup) → Reflect (semantic link) → Review Queue
+  ↓ approved                                       ↓ rejected
+Export Compiler                               marked or deleted
+  ↓
+global.md / CLAUDE.md / project exports
+  ↓
+Agents consume as context (prefill, CLAUDE.md, skills)
 ```
+
+## Module Responsibilities
+
+| Module | Role |
+|--------|------|
+| `app.py` | FastAPI routes, dashboard, review UI, gallery, security board |
+| `templates.py` | All HTML templates (dark theme, mobile-first) |
+| `reflect.py` | Reflection engine: dedup, semantic linking, rule generation |
+| `proposals.py` | Proposal CRUD + bare MD auto-parsing with front-matter fallback |
+| `repository.py` | SQLite data layer (proposals, exports tables) |
+| `exporter.py` | Compile approved items into global.md, CLAUDE.md, per-project exports |
+| `ingest.py` | Inbox scanner with replay dedup and semantic duplicate detection |
+| `selflearn.py` | Self-learning loop: web research, proposal generation |
+| `eviction.py` | Stale detection, budget cap enforcement, proposal demotion |
+| `notifier.py` | Telegram notifications for ingest/review/eviction events |
+| `cross_session_context.py` | Extract conversation summaries from agent state DB, inject into new sessions |
+| `auth.py` | Bearer token + CSRF protection |
+| `cli.py` | CLI commands: `scan`, `serve`, `watch`, `evict`, `rebuild-exports` |
+| `config.py` | Configuration dataclass |
+| `runtime.py` | Polling runtime for VPS-side background ingestion |
+
+## State Machine
+
+```
+pending → approved_db_only → approved_for_export → superseded
+   ↓              ↓
+rejected        rejected
+```
+
+Proposals flow through a 3-layer funnel:
+1. **Inbox**: Raw proposals land via Syncthing or API
+2. **Review**: Human approval required for export
+3. **Approved**: Compiled into agent-consumable exports
+
+## Configuration
+
+All paths are configurable via environment variables with sensible defaults:
+
+| Env var | Default | Purpose |
+|---------|---------|---------|
+| `HERMES_SYNC_ROOT` | `~/hermes-sync` | Root directory for sync data |
+| `HERMES_DB_PATH` | `$SYNC_ROOT/hermes.sqlite3` | SQLite database path |
+| `HERMES_HOME` | `~/.hermes` | Hermes agent home directory |
+| `BRAIN_DATA_DIR` | `./data` | Brain data directory |
+| `BRAIN_PLOTTING_DIR` | (empty) | Plotting gallery static files |
+| `BRAIN_XUI_URL` | (empty) | X-UI panel URL (optional) |
+| `BRAIN_XUI_USER` | (empty) | X-UI panel username (optional) |
+| `BRAIN_XUI_PASS` | (empty) | X-UI panel password (optional) |
+| `BRAIN_PROXY_HOST` | (empty) | SSH host for security data (optional) |
+| `BRAIN_SSH_KEY` | `~/.ssh/id_rsa` | SSH key path (optional) |
+| `BRAIN_SSH_PORT` | `22` | SSH port (optional) |
+| `QUOTA_API_BASE` | (empty) | Quota API base URL (optional) |
+| `QUOTA_API_KEY` | (empty) | Quota API key (optional) |

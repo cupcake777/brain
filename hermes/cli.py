@@ -101,7 +101,7 @@ def main(argv: list[str] | None = None) -> int:
                 "hermes._app_factory:create_app",
                 host=args.host, port=args.port,
                 reload=True,
-                reload_dirs=["/root/ops/brain/hermes"],
+                reload_dirs=[os.path.join(os.path.dirname(__file__))],
                 factory=True,
             )
         else:

@@ -18,9 +18,9 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-SYNC_ROOT = Path("/root/hermes-sync")
+SYNC_ROOT = Path(os.environ.get("HERMES_SYNC_ROOT", str(Path.home() / "hermes-sync")))
 INBOX_DIR = SYNC_ROOT / "inbox" / "proposals"
-BRAIN_DB = SYNC_ROOT / "hermes.sqlite3"
+BRAIN_DB = Path(os.environ.get("HERMES_DB_PATH", str(SYNC_ROOT / "hermes.sqlite3")))
 
 
 def _run_brain_sync_propose(
@@ -185,7 +185,7 @@ def reflect_on_environment() -> list[str]:
 
 def _load_hermes_memory_items() -> list[dict]:
     """Load Hermes memory items from all memory storage files."""
-    memory_dir = Path("/root/.hermes/memory")
+    memory_dir = Path(os.environ.get("HERMES_HOME", str(Path.home() / ".hermes"))) / "memory"
     if not memory_dir.exists():
         return []
     items = []
@@ -224,7 +224,7 @@ def reflect_on_learnings() -> list[str]:
     candidate_observations = []
 
     # 1. Process learnings queue (captured by hermes-reflect hook)
-    queue_path = Path("/root/.hermes/reflect/queue/learnings-queue.json")
+    queue_path = Path(os.environ.get("HERMES_HOME", str(Path.home() / ".hermes"))) / "reflect" / "queue" / "learnings-queue.json"
     queued_learnings: list[dict] = []
     if queue_path.exists():
         try:

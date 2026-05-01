@@ -6,7 +6,7 @@ Reads recent sessions from other platforms and generates a JSON prefill
 file injected into every new CLI session, providing continuity awareness.
 
 Output: ~/.hermes/prefill.json (loaded by all new sessions)
-Cron: */5 * * * * python3 /root/ops/brain/hermes/cross_session_context.py
+Cron: */5 * * * * python3 -m hermes.cross_session_context
 """
 
 import json

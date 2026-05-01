@@ -930,7 +930,7 @@ document.addEventListener('DOMContentLoaded', function() {
 def gallery_page() -> str:
     """Render the plotting library gallery page with interactive actions."""
     import yaml, os as _os
-    _plotting_dir = "/root/ops/plotting"
+    _plotting_dir = os.environ.get("BRAIN_PLOTTING_DIR", "")
     _catalog_path = _os.path.join(_plotting_dir, "catalog.yaml")
     _demo_map = {
         "volcano": "volcano_demo.png",
@@ -967,7 +967,7 @@ def gallery_page() -> str:
             img_url = f"/gallery/static/{img_file}"
             preview = f'<div class="card-img"><img src="{img_url}" onclick="openModal(this)" loading="lazy"></div>'
         else:
-            preview = '<div class="card-img" style="color:#484f58;font-size:13px;">FIXME Not yet generated</div>'
+            preview = '<div class="card-img" style="color:#484f58;font-size:13px;">Preview not available</div>'
 
         tags_html = "".join(f'<span class="tag">{_html.escape(t)}</span>' for t in tags[:4])
 

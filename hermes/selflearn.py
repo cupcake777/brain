@@ -23,11 +23,11 @@ from urllib.request import urlopen, Request
 from urllib.error import URLError, HTTPError
 from urllib.parse import quote_plus, urlencode
 
-SYNC_ROOT = Path("/root/hermes-sync")
+SYNC_ROOT = Path(os.environ.get("HERMES_SYNC_ROOT", str(Path.home() / "hermes-sync")))
 INBOX = SYNC_ROOT / "inbox" / "proposals"
-DB_PATH = Path("/root/hermes-sync/hermes.sqlite3")
-SEEN_FILE = Path("/root/ops/brain/data/seen_urls.json")
-STATE_FILE = Path("/root/ops/brain/data/selflearn_state.json")
+DB_PATH = Path(os.environ.get("HERMES_DB_PATH", str(SYNC_ROOT / "hermes.sqlite3")))
+SEEN_FILE = Path(os.environ.get("BRAIN_DATA_DIR", str(Path(__file__).resolve().parent.parent / "data"))) / "seen_urls.json"
+STATE_FILE = Path(os.environ.get("BRAIN_DATA_DIR", str(Path(__file__).resolve().parent.parent / "data"))) / "selflearn_state.json"
 
 # ── Research Interest Keywords ─────────────────────────────────────────
 # Weighted keywords for relevance scoring

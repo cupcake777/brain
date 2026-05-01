@@ -329,8 +329,8 @@ def create_app(
     # Quota board – pulls live data from HF Space
     # ------------------------------------------------------------------
 
-    _QUOTA_API_BASE = "https://cupcake777-20t.hf.space"
-    _QUOTA_API_KEY = os.environ.get("HERMES_QUOTA_API_KEY", "592252@Lyc")
+_QUOTA_API_BASE = os.environ.get("QUOTA_API_BASE", "")
+    _QUOTA_API_KEY = os.environ.get("QUOTA_API_KEY", "")
 
     def _fetch_quota_data() -> tuple[list[dict], dict, str, str | None]:
         """Fetch auth-files from Space and classify accounts.
@@ -544,7 +544,7 @@ def create_app(
         return gallery_page()
 
     # Serve demo images for the gallery
-    _PLOTTING_STATIC = Path("/root/ops/plotting")
+    _PLOTTING_STATIC = Path(os.environ.get("BRAIN_PLOTTING_DIR", ""))
     if _PLOTTING_STATIC.is_dir():
         app.mount("/gallery/static", StaticFiles(directory=str(_PLOTTING_STATIC)), name="gallery-static")
 
@@ -554,7 +554,7 @@ def create_app(
     # ------------------------------------------------------------------
     import json as _json
     from datetime import datetime as _dt, timezone as _tz
-    _GALLERY_FEEDBACK = Path("/root/ops/plotting/gallery_feedback.jsonl")
+    _GALLERY_FEEDBACK = Path(os.environ.get("BRAIN_PLOTTING_DIR", "")) / "gallery_feedback.jsonl"
 
     @app.post("/api/gallery/feedback")
     async def gallery_feedback(request: Request) -> dict:
@@ -650,12 +650,12 @@ def create_app(
 
     def _collect_proxy_security() -> tuple[dict, list[dict]]:
         """Collect security + traffic status from the proxy VPS via x-ui API + SSH."""
-        proxy_status = {"ssh_port": "50023", "f2b_banned": [], "f2b_total": 0,
+        proxy_status = {"f2b_banned": [], "f2b_total": 0,
                         "ufw_rules": [], "top_attackers": [], "uptime": "?", "sysctl": {}}
         proxy_traffic = []
-        XUI_URL = "https://107.173.255.112:15109/R5lGRUAHs6l7Ep7O7J"
-        XUI_USER = "hunqnyyRha"
-        XUI_PASS = "CbHOnnzbbc"
+        XUI_URL = os.environ.get("BRAIN_XUI_URL", "")
+        XUI_USER = os.environ.get("BRAIN_XUI_USER", "")
+        XUI_PASS = os.environ.get("BRAIN_XUI_PASS", "")
 
         # --- Fetch x-ui traffic data ---
         try:
@@ -701,8 +701,9 @@ def create_app(
         try:
             out = _sp.run(
                 ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=5",
-                 "-i", os.path.expanduser("~/.ssh/my_vps_key"), "-p", "50023",
-                 "root@107.173.255.112",
+                 "-i", os.environ.get("BRAIN_SSH_KEY", os.path.expanduser("~/.ssh/id_rsa")),
+                 "-p", os.environ.get("BRAIN_SSH_PORT", "22"),
+                 os.environ.get("BRAIN_PROXY_HOST", ""),
                  "echo '===F2B==='; fail2ban-client status sshd 2>/dev/null || echo 'f2b-err'; "
                  "echo '===UFW==='; ufw status numbered 2>/dev/null || echo 'ufw-err'; "
                  "echo '===UPTIME==='; uptime -p; "

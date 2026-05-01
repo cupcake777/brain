@@ -12,11 +12,11 @@ import os
 import sys
 from datetime import datetime, timedelta
 
-DB_PATH = os.environ.get("BRAIN_DB", "/root/hermes-sync/hermes.sqlite3")
+DB_PATH = os.environ.get("BRAIN_DB", os.path.join(os.path.dirname(__file__), "..", "hermes.sqlite3"))
 SILENCE_DAYS = int(os.environ.get("SILENCE_DAYS", "2"))
 
 # Agents we expect to be active (source_agent: display_name)
-# Note: Codex on Windows/cupcake submits as source_agent="codex", NOT "windows"
+# Note: Codex on Windows/codex submits as source_agent="codex", NOT "windows"
 KNOWN_AGENTS = {
     "codex": "Codex (OpenAI)",
     "claude": "Claude Code",
