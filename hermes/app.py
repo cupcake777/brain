@@ -18,10 +18,8 @@ from hermes.exporter import ExportCompiler
 from hermes.repository import HermesRepository
 from hermes.status import StatusPublisher
 from hermes.templates import (
-    dashboard_page,
     gallery_page,
     login_page,
-    pools_page,
     review_detail_page,
     review_queue_page,
     security_page,
@@ -300,241 +298,6 @@ def create_app(
         return review_detail_page(proposal=proposal)
 
     # ------------------------------------------------------------------
-    # HTML pages – dashboard
-    # ------------------------------------------------------------------
-
-    @app.get("/dashboard", response_class=HTMLResponse)
-    def dashboard_route() -> str:
-        counts = repo.counts_by_state()
-        oldest = repo.oldest_pending_age_seconds()
-        export_records = [_asdict(r) for r in repo.list_export_records()]
-        # Security data for integrated dashboard
-        do_status = _collect_do_security()
-        proxy_status, proxy_traffic = _collect_proxy_security()
-        return dashboard_page(
-            counts=counts,
-            oldest_pending=oldest,
-            export_records=export_records,
-            do_status=do_status,
-            proxy_status=proxy_status,
-            proxy_traffic=proxy_traffic,
-        )
-
-    @app.get("/security", response_class=HTMLResponse)
-    def security_redirect_route() -> str:
-        """Redirect old /security to /dashboard (security is now a dashboard section)."""
-        return RedirectResponse(url="/dashboard")
-
-    # ------------------------------------------------------------------
-    # Quota board – pulls live data from HF Space
-    # ------------------------------------------------------------------
-
-_QUOTA_API_BASE = os.environ.get("QUOTA_API_BASE", "")
-    _QUOTA_API_KEY = os.environ.get("QUOTA_API_KEY", "")
-
-    def _fetch_quota_data() -> tuple[list[dict], dict, str, str | None]:
-        """Fetch auth-files from Space and classify accounts.
-        
-        Returns (accounts, summary, last_updated, error).
-        """
-        try:
-            resp = httpx.get(
-                f"{_QUOTA_API_BASE}/v0/management/auth-files",
-                headers={"Authorization": f"Bearer {_QUOTA_API_KEY}"},
-                timeout=15,
-            )
-            if resp.status_code != 200:
-                return [], {}, "", f"HTTP {resp.status_code}: {resp.text[:200]}"
-            import json
-            data = json.loads(resp.text, strict=False)
-            files = data.get("files", [])
-            codex_files = [f for f in files if f.get("provider") == "codex"]
-            last_updated = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-
-            accounts = []
-            summary = {"available": 0, "exhausted": 0, "disabled_count": 0, "unavailable": 0, "total": len(codex_files)}
-
-            for f in codex_files:
-                name = f.get("name", "").replace("codex-", "").replace("-free.json", "")
-                email = f.get("email", "")
-                disabled = f.get("disabled", False)
-                unavailable = f.get("unavailable", False)
-                limit_reached = f.get("limit_reached", False)
-                status = f.get("status", "")
-                next_retry = f.get("next_retry_after", "")
-                usage_pct = int(f.get("usage_percent", 0) or 0)
-
-                if unavailable:
-                    group = "unavailable"
-                    status_label = "unavailable"
-                    summary["unavailable"] += 1
-                elif disabled:
-                    if limit_reached:
-                        group = "exhausted"
-                        status_label = "exhausted"
-                        summary["exhausted"] += 1
-                    else:
-                        group = "disabled"
-                        status_label = "disabled"
-                        summary["disabled_count"] += 1
-                elif limit_reached:
-                    group = "exhausted"
-                    status_label = "exhausted"
-                    summary["exhausted"] += 1
-                else:
-                    group = "available"
-                    status_label = "active"
-                    summary["available"] += 1
-
-                # Format next_retry_after for display
-                reset_time = "—"
-                if next_retry:
-                    try:
-                        # Parse ISO format and show short date
-                        dt = datetime.fromisoformat(next_retry.replace("Z", "+00:00"))
-                        reset_time = dt.strftime("%m/%d %H:%M")
-                    except Exception:
-                        reset_time = next_retry[:16]
-
-                accounts.append({
-                    "name": name or email,
-                    "email": email,
-                    "usage_pct": usage_pct,
-                    "group": group,
-                    "status_label": status_label,
-                    "reset_time": reset_time,
-                    "limit_reached": limit_reached,
-                    "disabled": disabled,
-                    "unavailable": unavailable,
-                })
-
-            return accounts, summary, last_updated, None
-        except Exception as exc:
-            return [], {}, "", str(exc)
-
-    @app.get("/pools", response_class=HTMLResponse)
-    def pools_route(tab: str = "cpa") -> str:
-        accounts, summary, last_updated, quota_error = _fetch_quota_data()
-        tokens, grok_summary, grok_last_updated, grok_error = _fetch_grok_data()
-        return pools_page(
-            accounts=accounts,
-            summary=summary,
-            last_updated=last_updated,
-            space_error=quota_error,
-            tokens=tokens,
-            grok_summary=grok_summary,
-            grok_last_updated=grok_last_updated,
-            grok_error=grok_error,
-            active_tab=tab,
-        )
-
-    @app.get("/quota", response_class=HTMLResponse)
-    def quota_redirect() -> str:
-        """Redirect old /quota to /pools?tab=cpa."""
-        return RedirectResponse(url="/pools?tab=cpa")
-
-    @app.get("/grok", response_class=HTMLResponse)
-    def grok_redirect() -> str:
-        """Redirect old /grok to /pools?tab=grok."""
-        return RedirectResponse(url="/pools?tab=grok")
-
-    @app.get("/api/quota")
-    def quota_api() -> dict:
-        """JSON API for quota data."""
-        accounts, summary, last_updated, error = _fetch_quota_data()
-        return {
-            "accounts": accounts,
-            "summary": summary,
-            "last_updated": last_updated,
-            "error": error,
-        }
-
-    # ------------------------------------------------------------------
-    # Grok token pool board – pulls live data from grok2api
-    # ------------------------------------------------------------------
-
-    _GROK_API_BASE = "http://127.0.0.1:8000"
-    _GROK_API_KEY=os.environ.get("GROK_API_KEY", "grok2api")
-
-    def _fetch_grok_data() -> tuple[list[dict], dict, str, str | None]:
-        """Fetch token data from grok2api and classify tokens.
-
-        Returns (tokens, summary, last_updated, error).
-        """
-        try:
-            resp = httpx.get(
-                f"{_GROK_API_BASE}/admin/api/tokens?app_key={_GROK_API_KEY}",
-                timeout=15,
-            )
-            if resp.status_code != 200:
-                return [], {}, "", f"HTTP {resp.status_code}: {resp.text[:200]}"
-            data = resp.json()
-            raw_tokens = data.get("tokens", [])
-            last_updated = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-
-            tokens = []
-            summary = {"total": len(raw_tokens), "active": 0, "pools": {}}
-            fast_total = 0
-            fast_used = 0
-
-            for t in raw_tokens:
-                status = t.get("status", "unknown")
-                pool = t.get("pool", "basic")
-                quota = t.get("quota", {}) or {}
-                use_count = t.get("use_count", 0)
-                last_used = t.get("last_used_at")
-
-                # Format last_used
-                last_used_fmt = "—"
-                if last_used:
-                    try:
-                        dt = datetime.fromtimestamp(last_used / 1000, tz=timezone.utc)
-                        last_used_fmt = dt.strftime("%m/%d %H:%M")
-                    except Exception:
-                        last_used_fmt = str(last_used)[:16]
-
-                if status == "active":
-                    summary["active"] += 1
-
-                # Pool aggregation
-                if pool not in summary["pools"]:
-                    summary["pools"][pool] = {"total": 0, "active": 0, "fast_remaining": 0, "fast_total": 0}
-                summary["pools"][pool]["total"] += 1
-                if status == "active":
-                    summary["pools"][pool]["active"] += 1
-                fq = quota.get("fast", {}) or {}
-                summary["pools"][pool]["fast_remaining"] += fq.get("remaining", 0)
-                summary["pools"][pool]["fast_total"] += fq.get("total", 0)
-                fast_total += fq.get("total", 0)
-                fast_used += (fq.get("total", 0) - fq.get("remaining", 0))
-
-                tokens.append({
-                    "token": t.get("token", ""),
-                    "pool": pool,
-                    "status": status,
-                    "use_count": use_count,
-                    "last_used_at_fmt": last_used_fmt,
-                    "quota": quota,
-                })
-
-            summary["fast_total"] = fast_total
-            summary["fast_used"] = fast_used
-            return tokens, summary, last_updated, None
-        except Exception as exc:
-            return [], {}, "", str(exc)
-
-    @app.get("/api/grok")
-    def grok_api() -> dict:
-        """JSON API for grok token data."""
-        tokens, summary, last_updated, error = _fetch_grok_data()
-        return {
-            "tokens": tokens,
-            "summary": summary,
-            "last_updated": last_updated,
-            "error": error,
-        }
-
-    # ------------------------------------------------------------------
     # Plotting Gallery – renders sci-fig template gallery
     # ------------------------------------------------------------------
     from fastapi.staticfiles import StaticFiles
@@ -761,8 +524,13 @@ _QUOTA_API_BASE = os.environ.get("QUOTA_API_BASE", "")
 
     @app.get("/security", response_class=HTMLResponse, response_model=None)
     def security_route() -> str:
-        """Redirect old /security to /dashboard (security is now a dashboard section)."""
-        return RedirectResponse(url="/dashboard")
+        do_status = _collect_do_security()
+        proxy_status, proxy_traffic = _collect_proxy_security()
+        return security_page(
+            do_status=do_status,
+            proxy_status=proxy_status,
+            proxy_traffic=proxy_traffic,
+        )
 
     @app.get("/api/security", response_model=None)
     def security_api() -> dict:
@@ -819,8 +587,8 @@ _QUOTA_API_BASE = os.environ.get("QUOTA_API_BASE", "")
             importlib.reload(_tmpl_mod)
             # Re-bind all template functions in this module's scope
             from hermes.templates import (
-                dashboard_page, gallery_page, login_page,
-                pools_page, review_detail_page, review_queue_page,
+                gallery_page, login_page,
+                review_detail_page, review_queue_page,
                 security_page, settings_page,
             )
             return {"ok": True, "message": "Templates reloaded successfully"}

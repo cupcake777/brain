@@ -210,15 +210,6 @@ class TestMobileReviewUI:
         resp = client.get("/review/rejected")
         assert resp.status_code == 200
 
-    def test_dashboard_page(self, tmp_path: Path) -> None:
-        _, _, writer, ingest, _, client = _make_stack(tmp_path)
-        proposal_path = _write_proposal(writer)
-        ingest.ingest_path(proposal_path)
-
-        resp = client.get("/dashboard")
-        assert resp.status_code == 200
-        assert "pending" in resp.text.lower()
-
     def test_queue_with_state_filter(self, tmp_path: Path) -> None:
         _, _, writer, ingest, _, client = _make_stack(tmp_path)
         proposal_path = _write_proposal(writer)
