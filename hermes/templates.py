@@ -112,15 +112,6 @@ a:hover{text-decoration:underline}
 .btn-reject{background:rgba(255,85,85,.2);color:var(--red)}
 .btn-reject:hover{background:rgba(255,85,85,.35)}
 .btn:disabled{opacity:.4;cursor:not-allowed}
-
-/* ---- Exports list ---- */
-.export-list{padding:0 16px 16px}
-.export-item{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--bg-card);border:1px solid var(--bg-hover);border-radius:var(--radius);margin-bottom:8px;min-height:44px;gap:12px;text-decoration:none;color:var(--fg);transition:border-color .15s,background .15s}
-.export-item:hover{border-color:var(--accent);background:var(--bg-hover);text-decoration:none}
-.export-item .file-name{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
-.export-item .file-meta{font-size:.8rem;color:var(--fg-dim);display:flex;gap:8px;flex-shrink:0}
-.export-item .download-icon{color:var(--accent);font-size:1.2rem;flex-shrink:0}
-
 /* ---- State dot ---- */
 .state-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:middle}
 .state-dot-pending{background:var(--yellow)}
@@ -132,23 +123,14 @@ a:hover{text-decoration:underline}
 /* ---- Empty state ---- */
 .empty{padding:32px 16px;text-align:center;color:var(--fg-dim);font-size:1rem}
 
-/* ---- Quota board ---- */
-.quota-summary{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;padding:0 16px 12px}
-@media(min-width:720px){.quota-summary{grid-template-columns:repeat(4,1fr)}}
-.quota-summary .qs-card{background:var(--bg-card);border:1px solid var(--bg-hover);border-radius:var(--radius);padding:14px 10px;text-align:center}
-.quota-summary .qs-num{font-size:1.6rem;font-weight:700;line-height:1}
-.quota-summary .qs-label{font-size:.75rem;color:var(--fg-muted);margin-top:2px;text-transform:uppercase;letter-spacing:.03em}
-.quota-board{padding:0 16px 16px}
-.quota-col-header{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:8px;padding:8px 12px;font-size:.75rem;color:var(--fg-muted);text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--bg-hover)}
-.quota-row{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:8px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--bg-hover);font-size:.85rem;transition:background .15s}
-.quota-row:hover{background:var(--bg-hover)}
-.quota-row .qr-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
-.quota-row .qr-bar{height:6px;border-radius:3px;background:var(--bg-hover);overflow:hidden;min-width:60px}
-.quota-row .qr-bar-fill{height:100%;border-radius:3px;transition:width .3s}
-.quota-row .qr-status{font-size:.8rem;font-weight:600}
-.quota-col-section{padding:12px 16px 4px;font-size:.85rem;font-weight:600;color:var(--accent);display:flex;align-items:center;gap:6px}
-.quota-col-section .qcs-count{font-size:.75rem;color:var(--fg-dim);font-weight:400}
-.refresh-info{padding:4px 16px 8px;font-size:.75rem;color:var(--fg-dim);text-align:right}
+/* ---- Stats summary ---- */
+.stats-bar{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:8px 16px 4px}
+.stat-item{text-align:center;padding:10px 8px;border-radius:var(--radius);background:var(--bg-card);border:1px solid var(--bg-hover)}
+.stat-num{display:block;font-size:1.5rem;font-weight:700;line-height:1}
+.stat-label{display:block;font-size:.7rem;color:var(--fg-muted);margin-top:2px;text-transform:uppercase;letter-spacing:.04em}
+.stat-pending .stat-num{color:var(--yellow)}
+.stat-approved .stat-num{color:var(--green)}
+.stat-rejected .stat-num{color:var(--red)}
 """
 
 # ---------------------------------------------------------------------------
@@ -188,6 +170,7 @@ def _nav(*, active: str = "queue") -> str:
     links = [
         ("review", "Review", "/review", _ICON_QUEUE),
         ("gallery", "Gallery", "/gallery", _ICON_GALLERY),
+        ("security", "Security", "/security", _ICON_SHIELD),
         ("settings", "Settings", "/settings", _ICON_SETTINGS),
         ("logout", "Logout", "/logout", _ICON_LOGOUT),
     ]
@@ -326,8 +309,19 @@ def review_queue_page(
     # The heading must contain "Pending proposals" for the test
     heading = "待审提案" if active_state == "pending" else f"{active_state.replace('_', ' ').title()} proposals"
 
+    # Stats summary bar
+    pending_n = counts.get("pending", 0)
+    approved_n = counts.get("approved_db_only", 0) + counts.get("approved_for_export", 0)
+    rejected_n = counts.get("rejected", 0)
+    stats_html = f"""<div class="stats-bar">
+  <div class="stat-item stat-pending"><span class="stat-num">{pending_n}</span><span class="stat-label">Pending</span></div>
+  <div class="stat-item stat-approved"><span class="stat-num">{approved_n}</span><span class="stat-label">Approved</span></div>
+  <div class="stat-item stat-rejected"><span class="stat-num">{rejected_n}</span><span class="stat-label">Rejected</span></div>
+</div>"""
+
     body = f"""{_nav(active="queue")}
 <h1 style="padding:16px 16px 0;font-size:1.2rem">{_html.escape(heading)}</h1>
+{stats_html}
 <div class="tabs">{tab_html}</div>
 <div class="card-grid">{cards}</div>
 """
