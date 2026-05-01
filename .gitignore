@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# Databases (runtime data, not version control)
+*.sqlite3
+*.db
+
+# Sync directories (Syncthing runtime data)
+sync/
+tmp_sync/
+
+# State & data (generated at runtime)
+state/
+data/
+
+# Inbox & review (runtime proposal flow)
+inbox/
+review/
+
+# Logs
+*.log
+version2_patch.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test
+.pytest_cache/
+
+# Secrets
+.env
+.env.local

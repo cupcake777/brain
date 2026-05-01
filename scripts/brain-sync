@@ -1,0 +1,317 @@
+#!/usr/bin/env python3
+"""Brain-sync: synchronize Hermes Brain exports to local agent directories.
+
+Subcommands:
+  apply   — Project CLAUDE.md, skills, and rules from Brain exports into local agent dirs.
+  propose — Create a proposal .md file in the Brain inbox for agent session memory upload.
+
+Usage:
+  brain-sync apply [--dry-run]
+  brain-sync propose --agent <agent> --summary <text> --observation <text> --why <text> --memory <text> [--category <cat>] [--risk <level>] [--project <key>]
+"""
+from __future__ import annotations
+
+import argparse
+import shutil
+import sys
+import uuid
+from datetime import datetime, timezone
+from pathlib import Path
+
+import yaml
+
+# Default paths — can be overridden via env vars or CLI flags
+SYNC_ROOT = Path.home() / "hermes-sync"
+INBOX_DIR = SYNC_ROOT / "inbox" / "proposals"
+
+# Agent target directories
+CLAUDE_DIR = Path.home() / ".claude"
+CODEX_DIR = Path.home() / ".codex"
+
+# Marker constants (must match project_claude_md.py)
+HERMES_START = "<!-- Hermes Brain sync:"
+HERMES_END = "<!-- End of Hermes-managed rules"
+USER_START = "<!-- User-managed section:"
+USER_END = "<!-- End of user-managed section"
+
+
+def find_marker_range(text: str, start_marker: str, end_marker: str) -> tuple[int, int] | None:
+    """Find the line range of content between start_marker and end_marker."""
+    lines = text.split("\n")
+    start_idx = None
+    end_idx = None
+    for i, line in enumerate(lines):
+        if line.strip().startswith(start_marker):
+            start_idx = i
+        if line.strip().startswith(end_marker):
+            end_idx = i
+            break
+    if start_idx is not None and end_idx is not None:
+        return (start_idx, end_idx)
+    return None
+
+
+def apply_claude_md(*, dry_run: bool = False) -> bool:
+    """Project CLAUDE.md from Brain exports to ~/.claude/CLAUDE.md."""
+    source = SYNC_ROOT / "exports" / "global" / "CLAUDE.md"
+    target = CLAUDE_DIR / "CLAUDE.md"
+
+    if not source.exists():
+        print(f"Source not found: {source}")
+        return False
+
+    new_content = source.read_text(encoding="utf-8")
+    target.parent.mkdir(parents=True, exist_ok=True)
+
+    if not target.exists():
+        if dry_run:
+            print(f"Would create: {target}")
+            return True
+        shutil.copy2(source, target)
+        print(f"Created: {target}")
+        return True
+
+    existing = target.read_text(encoding="utf-8")
+    hermes_range = find_marker_range(existing, HERMES_START, HERMES_END)
+
+    if hermes_range is None:
+        # No Hermes markers yet — wrap existing content as user section, append Hermes section
+        user_range = find_marker_range(existing, USER_START, USER_END)
+        if user_range is None:
+            user_content = existing.rstrip("\n")
+            merged = (
+                f"# CLAUDE.md\n\n"
+                f"{USER_START} content below this line is preserved across projections. -->\n\n"
+                f"{user_content}\n\n"
+                f"{USER_END} -->\n\n"
+                f"---\n\n"
+                f"{new_content.rstrip()}\n"
+            )
+        else:
+            new_hermes = new_content.split("\n", 1)[-1] if "\n" in new_content else new_content
+            merged = existing.rstrip("\n") + "\n\n" + new_hermes + "\n"
+
+        if dry_run:
+            print(f"Would update: {target} (merging user content with Hermes section)")
+            return True
+        target.write_text(merged, encoding="utf-8")
+        print(f"Updated: {target} (merged user + Hermes sections)")
+        return True
+
+    # Hermes markers exist — replace the Hermes-managed section only
+    lines = existing.split("\n")
+    start_idx, end_idx = hermes_range
+    new_lines = new_content.split("\n")
+    new_hermes_start = None
+    new_hermes_end = None
+    for i, line in enumerate(new_lines):
+        if line.strip().startswith(HERMES_START):
+            new_hermes_start = i
+        if line.strip().startswith(HERMES_END):
+            new_hermes_end = i
+            break
+
+    if new_hermes_start is None or new_hermes_end is None:
+        if dry_run:
+            print(f"Would replace: {target} (source missing markers)")
+            return True
+        shutil.copy2(source, target)
+        print(f"Replaced: {target}")
+        return True
+
+    before = lines[:start_idx]
+    after = lines[end_idx + 1:]
+    new_hermes_section = new_lines[new_hermes_start:new_hermes_end + 1]
+    merged_lines = before + new_hermes_section + after
+    merged = "\n".join(merged_lines)
+
+    if merged == existing:
+        print(f"No changes: {target}")
+        return False
+
+    if dry_run:
+        print(f"Would update: {target}")
+        return True
+
+    target.write_text(merged, encoding="utf-8")
+    print(f"Updated: {target}")
+    return True
+
+
+def apply_skills(*, dry_run: bool = False) -> bool:
+    """Project skill packages from brain/skills/ to agent directories."""
+    brain_skills = SYNC_ROOT / "brain" / "skills"
+    if not brain_skills.exists():
+        print(f"Skills source not found: {brain_skills}")
+        return False
+
+    changed = False
+    # Target directories for skills
+    targets = [
+        CLAUDE_DIR / "skills",
+        CODEX_DIR / "skills",
+    ]
+
+    for skill_dir in brain_skills.iterdir():
+        if not skill_dir.is_dir():
+            continue
+        # Skip broken symlinks inside the directory
+        if skill_dir.is_symlink() and not skill_dir.exists():
+            print(f"Skipping broken symlink: {skill_dir}")
+            continue
+        for target in targets:
+            dest = target / skill_dir.name
+            if dry_run:
+                print(f"Would sync: {skill_dir} -> {dest}")
+                changed = True
+                continue
+            target.mkdir(parents=True, exist_ok=True)
+            if dest.exists():
+                shutil.rmtree(dest)
+            try:
+                shutil.copytree(skill_dir, dest, ignore_dangling_symlinks=True)
+            except shutil.Error as e:
+                print(f"Warning: partial copy for {skill_dir.name}: {e}")
+                continue
+            print(f"Synced: {skill_dir.name} -> {dest}")
+            changed = True
+
+    return changed
+
+
+def apply_rules(*, dry_run: bool = False) -> bool:
+    """Project Codex prefix rules from brain/rules/ to ~/.codex/rules/."""
+    brain_rules = SYNC_ROOT / "brain" / "rules"
+    if not brain_rules.exists():
+        print(f"Rules source not found: {brain_rules}")
+        return False
+
+    changed = False
+    codex_rules = CODEX_DIR / "rules"
+    codex_rules.mkdir(parents=True, exist_ok=True)
+
+    # Handle shared rules
+    shared_dir = brain_rules / "shared"
+    if shared_dir.exists():
+        for rule_file in shared_dir.iterdir():
+            if rule_file.suffix == ".rules":
+                dest = codex_rules / rule_file.name
+                if dry_run:
+                    print(f"Would copy: {rule_file} -> {dest}")
+                    changed = True
+                    continue
+                shutil.copy2(rule_file, dest)
+                print(f"Copied: {rule_file.name} -> {dest}")
+                changed = True
+
+    # Handle codex-specific overlay rules
+    codex_dir = brain_rules / "codex"
+    if codex_dir.exists():
+        for rule_file in codex_dir.iterdir():
+            if rule_file.suffix == ".rules":
+                dest = codex_rules / rule_file.name
+                if dry_run:
+                    print(f"Would copy: {rule_file} -> {dest}")
+                    changed = True
+                    continue
+                shutil.copy2(rule_file, dest)
+                print(f"Copied: {rule_file.name} -> {dest}")
+                changed = True
+
+    return changed
+
+
+def cmd_apply(args: argparse.Namespace) -> None:
+    """Run the full apply pipeline: CLAUDE.md + skills + rules."""
+    any_change = False
+    if apply_claude_md(dry_run=args.dry_run):
+        any_change = True
+    if apply_skills(dry_run=args.dry_run):
+        any_change = True
+    if apply_rules(dry_run=args.dry_run):
+        any_change = True
+    if not any_change:
+        print("Everything up to date.")
+    elif not args.dry_run:
+        print("Apply complete.")
+
+
+def cmd_propose(args: argparse.Namespace) -> None:
+    """Create a proposal .md file in the Brain inbox."""
+    INBOX_DIR.mkdir(parents=True, exist_ok=True)
+
+    proposal_id = str(uuid.uuid4())
+    front_matter = {
+        "proposal_id": proposal_id,
+        "source_agent": args.agent,
+        "source_host": args.host,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "project_key": args.project,
+        "category": args.category,
+        "risk_level": args.risk,
+        "status": "submitted",
+    }
+
+    body = (
+        f"# Summary\n{args.summary}\n\n"
+        f"## Observation\n{args.observation}\n\n"
+        f"## Why it matters\n{args.why}\n\n"
+        f"## Suggested durable memory\n{args.memory}\n\n"
+        f"## Scope\n{args.scope}\n\n"
+        f"## Evidence\n{args.evidence}\n"
+    )
+
+    yaml_block = yaml.safe_dump(front_matter, sort_keys=False).strip()
+    content = f"---\n{yaml_block}\n---\n\n{body}"
+
+    tmp_path = INBOX_DIR / f".tmp-{proposal_id}.md"
+    final_path = INBOX_DIR / f"{proposal_id}.md"
+
+    tmp_path.write_text(content, encoding="utf-8")
+    tmp_path.rename(final_path)
+
+    print(f"Proposal written: {final_path}")
+    print(f"  ID: {proposal_id}")
+    print(f"  Agent: {args.agent}")
+    print(f"  Category: {args.category}")
+    print(f"  Risk: {args.risk}")
+    print(f"  Project: {args.project}")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Brain-sync: synchronize Hermes Brain exports with local agent directories")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    # apply subcommand
+    apply_parser = subparsers.add_parser("apply", help="Project Brain exports to local agent directories")
+    apply_parser.add_argument("--dry-run", action="store_true", help="Show what would change without making changes")
+
+    # propose subcommand
+    propose_parser = subparsers.add_parser("propose", help="Create a proposal in the Brain inbox")
+    propose_parser.add_argument("--agent", required=True, help="Source agent name (e.g. codex, claude, hermes)")
+    propose_parser.add_argument("--host", default=None, help="Source hostname (auto-detected if not set)")
+    propose_parser.add_argument("--summary", required=True, help="Short summary of the observation")
+    propose_parser.add_argument("--observation", required=True, help="What was observed")
+    propose_parser.add_argument("--why", required=True, help="Why it matters")
+    propose_parser.add_argument("--memory", required=True, help="Suggested durable memory content")
+    propose_parser.add_argument("--category", default="rule", choices=["rule", "workflow_hint", "fact", "preference"], help="Proposal category")
+    propose_parser.add_argument("--risk", default="low", choices=["low", "medium", "high"], help="Risk level")
+    propose_parser.add_argument("--project", default="global", help="Project key (default: global)")
+    propose_parser.add_argument("--scope", default="all", help="Scope (default: all)")
+    propose_parser.add_argument("--evidence", default="", help="Evidence supporting this proposal")
+
+    args = parser.parse_args()
+
+    # Auto-detect hostname
+    if hasattr(args, "host") and args.host is None:
+        import socket
+        args.host = socket.gethostname()
+
+    if args.command == "apply":
+        cmd_apply(args)
+    elif args.command == "propose":
+        cmd_propose(args)
+
+
+if __name__ == "__main__":
+    main()
