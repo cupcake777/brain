@@ -329,7 +329,7 @@ def create_app(
     # Quota board – pulls live data from HF Space
     # ------------------------------------------------------------------
 
-_QUOTA_API_BASE = os.environ.get("QUOTA_API_BASE", "")
+    _QUOTA_API_BASE = os.environ.get("QUOTA_API_BASE", "")
     _QUOTA_API_KEY = os.environ.get("QUOTA_API_KEY", "")
 
     def _fetch_quota_data() -> tuple[list[dict], dict, str, str | None]:
@@ -701,8 +701,7 @@ _QUOTA_API_BASE = os.environ.get("QUOTA_API_BASE", "")
         try:
             out = _sp.run(
                 ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=5",
-                 "-i", os.environ.get("BRAIN_SSH_KEY", os.path.expanduser("~/.ssh/id_rsa")),
-                 "-p", os.environ.get("BRAIN_SSH_PORT", "22"),
+                 "-i", os.environ.get("BRAIN_SSH_KEY", os.path.expanduser("~/.ssh/id_rsa")), "-p", os.environ.get("BRAIN_SSH_PORT", "22"),
                  os.environ.get("BRAIN_PROXY_HOST", ""),
                  "echo '===F2B==='; fail2ban-client status sshd 2>/dev/null || echo 'f2b-err'; "
                  "echo '===UFW==='; ufw status numbered 2>/dev/null || echo 'ufw-err'; "

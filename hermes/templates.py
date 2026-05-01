@@ -1,6 +1,7 @@
 """HTML templates for Hermes review UI – dependency-free, mobile-first, dark theme."""
 
 from __future__ import annotations
+import os
 
 import html as _html
 

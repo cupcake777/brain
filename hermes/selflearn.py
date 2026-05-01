@@ -12,6 +12,7 @@ Improvements over v1:
 """
 
 import json
+import os
 import re
 import sqlite3
 import hashlib
