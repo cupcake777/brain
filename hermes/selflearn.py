@@ -359,13 +359,151 @@ WECHAT_ALBUMS = [
 ]
 
 
-def scan_wechat() -> list[dict]:
-    """Scrape WeChat public account album pages for new articles.
+# WeChat RSS source: wewe-rss (self-hosted on same VPS)
+WEWE_RSS_URL = os.environ.get("WEWE_RSS_URL", "http://127.0.0.1:7788")
+WEWE_RSS_AUTH = os.environ.get("WEWE_RSS_AUTH", "brain2026")
+
+# WeChat public accounts to follow ( synced with wewe-rss subscriptions)
+WECHAT_ACCOUNTS = [
+    {
+        "name": "BioArt",
+        "id": "MP_WXS_3073426651",
+        "category": "life_science",
+        "tags": ["分子生物学", "细胞", "信号通路", "基因编辑", "免疫", "肿瘤", "Nature", "Science"],
+    },
+    {
+        "name": "SCIPainter",
+        "id": "MP_WXS_3229670070",
+        "category": "scientific_figure",
+        "tags": ["绘图", "可视化", "科研图", "热图", "火山图", "小提琴图", "网络图", "配色"],
+    },
+    {
+        "name": "逛逛GitHub",
+        "id": "MP_WXS_3516884134",
+        "category": "github_tools",
+        "tags": ["GitHub", "开源", "工具", "AI", "编程"],
+    },
+    {
+        "name": "Omics Pro",
+        "id": "MP_WXS_3867708412",
+        "category": "bioinformatics",
+        "tags": ["多组学", "转录组", "单细胞", "蛋白组", "代谢组", "ATAC-seq", "空间转录组"],
+    },
+    {
+        "name": "程序掘金",
+        "id": "MP_WXS_3938753991",
+        "category": "programming",
+        "tags": ["编程", "AI", "副业", "Python", "工具", "效率"],
+    },
+]
+
+
+def scan_wechat_wewe() -> list[dict]:
+    """Fetch WeChat articles from self-hosted wewe-rss (primary source).
     
-    WeChat album pages contain article titles and links.
-    We extract article metadata and use relevance scoring.
-    Returns list of article dicts with title, url, description, score, category.
+    wewe-rss provides structured RSS/JSON feeds per account.
+    Requires wewe-rss running on WEWE_RSS_URL with accounts logged in.
     """
+    import time
+    articles = []
+    seen = load_seen_urls()
+
+    try:
+        # Build auth headers
+        headers = {}
+        if WEWE_RSS_AUTH:
+            import base64
+            headers["Authorization"] = f"Bearer {WEWE_RSS_AUTH}"
+
+        # Fetch individual feed list for source mapping
+        from urllib.request import Request, urlopen
+        from urllib.error import URLError, HTTPError
+        
+        feed_map = {}
+        try:
+            req = Request(f"{WEWE_RSS_URL}/feeds", headers=headers or {"Accept": "application/json"})
+            with urlopen(req, timeout=10) as resp:
+                feed_data = json.loads(resp.read().decode("utf-8", errors="replace"))
+                for item in feed_data if isinstance(feed_data, list) else []:
+                    feed_map[item.get("id", "")] = {
+                        "name": item.get("name", "unknown"),
+                        "intro": item.get("intro", ""),
+                    }
+        except (URLError, HTTPError, json.JSONDecodeError):
+            pass
+
+        # Fetch each account's articles via JSON feed
+        for acct in WECHAT_ACCOUNTS:
+            acct_id = acct.get("id", "")
+            acct_name = acct["name"]
+            
+            url = f"{WEWE_RSS_URL}/feeds/{acct_id}.json?limit=10"
+            data = fetch_url(url, timeout=10)
+            if not data:
+                continue
+            
+            try:
+                result = json.loads(data)
+            except json.JSONDecodeError:
+                continue
+            
+            items = result.get("items", [])
+            for item in items[:10]:
+                title = item.get("title", "").strip()
+                if not title or len(title) < 4:
+                    continue
+                
+                link = item.get("url", "") or item.get("id", "")
+                if not link:
+                    link = f"wewe-rss://{acct_name}/{hashlib.md5(title.encode()).hexdigest()[:12]}"
+                
+                if link in seen:
+                    continue
+                
+                summary = item.get("summary", "") or item.get("content_text", "")[:500]
+                
+                # Score based on account tags + research keywords
+                text = (title + " " + summary).lower()
+                score = 0.0
+                for tag in acct["tags"]:
+                    if tag.lower() in text:
+                        score += 1.5
+                
+                for kw, weight in RESEARCH_KEYWORDS.items():
+                    if kw.lower() in text:
+                        score += weight * 0.5
+                
+                # Boost score if directly from a followed account
+                score = max(score, 2.0)
+                
+                articles.append({
+                    "title": title,
+                    "url": link,
+                    "source": acct_name,
+                    "category": acct["category"],
+                    "score": round(score, 2),
+                    "tags": [t for t in acct["tags"] if t.lower() in text],
+                    "summary": summary[:300],
+                })
+            
+            time.sleep(0.5)  # Rate limit between accounts
+
+    except Exception as e:
+        print(f"  [WARN] wewe-rss error: {e}", file=sys.stderr)
+
+    return articles
+
+
+def scan_wechat() -> list[dict]:
+    """Fetch WeChat articles: try wewe-rss first, fall back to album scraping."""
+    # Try wewe-rss first (primary source)
+    wewe_articles = scan_wechat_wewe()
+    if wewe_articles:
+        print(f"  [wechat] wewe-rss: {len(wewe_articles)} articles")
+        save_seen_urls(load_seen_urls() | {a["url"] for a in wewe_articles if a.get("url")})
+        return wewe_articles
+
+    # Fallback to album scraping
     import time
     articles = []
     seen = load_seen_urls()
