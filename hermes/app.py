@@ -85,17 +85,17 @@ def create_app(
     @app.get("/login", response_class=HTMLResponse, response_model=None)
     def login_get(request: Request):
         if not config.auth_token and not config.auth_username:
-            return RedirectResponse("/review", status_code=303)
+            return RedirectResponse("/knowledge", status_code=303)
         if _has_valid_cookie(request):
-            return RedirectResponse("/review", status_code=303)
+            return RedirectResponse("/knowledge", status_code=303)
         return login_page()
 
     @app.post("/login", response_model=None)
     def login_post(request: Request, username: str = Form(""), password: str = Form("")):
         if not config.auth_token and not config.auth_username:
-            return RedirectResponse("/review", status_code=303)
+            return RedirectResponse("/knowledge", status_code=303)
         if _valid_login(username, password):
-            resp = RedirectResponse("/review", status_code=303)
+            resp = RedirectResponse("/knowledge", status_code=303)
             return _set_auth_cookie(resp)
         return login_page(error="Invalid username or password")
 
@@ -113,7 +113,7 @@ def create_app(
     def root_redirect(request: Request):
         if auth_enabled and not _has_valid_cookie(request):
             return RedirectResponse("/login", status_code=303)
-        return RedirectResponse("/review", status_code=303)
+        return RedirectResponse("/knowledge", status_code=303)
 
     @app.get("/health")
     def health() -> dict[str, str]:
@@ -478,40 +478,16 @@ def create_app(
     _VALID_STATES = {"pending", "approved_db_only", "approved_for_export", "rejected", "all"}
 
     @app.get("/review", response_class=HTMLResponse)
-    def review_queue_page_route(state: str = Query(default="pending")) -> str:
-        state = state if state in _VALID_STATES else "pending"
-        counts = repo.counts_by_state()
-        if state == "all":
-            proposals: list[dict] = []
-            for s in ("pending", "approved_db_only", "approved_for_export", "rejected"):
-                proposals.extend(repo.list_proposals_by_state(s))
-        else:
-            proposals = repo.list_proposals_by_state(state)
-        return review_queue_page(
-            proposals=proposals,
-            counts=counts,
-            active_state=state,
-        )
+    def review_queue_page_route(state: str = Query(default="pending")):
+        return RedirectResponse("/knowledge", status_code=301)
 
     @app.get("/review/approved", response_class=HTMLResponse)
-    def review_approved_page() -> str:
-        counts = repo.counts_by_state()
-        proposals = repo.list_proposals_by_state("approved_db_only") + repo.list_proposals_by_state("approved_for_export")
-        return review_queue_page(
-            proposals=proposals,
-            counts=counts,
-            active_state="approved_db_only",
-        )
+    def review_approved_redirect():
+        return RedirectResponse("/knowledge", status_code=301)
 
     @app.get("/review/rejected", response_class=HTMLResponse)
-    def review_rejected_page() -> str:
-        counts = repo.counts_by_state()
-        proposals = repo.list_proposals_by_state("rejected")
-        return review_queue_page(
-            proposals=proposals,
-            counts=counts,
-            active_state="rejected",
-        )
+    def review_rejected_redirect():
+        return RedirectResponse("/knowledge", status_code=301)
 
     # ------------------------------------------------------------------
     # HTML pages – review detail
@@ -968,8 +944,11 @@ def create_app(
 
     def _collect_proxy_security() -> tuple[dict, list[dict]]:
         """Collect security + traffic status from the proxy VPS via x-ui API + SSH."""
+        _ssh_key = os.environ.get("BRAIN_SSH_KEY", os.path.expanduser("~/.ssh/id_rsa"))
+        _ssh_port = os.environ.get("BRAIN_SSH_PORT", "22")
+        _ssh_host = os.environ.get("BRAIN_PROXY_HOST", "")
         proxy_status = {"f2b_banned": [], "f2b_total": 0,
-                        "ufw_rules": [], "top_attackers": [], "uptime": "?", "sysctl": {}}
+                        "ssh_port": _ssh_port, "ufw_rules": [], "top_attackers": [], "uptime": "?", "sysctl": {}}
         proxy_traffic = []
         XUI_URL = os.environ.get("BRAIN_XUI_URL", "")
         XUI_USER = os.environ.get("BRAIN_XUI_USER", "")
@@ -1018,9 +997,6 @@ def create_app(
         # --- Fetch proxy VPS security data via SSH (with retry for intermittent connectivity) ---
         import re as _re, logging as _logging
         _ssh_logger = _logging.getLogger("brain.security")
-        _ssh_key = os.environ.get("BRAIN_SSH_KEY", os.path.expanduser("~/.ssh/id_rsa"))
-        _ssh_port = os.environ.get("BRAIN_SSH_PORT", "22")
-        _ssh_host = os.environ.get("BRAIN_PROXY_HOST", "")
         _ssh_cmd = [
             "ssh", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=8",
             "-o", "ServerAliveInterval=5", "-o", "ServerAliveCountMax=2",
