@@ -61,10 +61,29 @@ a:hover{color:var(--ink)}
 @keyframes slideInRight{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
 @keyframes slideUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes pageEnter{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes staggerFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+body{animation:pageEnter .35s var(--ease-out)}
+.topnav{animation:slideUp .25s var(--ease-out)}
+.tabs{animation:staggerFade .3s var(--ease-out) .05s both}
+.search-bar{animation:staggerFade .3s var(--ease-out) .1s both}
+.card-grid{animation:staggerFade .3s var(--ease-out) .1s both}
+.dash-grid{animation:staggerFade .3s var(--ease-out) .08s both}
+.card{animation:staggerFade .25s var(--ease-out) both}
+.card:nth-child(1){animation-delay:.08s}.card:nth-child(2){animation-delay:.12s}.card:nth-child(3){animation-delay:.16s}.card:nth-child(4){animation-delay:.2s}.card:nth-child(5){animation-delay:.24s}.card:nth-child(6){animation-delay:.28s}
+.section{animation:staggerFade .3s var(--ease-out) both}
+.section:nth-child(2){animation-delay:.06s}.section:nth-child(3){animation-delay:.12s}.section:nth-child(4){animation-delay:.18s}.section:nth-child(5){animation-delay:.24s}
+.dash-card{animation:staggerFade .25s var(--ease-out) both}
+.dash-card:nth-child(1){animation-delay:.06s}.dash-card:nth-child(2){animation-delay:.1s}.dash-card:nth-child(3){animation-delay:.14s}.dash-card:nth-child(4){animation-delay:.18s}.dash-card:nth-child(5){animation-delay:.22s}.dash-card:nth-child(6){animation-delay:.26s}
+.sec-col{animation:staggerFade .3s var(--ease-out) both}
+.sec-col:nth-child(2){animation-delay:.08s}
+.sec-card{animation:staggerFade .25s var(--ease-out) both}
+.kn-domain-group{animation:staggerFade .25s var(--ease-out) both}
+.action-bar{animation:slideUp .3s var(--ease-out) .15s both}
 
 /* ---- Top nav ---- */
 .topnav{display:flex;align-items:center;justify-content:space-between;padding:0 var(--sp-lg);background:var(--surface);border-bottom:1px solid var(--border);min-height:56px;position:sticky;top:0;z-index:50;backdrop-filter:blur(8px)}
-.topnav .brand{font-weight:700;font-size:1.15rem;color:var(--primary);white-space:nowrap;letter-spacing:-.01em}
+.topnav .brand{font-weight:700;font-size:1.15rem;color:var(--primary);white-space:nowrap;letter-spacing:-.01em;background:linear-gradient(135deg,var(--primary),var(--info));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .topnav .links-desktop{display:none;gap:4px}
 .topnav .links-desktop a{color:var(--ink-muted);font-size:.88rem;padding:8px 14px;min-height:44px;display:flex;align-items:center;white-space:nowrap;border-radius:var(--r-md);transition:background var(--duration),color var(--duration)}
 .topnav .links-desktop a.active{color:var(--ink);background:var(--primary-muted);font-weight:500}
@@ -96,7 +115,7 @@ a:hover{color:var(--ink)}
   background:transparent;color:var(--ink-muted);font-size:.84rem;font-weight:500;cursor:pointer;
   min-height:40px;white-space:nowrap;transition:all var(--duration)
 }
-.tabs a.active,.tabs button.active{background:var(--primary-muted);color:var(--ink);border-color:var(--border-focus)}
+.tabs a.active,.tabs button.active{background:var(--primary-muted);color:var(--ink);border-color:var(--primary);box-shadow:0 0 0 1px var(--primary)}
 .tabs a:hover,.tabs button:hover{background:var(--border-hover);color:var(--ink)}
 .tab-count{font-size:.72rem;background:var(--border-hover);border-radius:var(--r-pill);padding:1px 7px;color:var(--ink-dim);font-weight:600;margin-left:2px}
 
@@ -105,13 +124,13 @@ a:hover{color:var(--ink)}
 @media(min-width:720px){.card-grid{grid-template-columns:repeat(auto-fill,minmax(380px,1fr))}}
 
 .card{display:block;background:var(--card);border-radius:var(--r-lg);padding:var(--sp-md);border:1px solid var(--border);text-decoration:none;color:var(--ink);min-height:44px;transition:all var(--duration) var(--ease-out);box-shadow:var(--shadow-xs)}
-.card:hover{border-color:var(--border-focus);background:var(--card-hover);text-decoration:none;transform:translateY(-2px);box-shadow:var(--shadow-md)}
+.card:hover{border-color:var(--primary);background:var(--card-hover);text-decoration:none;transform:translateY(-2px);box-shadow:var(--shadow-md),0 0 0 1px var(--primary)}
 .card-top{display:flex;align-items:center;gap:var(--sp-sm);flex-wrap:wrap;margin-bottom:var(--sp-sm)}
 .card-preview{font-size:.9rem;color:var(--ink);overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;max-width:100%;line-height:1.5}
 .card-meta{display:flex;gap:var(--sp-sm);margin-top:var(--sp-sm);font-size:.78rem;color:var(--ink-muted)}
 
 /* ---- Badges ---- */
-.badge{display:inline-flex;align-items:center;height:22px;padding:2px 10px;border-radius:var(--r-pill);font-size:.7rem;font-weight:600;letter-spacing:.02em;white-space:nowrap;transition:all var(--duration)}
+.badge{display:inline-flex;align-items:center;height:22px;padding:2px 10px;border-radius:var(--r-pill);font-size:.7rem;font-weight:600;letter-spacing:.02em;white-space:nowrap;transition:all var(--duration);box-shadow:0 1px 2px rgba(0,0,0,.15)}
 .badge-pending{background:var(--warning-muted);color:var(--warning)}
 .badge-approved_db_only{background:var(--success-muted);color:var(--success)}
 .badge-approved_for_export{background:rgba(52,211,153,.22);color:var(--success)}
@@ -131,8 +150,10 @@ a:hover{color:var(--ink)}
 .back-link:hover{color:var(--primary)}
 .detail-title{font-size:1.1rem;font-weight:700;word-break:break-all;color:var(--ink)}
 .detail-body{padding:0 var(--sp-md) var(--sp-md)}
-.section{margin-bottom:var(--sp-lg);background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--sp-md);transition:border-color var(--duration)}
+.section{margin-bottom:var(--sp-lg);background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--sp-md);position:relative;padding-left:calc(var(--sp-md) + 4px);transition:border-color var(--duration)}
+.section::before{content:'';position:absolute;left:0;top:var(--r-lg);bottom:var(--r-lg);width:4px;border-radius:0 4px 4px 0;background:var(--primary);opacity:.6;transition:opacity var(--duration)}
 .section:hover{border-color:var(--border-hover)}
+.section:hover::before{opacity:1}
 .section h3{color:var(--primary);font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:var(--sp-sm);font-weight:600}
 .section p{color:var(--ink);font-size:.9rem;white-space:pre-wrap;word-break:break-word;line-height:1.6}
 .meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-sm) var(--sp-md);padding:var(--sp-md);font-size:.84rem}
@@ -149,12 +170,12 @@ a:hover{color:var(--ink)}
 body:has(.action-bar){padding-bottom:76px}
 .action-bar .btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:12px var(--sp-sm);border:none;border-radius:var(--r-md);font-size:.9rem;font-weight:600;cursor:pointer;min-height:48px;transition:all var(--duration) var(--ease-out);position:relative;overflow:hidden}
 .action-bar .btn:active{transform:translateY(1px)}
-.btn-approve{background:var(--success-muted);color:var(--success)}
-.btn-approve:hover{background:rgba(52,211,153,.25);box-shadow:var(--shadow-sm)}
-.btn-export{background:var(--primary-muted);color:var(--primary)}
-.btn-export:hover{background:rgba(167,139,250,.25);box-shadow:var(--shadow-sm)}
-.btn-reject{background:var(--danger-muted);color:var(--danger)}
-.btn-reject:hover{background:rgba(248,113,113,.25);box-shadow:var(--shadow-sm)}
+.btn-approve{background:var(--success-muted);color:var(--success);transition:all var(--duration) var(--ease-out)}
+.btn-approve:hover{background:rgba(52,211,153,.25);box-shadow:var(--shadow-sm),0 0 12px rgba(52,211,153,.15)}
+.btn-export{background:var(--primary-muted);color:var(--primary);transition:all var(--duration) var(--ease-out)}
+.btn-export:hover{background:rgba(167,139,250,.25);box-shadow:var(--shadow-sm),0 0 12px rgba(167,139,250,.15)}
+.btn-reject{background:var(--danger-muted);color:var(--danger);transition:all var(--duration) var(--ease-out)}
+.btn-reject:hover{background:rgba(248,113,113,.25);box-shadow:var(--shadow-sm),0 0 12px rgba(248,113,113,.15)}
 .btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
 .btn:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(167,139,250,.3)}
 kbd{font-family:var(--font-mono);font-size:.68rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);padding:1px 5px;margin-left:4px;color:var(--ink-dim);font-weight:500}
@@ -162,8 +183,10 @@ kbd{font-family:var(--font-mono);font-size:.68rem;background:var(--surface);bord
 /* ---- Dashboard ---- */
 .dash-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;padding:0 var(--sp-md) var(--sp-md)}
 @media(min-width:720px){.dash-grid{grid-template-columns:repeat(4,1fr)}}
-.dash-card{background:var(--card);border-radius:var(--r-lg);padding:var(--sp-lg) var(--sp-md);border:1px solid var(--border);text-align:center;box-shadow:var(--shadow-xs);transition:all var(--duration)}
-.dash-card:hover{border-color:var(--border-hover);box-shadow:var(--shadow-sm)}
+.dash-card{background:var(--card);border-radius:var(--r-lg);padding:var(--sp-lg) var(--sp-md);border:1px solid var(--border);text-align:center;box-shadow:var(--shadow-xs);transition:all var(--duration) var(--ease-out);position:relative;overflow:hidden}
+.dash-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--primary),var(--info));opacity:0;transition:opacity var(--duration)}
+.dash-card:hover{border-color:var(--border-focus);box-shadow:var(--shadow-md);transform:translateY(-2px)}
+.dash-card:hover::after{opacity:1}
 .dash-card .num{font-size:2rem;font-weight:700;line-height:1}
 .dash-card .label{font-size:.75rem;color:var(--ink-muted);margin-top:4px;text-transform:uppercase;letter-spacing:.06em}
 .dash-section{padding:0 var(--sp-md) var(--sp-md)}
@@ -216,9 +239,9 @@ kbd{font-family:var(--font-mono);font-size:.68rem;background:var(--surface);bord
 .refresh-info{padding:var(--sp-xs) var(--sp-md) var(--sp-sm);font-size:.72rem;color:var(--ink-dim);text-align:right}
 
 /* ---- Confirm modal ---- */
-.confirm-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);z-index:200;justify-content:center;align-items:center}
+.confirm-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);backdrop-filter:blur(8px);z-index:200;justify-content:center;align-items:center}
 .confirm-overlay[style*="flex"]{animation:fadeIn var(--duration) var(--ease-out)}
-.confirm-modal{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--sp-lg);max-width:380px;width:90%;text-align:center;box-shadow:var(--shadow-xl);animation:fadeIn var(--duration) var(--ease-out)}
+.confirm-modal{background:var(--card);border:1px solid var(--border);border-radius:var(--r-xl);padding:var(--sp-lg);max-width:380px;width:90%;text-align:center;box-shadow:var(--shadow-xl);animation:fadeIn var(--duration) var(--ease-out);transform:scale(1)}
 .confirm-modal h3{font-size:1.05rem;margin:0 0 var(--sp-sm);color:var(--ink);font-weight:600}
 .confirm-modal .confirm-actions{display:flex;gap:var(--sp-sm);justify-content:center;margin-top:var(--sp-md)}
 .confirm-modal .confirm-actions button{padding:10px 24px;border:none;border-radius:var(--r-md);font-size:.88rem;font-weight:600;cursor:pointer;min-height:44px;transition:all var(--duration) var(--ease-out)}
@@ -238,7 +261,7 @@ kbd{font-family:var(--font-mono);font-size:.68rem;background:var(--surface);bord
 /* ---- Search bar ---- */
 .search-bar{display:flex;gap:var(--sp-sm);padding:var(--sp-sm) var(--sp-md) 0}
 .search-bar input{flex:1;padding:10px 14px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);color:var(--ink);font-size:.88rem;outline:none;transition:border-color var(--duration),box-shadow var(--duration);min-height:44px}
-.search-bar input:focus{border-color:var(--border-focus);box-shadow:0 0 0 3px rgba(167,139,250,.2)}
+.search-bar input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(167,139,250,.25),0 0 0 1px var(--primary)}
 .search-bar input::placeholder{color:var(--ink-dim)}
 """
 
@@ -279,14 +302,12 @@ _ICON_KNOWLEDGE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" st
 
 _ICON_SETTINGS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>'
 
-def _nav(*, active: str = "queue") -> str:
+def _nav(*, active: str = "knowledge") -> str:
     links = [
-        ("review", "Review", "/review", _ICON_QUEUE),
         ("knowledge", "Knowledge", "/knowledge", _ICON_KNOWLEDGE),
         ("gallery", "Gallery", "/gallery", _ICON_GALLERY),
         ("security", "Security", "/security", _ICON_SECURITY),
         ("settings", "Settings", "/settings", _ICON_SETTINGS),
-        ("logout", "Logout", "/logout", _ICON_LOGOUT),
     ]
     desktop_items = []
     mobile_items = []
@@ -296,7 +317,7 @@ def _nav(*, active: str = "queue") -> str:
         mobile_items.append(f'<a href="{href}" class="{cls.lstrip()}">{icon} <span>{_html.escape(label)}</span></a>')
 
     return f"""<nav class="topnav">
-  <a href="/review" class="brand">🧠 Hermes</a>
+  <a href="/knowledge" class="brand">🧠 Hermes</a>
   <span class="links-desktop">{''.join(desktop_items)}</span>
   <button class="hamburger" onclick="document.getElementById('mm').classList.toggle('open');this.classList.toggle('open')" aria-label="Menu">
     <span></span><span></span><span></span>
@@ -600,34 +621,58 @@ def review_detail_page(*, proposal: dict) -> str:
 
 def login_page(*, error: str = "") -> str:
     """Render a username/password login form that sets a session cookie."""
-    error_html = f'<p style="color:var(--danger);text-align:center;margin-bottom:12px">{_html.escape(error)}</p>' if error else ""
-    body = f"""<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;padding:16px">
-<div style="background:var(--card);border-radius:var(--r-md);padding:32px 24px;max-width:360px;width:100%;border:1px solid var(--card-hover)">
-  <h1 style="text-align:center;color:var(--primary);margin-bottom:24px;font-size:1.4rem">🧠 Hermes</h1>
+    error_html = f'<div class="login-error">{_html.escape(error)}</div>' if error else ""
+    body = f"""<div class="login-wrapper">
+<div class="login-card">
+  <div class="login-brand">
+    <div class="login-logo">🧠</div>
+    <h1 class="login-title">Hermes</h1>
+    <p class="login-subtitle">Knowledge Management System</p>
+  </div>
   {error_html}
-  <form method="POST" action="/login">
-    <label style="display:block;margin-bottom:8px;color:var(--ink-muted);font-size:.85rem">Username</label>
-    <input type="text" name="username" autocomplete="username"
-      style="width:100%;padding:12px;border:1px solid var(--card-hover);border-radius:var(--r-md);
-             background:var(--surface);color:var(--ink);font-size:1rem;margin-bottom:16px;min-height:48px"
-      placeholder="Username" autofocus>
-    <label style="display:block;margin-bottom:8px;color:var(--ink-muted);font-size:.85rem">Password</label>
-    <input type="password" name="password" autocomplete="current-password"
-      style="width:100%;padding:12px;border:1px solid var(--card-hover);border-radius:var(--r-md);
-             background:var(--surface);color:var(--ink);font-size:1rem;margin-bottom:20px;min-height:48px"
-      placeholder="Password">
-    <button type="submit"
-      style="width:100%;padding:14px;border:none;border-radius:var(--r-md);
-             background:var(--primary);color:var(--bg);font-size:1rem;font-weight:600;cursor:pointer;min-height:48px">
-      Sign In
-    </button>
+  <form method="POST" action="/login" class="login-form">
+    <label class="login-label">Username</label>
+    <div class="login-input-wrap">
+      <svg class="login-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <input type="text" name="username" autocomplete="username" class="login-input" placeholder="Username" autofocus>
+    </div>
+    <label class="login-label">Password</label>
+    <div class="login-input-wrap">
+      <svg class="login-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      <input type="password" name="password" autocomplete="current-password" class="login-input" placeholder="Password">
+    </div>
+    <button type="submit" class="login-btn">Sign In</button>
   </form>
-  <p style="text-align:center;margin-top:16px;font-size:.75rem;color:var(--ink-dim)">
-    API: <code style="background:var(--card-hover);padding:2px 6px;border-radius:4px">Authorization: Bearer &lt;token&gt;</code>
+  <p class="login-hint">
+    API: <code>Authorization: Bearer &lt;token&gt;</code>
   </p>
 </div>
 </div>"""
-    return _page("Hermes Login", body)
+    login_css = """
+<style>
+.login-wrapper{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:16px;background:radial-gradient(ellipse at 50% 0%,rgba(167,139,250,.08) 0%,transparent 60%)}
+.login-card{background:var(--card);border-radius:var(--r-xl);padding:40px 32px;max-width:380px;width:100%;border:1px solid var(--border);box-shadow:var(--shadow-lg);animation:fadeIn .4s var(--ease-out)}
+.login-brand{text-align:center;margin-bottom:28px}
+.login-logo{font-size:2.4rem;margin-bottom:4px;animation:slideUp .4s var(--ease-out)}
+.login-title{font-size:1.5rem;font-weight:700;margin:0;background:linear-gradient(135deg,var(--primary),var(--info));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.login-subtitle{font-size:.82rem;color:var(--ink-muted);margin-top:4px;letter-spacing:.02em}
+.login-error{background:var(--danger-muted);color:var(--danger);padding:10px 14px;border-radius:var(--r-md);font-size:.88rem;text-align:center;margin-bottom:16px;border:1px solid var(--danger);animation:staggerFade .3s var(--ease-out)}
+.login-form{display:flex;flex-direction:column;gap:4px}
+.login-label{display:block;font-size:.82rem;color:var(--ink-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em;font-weight:500}
+.login-input-wrap{position:relative;margin-bottom:14px}
+.login-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:var(--ink-dim);pointer-events:none;transition:color var(--duration)}
+.login-input{width:100%;padding:12px 12px 12px 40px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);color:var(--ink);font-size:.95rem;min-height:48px;outline:none;transition:border-color var(--duration),box-shadow var(--duration)}
+.login-input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(167,139,250,.2)}
+.login-input:focus+.login-icon,.login-input:focus~.login-icon{color:var(--primary)}
+.login-input-wrap:focus-within .login-icon{color:var(--primary)}
+.login-btn{width:100%;padding:14px;border:none;border-radius:var(--r-md);background:linear-gradient(135deg,var(--primary),#818cf8);color:#fff;font-size:1rem;font-weight:600;cursor:pointer;min-height:48px;transition:all var(--duration) var(--ease-out);margin-top:4px;position:relative;overflow:hidden}
+.login-btn:hover{box-shadow:var(--shadow-md),0 0 20px rgba(167,139,250,.25);transform:translateY(-1px)}
+.login-btn:active{transform:translateY(1px);box-shadow:var(--shadow-sm)}
+.login-hint{text-align:center;margin-top:20px;font-size:.72rem;color:var(--ink-dim);line-height:1.5}
+.login-hint code{background:var(--surface);padding:2px 8px;border-radius:var(--r-sm);border:1px solid var(--border);font-size:.72rem;font-family:var(--font-mono)}
+</style>
+"""
+    return _page("Hermes Login", login_css + body)
 
 
 def gallery_page() -> str:
@@ -655,13 +700,45 @@ def gallery_page() -> str:
             if _os.path.exists(_os.path.join(_plotting_dir, _c["interactive"])):
                 _interactive_files[_n] = _c["interactive"]
 
-    all_tags = set()
+    # Category groups for cleaner filter UI (map tags → broad chart-type categories)
+    _CATEGORY_GROUPS = {
+        # tag → 图表类型大类
+        "散点": "散点图", "差异表达": "散点图", "GWAS/QTL": "散点图", "富集": "散点图",
+        "降维": "散点图", "位点标注": "散点图", "检验": "散点图", "配对比较": "散点图",
+        "组成": "散点图", "3D": "散点图", "单细胞": "散点图", "APA": "散点图",
+
+        "线图/曲线": "线图/曲线", "生存": "线图/曲线", "分类": "线图/曲线",
+
+        "分布": "分布图", "箱线": "分布图", "云雨": "分布图", "山峦": "分布图",
+
+        "热图": "热图", "聚类": "热图", "相关性": "热图", "脑区": "热图", "环状": "热图",
+
+        "柱状图": "柱状图", "分组比较": "柱状图", "双向": "柱状图",
+        "面积图": "柱状图",
+
+        "网络/关系": "网络/关系图", "互作": "网络/关系图", "弦图": "网络/关系图",
+        "冲积": "网络/关系图", "桑基": "网络/关系图",
+
+        "集合": "集合图", "交集": "集合图",
+
+        "圈图": "圈图", "基因组": "圈图",
+
+        "基因组结构": "基因组图", "基因簇": "基因组图", "进化树": "基因组图",
+        "共线性": "基因组图", "突变": "基因组图", "标注": "基因组图",
+
+        "临床": "临床图", "森林图": "临床图", "预后": "临床图",
+
+        "雷达图": "雷达图", "多维": "雷达图",
+    }
+
     chart_cards = ""
     for c in _catalog.get("charts", []):
         name = c.get("name", "")
         title = c.get("title", name)
         desc = c.get("description", "")
         tags = c.get("tags", [])
+        tier = c.get("tier", "P2")
+        status = c.get("status", "planned")
         tpl_path = c.get("template", "")
         has_template = (
             _os.path.exists(_os.path.join(_plotting_dir, "templates", f"{name}.py"))
@@ -670,21 +747,24 @@ def gallery_page() -> str:
         img_file = _demo_files.get(name)
         interactive_file = _interactive_files.get(name)
 
+        # Map tags to broader categories for filtering
+        categories = set()
         for t in tags:
-            all_tags.add(t)
+            categories.add(_CATEGORY_GROUPS.get(t, "其他"))
 
         card_class = "has-demo" if img_file else "no-demo"
-        badges = '<span class="gallery-badge green">Template</span>' if has_template else '<span class="gallery-badge orange">Planned</span>'
+        status_icon = "✅" if status == "done" else "📋"
+        badges_html = f'<div class="badge-row"><span class="tier-badge tier-{tier}">{tier}</span><span class="status-icon">{status_icon}</span></div>'
         if interactive_file:
-            badges += ' <span class="gallery-badge blue">Interactive</span>'
+            badges_html = f'<div class="badge-row"><span class="tier-badge tier-{tier}">{tier}</span><span class="status-icon">{status_icon}</span><span class="interactive-indicator">↗</span></div>'
 
         if img_file:
             img_url = f"/gallery/static/{img_file}"
-            preview = f'<div class="card-img"><img src="{img_url}" onclick="openModal(this)" loading="lazy"></div>'
+            preview = f'<div class="card-img">{badges_html}<img src="{img_url}" onclick="openModal(this)" loading="lazy"></div>'
         else:
-            preview = '<div class="card-img" style="color:#484f58;font-size:13px;">Preview not available</div>'
+            preview = f'<div class="card-img" style="color:var(--ink-dim);font-size:13px;display:flex;align-items:center;justify-content:center;">{badges_html}<span class="planned-placeholder">📋 Planned</span></div>'
 
-        tags_html = "".join(f'<span class="tag">{_html.escape(t)}</span>' for t in tags[:4])
+        tags_html = "".join(f'<span class="tag">{_html.escape(t)}</span>' for t in tags[:3])
 
         safe_name = _html.escape(name)
         interactive_btn = (
@@ -700,74 +780,122 @@ def gallery_page() -> str:
             f'</div>' if img_file else ""
         )
 
+        data_attrs = f'data-tags="{" ".join(tags)}" data-category="{" ".join(categories)}" data-tier="{tier}" data-status="{status}"'
         chart_cards += (
-            f'<div class="gallery-card {card_class}" data-tags="{" ".join(tags)}">'
-            f'{badges}{preview}'
+            f'<div class="gallery-card {card_class}" {data_attrs}>'
+            f'{preview}'
             f'<div class="card-info"><h3>{_html.escape(title)}</h3>'
-            f'<div class="desc">{_html.escape(desc[:80])}</div>'
+            f'<div class="desc">{_html.escape(desc[:100])}</div>'
             f'<div class="tags">{tags_html}</div></div>'
             f'{actions}'
             f'</div>'
         )
 
+    # Filter by broad categories instead of raw tags
+    _all_categories = sorted(set(
+        _CATEGORY_GROUPS.get(t, "其他")
+        for c in _catalog.get("charts", [])
+        for t in c.get("tags", [])
+    ))
+    _tier_options = ["P0", "P1", "P2"]
     filter_btns = '<button class="filter-btn active" data-filter="all">All</button>'
-    for tag in sorted(all_tags):
-        filter_btns += f'  <button class="filter-btn" data-filter="{_html.escape(tag)}">{_html.escape(tag)}</button>'
+    filter_btns += ' <span class="filter-sep">│</span>'
+    filter_btns += '<span class="filter-label">Tier</span>'
+    for t in _tier_options:
+        tiers_class = f'tier-{t}'
+        filter_btns += f' <button class="filter-btn {tiers_class}" data-filter="tier-{t}" data-tier="{t}">{t}</button>'
+    filter_btns += ' <span class="filter-sep">│</span>'
+    filter_btns += '<span class="filter-label">Type</span>'
+    for cat in _all_categories:
+        filter_btns += f' <button class="filter-btn cat-btn" data-filter="cat-{_html.escape(cat)}">{_html.escape(cat)}</button>'
 
     # NOTE: JS goes in extra_js, NOT in the body f-string,
     # so that curly braces are not mangled by Python's f-string escaping.
     gallery_css = '''
 <style>
-.gallery-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-.gallery-header { text-align: center; margin-bottom: 30px; }
-.gallery-header h1 { color: var(--ink); font-size: 24px; }
-.gallery-header p { color: var(--ink-dim); font-size: 14px; }
-.filter-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
-.filter-btn { background: var(--card); border: 1px solid var(--card-hover); color: var(--ink-dim); padding: 6px 16px; border-radius: 20px; cursor: pointer; font-size: 12px; transition: all 0.2s; }
-.filter-btn:hover, .filter-btn.active { background: var(--card-hover); border-color: var(--primary); color: var(--primary); }
-.gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
-.gallery-card { background: var(--card); border: 1px solid var(--card-hover); border-radius: 8px; overflow: hidden; transition: all 0.3s; position: relative; }
-.gallery-card:hover { border-color: var(--primary); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(189,147,249,0.15); }
+/* ── Gallery Layout ── */
+.gallery-container { max-width: 1280px; margin: 0 auto; padding: var(--sp-lg) var(--sp-md); }
+.gallery-header { text-align: center; margin-bottom: 28px; }
+.gallery-header h1 { color: var(--ink); font-size: 28px; font-weight: 700; letter-spacing: -0.5px; margin: 0 0 6px; }
+.gallery-header p { color: var(--ink-dim); font-size: 13px; margin: 0; }
+
+/* ── Filter Bar ── */
+.filter-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; align-items: center; }
+.filter-section { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.filter-label { color: var(--ink-dim); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-right: 2px; }
+.filter-sep { color: var(--border); font-size: 14px; margin: 0 6px; opacity: 0.4; }
+.filter-btn { background: var(--card); border: 1px solid var(--border-hover); color: var(--ink-muted); padding: 5px 14px; border-radius: var(--r-pill); cursor: pointer; font-size: 12px; transition: all var(--duration) var(--ease-out); }
+.filter-btn:hover { background: var(--card-hover); border-color: var(--primary); color: var(--ink); }
+.filter-btn.active { background: var(--primary); border-color: var(--primary); color: var(--bg); }
+.tier-P0.active { background: var(--danger); border-color: var(--danger); color: var(--bg); }
+.tier-P1.active { background: var(--primary); border-color: var(--primary); color: var(--bg); }
+.tier-P2.active { background: var(--ink-dim); border-color: var(--ink-dim); color: var(--ink); }
+
+/* ── Card Grid ── */
+.gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--sp-md); margin-top: var(--sp-md); }
+.gallery-card { background: var(--card); border: 1px solid var(--border-hover); border-radius: var(--r-md); overflow: hidden; transition: all var(--duration) var(--ease-out); position: relative; }
+.gallery-card:hover { border-color: var(--primary); transform: translateY(-3px); box-shadow: var(--shadow-lg); }
 .gallery-card.has-demo { border-left: 3px solid var(--success); }
-.gallery-card.no-demo { border-left: 3px solid var(--ink-dim); opacity: 0.7; }
-.card-img { background: var(--bg); min-height: 180px; display: flex; align-items: center; justify-content: center; padding: 8px; cursor: pointer; border-bottom: 1px solid var(--card-hover); }
-.card-img img { max-width: 100%; max-height: 200px; object-fit: contain; }
-.card-info { padding: 12px 14px; }
-.card-info h3 { font-size: 14px; color: var(--ink); margin: 0 0 4px; }
-.card-info .desc { font-size: 13px; color: var(--ink-dim); margin-bottom: 8px; line-height: 1.4; }
-.card-info .tags { display: flex; gap: 6px; flex-wrap: wrap; }
-.card-info .tag { font-size: 11px; background: var(--card-hover); border: 1px solid var(--card-hover); color: var(--ink-dim); padding: 1px 8px; border-radius: 10px; }
-.gallery-badge { position: absolute; top: 8px; right: 8px; font-size: 10px; padding: 2px 8px; border-radius: 10px; }
-.gallery-badge.green { background: rgba(80,250,123,.3); color: var(--success); }
-.gallery-badge.orange { background: rgba(255,184,108,.3); color: var(--orange); }
-.gallery-badge.blue { background: rgba(139,233,253,.3); color: var(--info); }
-.card-actions { display: flex; gap: 6px; padding: 8px 14px 12px; border-top: 1px solid var(--card-hover); }
-.btn-act { border: 1px solid var(--card-hover); border-radius: 4px; padding: 4px 10px; font-size: 11px; cursor: pointer; transition: all 0.2s; background: var(--card); color: var(--ink-dim); }
-.btn-ok:hover { background: rgba(80,250,123,.2); border-color: var(--success); color: var(--success); }
-.btn-edit:hover { background: rgba(189,147,249,.2); border-color: var(--primary); color: var(--primary); }
-.btn-no:hover { background: rgba(255,85,85,.2); border-color: var(--danger); color: var(--danger); }
+.gallery-card.no-demo { border-left: 3px solid var(--ink-dim); opacity: 0.6; }
+.gallery-card.no-demo:hover { opacity: 0.85; }
+
+/* ── Card Image ── */
+.card-img { background: var(--bg); min-height: 180px; display: flex; align-items: center; justify-content: center; padding: 10px; cursor: pointer; border-bottom: 1px solid var(--border); position: relative; }
+.card-img img { max-width: 100%; max-height: 200px; object-fit: contain; transition: transform 0.2s; }
+.gallery-card:hover .card-img img { transform: scale(1.02); }
+.card-img .planned-placeholder { color: var(--ink-dim); font-size: 13px; text-align: center; }
+
+/* ── Tier & Status Badges ── */
+.badge-row { position: absolute; top: 8px; left: 8px; display: flex; gap: 4px; align-items: center; z-index: 2; }
+.tier-badge { font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 3px; letter-spacing: 0.5px; }
+.tier-badge.tier-P0 { background: var(--danger); color: var(--bg); }
+.tier-badge.tier-P1 { background: var(--primary); color: var(--bg); }
+.tier-badge.tier-P2 { background: var(--ink-dim); color: var(--ink-muted); }
+.status-icon { font-size: 11px; filter: grayscale(0.2); }
+.interactive-indicator { font-size: 10px; color: var(--info); }
+
+/* ── Card Info ── */
+.card-info { padding: 12px 14px 8px; }
+.card-info h3 { font-size: 14px; color: var(--ink); margin: 0 0 4px; font-weight: 600; }
+.card-info .desc { font-size: 12px; color: var(--ink-muted); margin-bottom: 8px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card-info .tags { display: flex; gap: 4px; flex-wrap: wrap; }
+.card-info .tag { font-size: 10px; background: var(--surface); border: 1px solid var(--border-hover); color: var(--ink-muted); padding: 1px 7px; border-radius: 10px; }
+
+/* ── Action Buttons ── */
+.card-actions { display: flex; gap: 5px; padding: 6px 14px 10px; border-top: 1px solid var(--border); }
+.btn-act { border: 1px solid var(--border-hover); border-radius: 4px; padding: 3px 10px; font-size: 11px; cursor: pointer; transition: all var(--duration) var(--ease-out); background: transparent; color: var(--ink-muted); }
+.btn-ok:hover { background: var(--success-muted); border-color: var(--success); color: var(--success); }
+.btn-edit:hover { background: var(--primary-muted); border-color: var(--primary); color: var(--primary); }
+.btn-no:hover { background: var(--danger-muted); border-color: var(--danger); color: var(--danger); }
 .btn-interactive { border-color: var(--primary); color: var(--primary); }
-.btn-interactive:hover { background: rgba(189,147,249,.2); border-color: var(--primary); color: var(--ink); }
-.modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; justify-content: center; align-items: center; }
+.btn-interactive:hover { background: var(--primary-muted); }
+
+/* ── Suggest Input ── */
+.suggest-input { margin: 4px 14px 10px; }
+.suggest-input textarea { width: 100%; padding: 6px 8px; border-radius: 4px; border: 1px solid var(--border-hover); background: var(--bg); color: var(--ink); font-size: 12px; min-height: 50px; resize: vertical; box-sizing: border-box; }
+.suggest-input textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-muted); }
+.suggest-input button { margin-top: 4px; padding: 4px 12px; border-radius: 4px; background: var(--primary); color: var(--bg); border: none; font-size: 11px; cursor: pointer; }
+
+/* ── Modal ── */
+.modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1000; justify-content: center; align-items: center; }
 .modal-overlay.show { display: flex; }
-.modal-overlay img { max-width: 90vw; max-height: 85vh; object-fit: contain; background: var(--card); border-radius: 4px; }
-.modal-overlay .close { position: absolute; top: 20px; right: 30px; color: var(--ink); font-size: 28px; cursor: pointer; }
-.iframe-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1100; }
+.modal-overlay img { max-width: 92vw; max-height: 88vh; object-fit: contain; background: var(--card); border-radius: var(--r-md); box-shadow: var(--shadow-xl); }
+.modal-overlay .close { position: absolute; top: 16px; right: 24px; color: var(--ink); font-size: 32px; cursor: pointer; opacity: 0.7; transition: opacity var(--duration); }
+.modal-overlay .close:hover { opacity: 1; }
+.iframe-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1100; }
 .iframe-modal.show { display: flex; flex-direction: column; }
-.iframe-modal .iframe-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background: var(--surface); border-bottom: 1px solid var(--card-hover); }
-.iframe-modal .iframe-header h3 { color: var(--ink); font-size: 16px; margin: 0; }
-.iframe-modal .iframe-close { color: var(--ink-dim); font-size: 24px; cursor: pointer; padding: 0 8px; }
+.iframe-modal .iframe-header { display: flex; justify-content: space-between; align-items: center; padding: 8px var(--sp-md); background: var(--card); border-bottom: 1px solid var(--border-hover); }
+.iframe-modal .iframe-header h3 { color: var(--ink); font-size: 14px; margin: 0; }
+.iframe-modal .iframe-close { color: var(--ink-muted); font-size: 22px; cursor: pointer; padding: 0 8px; }
 .iframe-modal .iframe-close:hover { color: var(--danger); }
 .iframe-modal iframe { flex: 1; border: none; width: 100%; }
-.toast { position: fixed; bottom: 20px; right: 20px; padding: 12px 20px; border-radius: 8px; color: var(--bg); font-size: 14px; z-index: 2000; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+
+/* ── Toast ── */
+.toast { position: fixed; bottom: 24px; right: 24px; padding: 10px 20px; border-radius: var(--r-md); color: var(--bg); font-size: 13px; font-weight: 500; z-index: 2000; opacity: 0; transition: opacity 0.3s; pointer-events: none; box-shadow: var(--shadow-md); }
 .toast.show { opacity: 1; }
 .toast.approve { background: var(--success); }
 .toast.suggest { background: var(--primary); }
 .toast.reject { background: var(--danger); }
-.suggest-input { margin: 6px 14px 10px; }
-.suggest-input textarea { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--card-hover); background: var(--bg); color: var(--ink); font-size: 13px; min-height: 60px; resize: vertical; box-sizing: border-box; }
-.suggest-input textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(189,147,249,.3); }
-.suggest-input button { margin-top: 4px; padding: 4px 12px; border-radius: 4px; background: var(--primary); color: var(--bg); border: none; font-size: 12px; cursor: pointer; }
 </style>
 '''
 
@@ -872,10 +1000,7 @@ function submitSuggest(chart) {
     var btn = document.querySelector('.filter-btn[data-filter="' + saved + '"]');
     if (btn) {
       btn.classList.add('active');
-      var f = saved;
-      document.querySelectorAll('.gallery-card').forEach(function(c){
-        c.style.display = (f === 'all' || c.dataset.tags.indexOf(f) >= 0) ? '' : 'none';
-      });
+      filterCards(saved);
     }
   }
 })();
@@ -885,11 +1010,24 @@ document.querySelectorAll('.filter-btn').forEach(function(btn){
     this.classList.add('active');
     var f = this.dataset.filter;
     localStorage.setItem('gallery_filter', f);
-    document.querySelectorAll('.gallery-card').forEach(function(c){
-      c.style.display = (f === 'all' || c.dataset.tags.indexOf(f) >= 0) ? '' : 'none';
-    });
+    filterCards(f);
   });
 });
+function filterCards(f) {
+  document.querySelectorAll('.gallery-card').forEach(function(c){
+    if (f === 'all') {
+      c.style.display = '';
+    } else if (f.startsWith('tier-')) {
+      var tier = f.substring(5);
+      c.style.display = (c.dataset.tier === tier) ? '' : 'none';
+    } else if (f.startsWith('cat-')) {
+      var cat = f.substring(4);
+      c.style.display = (c.dataset.category && c.dataset.category.indexOf(cat) >= 0) ? '' : 'none';
+    } else {
+      c.style.display = (c.dataset.tags && c.dataset.tags.indexOf(f) >= 0) ? '' : 'none';
+    }
+  });
+}
 """
 
     return _page("Sci-Fig Gallery", body, extra_js=gallery_js % _json.dumps(_interactive_files))
@@ -1063,44 +1201,48 @@ _secTimer = setTimeout(function(){{ location.reload(); }}, 30000);
 </script>
 
 <style>
-.sec-header{{display:flex;align-items:center;justify-content:space-between;padding:12px 16px 0}}
-.sec-header h1{{font-size:1.2rem;margin:0}}
-.sec-refresh{{font-size:.78rem;color:var(--ink-dim);animation:pulse 2s infinite}}
-.sec-refresh-btn{{background:none;border:1px solid var(--card-hover);border-radius:4px;color:var(--ink-dim);padding:2px 6px;cursor:pointer;font-size:.85rem;margin-left:8px}}
-.sec-refresh-btn:hover{{background:var(--card-hover);color:var(--ink)}}
+.sec-header{{display:flex;align-items:center;justify-content:space-between;padding:12px 16px 8px;border-bottom:1px solid var(--border);margin-bottom:8px}}
+.sec-header h1{{font-size:1.2rem;margin:0;font-weight:700;color:var(--ink)}}
+.sec-refresh{{font-size:.78rem;color:var(--ink-dim);display:flex;align-items:center;gap:6px}}
+.sec-refresh-btn{{background:none;border:1px solid var(--border);border-radius:var(--r-sm);color:var(--ink-dim);padding:4px 10px;cursor:pointer;font-size:.82rem;margin-left:8px;transition:all var(--duration)}}
+.sec-refresh-btn:hover{{background:var(--card-hover);color:var(--ink);border-color:var(--primary)}}
 @keyframes pulse{{0%,100%{{opacity:1}}50%{{opacity:.4}}}}
-.sec-kanban{{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:0 16px 16px}}
+.sec-kanban{{display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:0 16px 16px}}
 @media(max-width:720px){{.sec-kanban{{grid-template-columns:1fr}}}}
 .sec-col{{min-width:0}}
-.sec-col h3{{font-size:1rem;margin:12px 0 6px;color:var(--primary)}}
-.sec-col h4{{font-size:.85rem;margin:10px 0 4px;color:var(--ink-muted)}}
-.sec-card{{background:var(--card);border-radius:var(--r-md);padding:10px 12px;margin-bottom:8px}}
-.sec-overview{{background:var(--card-hover);border-radius:var(--r-md)}}
-.sec-empty{{color:var(--ink-dim);font-size:.82rem;font-style:italic}}
-.dot{{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}}
-.dot-green{{background:var(--success)}}
-.dot-red{{background:var(--danger)}}
-.sec-badge{{font-size:.7rem;padding:2px 7px;border-radius:10px;background:var(--card-hover);color:var(--ink-dim);margin-left:6px}}
-.sec-badge-red{{background:var(--danger);color:#fff}}
-.sec-stat-row{{display:flex;justify-content:space-between;padding:3px 0;font-size:.88rem;border-bottom:1px solid var(--card-hover)}}
+.sec-col h3{{font-size:1rem;margin:12px 0 8px;color:var(--primary);display:flex;align-items:center;gap:8px;padding-bottom:6px;border-bottom:1px solid var(--border)}}
+.sec-col h4{{font-size:.85rem;margin:12px 0 6px;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.04em}}
+.sec-card{{background:var(--card);border-radius:var(--r-lg);padding:12px 14px;margin-bottom:8px;border:1px solid var(--border);transition:all var(--duration);box-shadow:var(--shadow-xs)}}
+.sec-card:hover{{border-color:var(--border-hover);box-shadow:var(--shadow-sm)}}
+.sec-overview{{background:linear-gradient(135deg,var(--card),var(--surface));border:1px solid var(--primary-muted);border-left:3px solid var(--primary)}}
+.sec-empty{{color:var(--ink-dim);font-size:.82rem;font-style:italic;padding:8px 0}}
+.dot{{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;box-shadow:0 0 4px rgba(0,0,0,.2)}}
+.dot-green{{background:var(--success);box-shadow:0 0 6px rgba(52,211,153,.4)}}
+.dot-red{{background:var(--danger);box-shadow:0 0 6px rgba(248,113,113,.4)}}
+.sec-badge{{font-size:.7rem;padding:2px 8px;border-radius:var(--r-pill);background:var(--card-hover);color:var(--ink-muted);margin-left:6px;font-weight:500;letter-spacing:.02em}}
+.sec-badge-red{{background:var(--danger-muted);color:var(--danger);font-weight:600}}
+.sec-stat-row{{display:flex;justify-content:space-between;padding:6px 0;font-size:.88rem;border-bottom:1px solid var(--border)}}
 .sec-stat-row:last-child{{border-bottom:none}}
 .sec-bar-row{{display:flex;align-items:center;gap:8px;padding:3px 0;font-size:.82rem}}
 .sec-ip{{min-width:130px;color:var(--ink-dim);font-family:monospace;font-size:.78rem}}
-.sec-bar-bg{{flex:1;height:6px;background:var(--card-hover);border-radius:3px;overflow:hidden}}
-.sec-bar-fill{{height:100%;background:var(--danger);border-radius:3px}}
+.sec-bar-bg{{flex:1;height:6px;background:var(--border-hover);border-radius:3px;overflow:hidden}}
+.sec-bar-fill{{height:100%;background:var(--danger);border-radius:3px;transition:width .6s var(--ease-out)}}
 .sec-cnt{{min-width:40px;text-align:right;color:var(--ink-dim);font-size:.78rem}}
-.sec-ufw-row{{display:flex;align-items:center;gap:6px;padding:3px 0;font-size:.82rem;border-bottom:1px solid var(--card-hover)}}
+.sec-ufw-row{{display:flex;align-items:center;gap:6px;padding:5px 0;font-size:.82rem;border-bottom:1px solid var(--border);transition:background var(--duration)}}
+.sec-ufw-row:hover{{background:var(--card-hover)}}
 .sec-ufw-row:last-child{{border-bottom:none}}
 .sec-ufw-action{{min-width:48px;font-weight:600;font-size:.78rem}}
 .sec-ufw-to{{min-width:90px;font-family:monospace;font-size:.78rem}}
 .sec-ufw-comment{{color:var(--ink-dim);font-size:.75rem}}
-.sec-inbound-card{{background:var(--card);border-radius:var(--r-md);padding:10px 12px;margin-bottom:8px}}
+.sec-inbound-card{{background:var(--card);border-radius:var(--r-lg);padding:12px 14px;margin-bottom:8px;border:1px solid var(--border);transition:all var(--duration);box-shadow:var(--shadow-xs)}}
+.sec-inbound-card:hover{{border-color:var(--border-hover);box-shadow:var(--shadow-sm)}}
 .sec-inbound-header{{display:flex;align-items:center;gap:6px;flex-wrap:wrap}}
 .sec-inbound-name{{font-weight:600;font-size:.92rem}}
 .sec-inbound-meta{{font-size:.78rem;color:var(--ink-dim);font-family:monospace}}
-.sec-inbound-traffic{{font-size:.78rem;color:var(--info);margin-left:auto}}
-.sec-inbound-clients{{margin-top:6px;padding-left:14px}}
-.sec-client-row{{display:flex;align-items:center;gap:6px;padding:2px 0;font-size:.82rem}}
+.sec-inbound-traffic{{font-size:.78rem;margin-left:auto;font-weight:500}}
+.sec-inbound-clients{{margin-top:8px;padding-left:16px;border-left:2px solid var(--border)}}
+.sec-client-row{{display:flex;align-items:center;gap:6px;padding:4px 0;font-size:.82rem;border-bottom:1px solid var(--border)}}
+.sec-client-row:last-child{{border-bottom:none}}
 .sec-client-name{{min-width:120px}}
 .sec-client-traffic{{color:var(--ink-dim);font-size:.78rem;font-family:monospace}}
 </style>"""
@@ -1119,7 +1261,7 @@ def settings_page(*, error: str = "", success: str = "") -> str:
 
     body = f"""{_nav(active="settings")}
 <div style="padding:16px">
-  <h1 style="font-size:1.2rem;margin-bottom:16px">⚙️ Settings</h1>
+  <h1 style="font-size:1.2rem;margin-bottom:16px;font-weight:700;letter-spacing:-.02em">⚙️ Settings</h1>
 
   <div class="settings-section">
     <h3>🔐 Change Password</h3>
@@ -1163,6 +1305,12 @@ def settings_page(*, error: str = "", success: str = "") -> str:
       </div>
     </div>
   </div>
+
+  <div class="settings-section" style="border-color:var(--danger-muted)">
+    <h3 style="color:var(--danger)">🚪 Sign Out</h3>
+    <p style="font-size:.88rem;color:var(--ink-muted);margin:0 0 12px">End your current session and return to the login page.</p>
+    <a href="/logout" class="settings-btn-logout">{_ICON_LOGOUT} Sign Out</a>
+  </div>
 </div>
 
 <style>
@@ -1180,6 +1328,9 @@ def settings_page(*, error: str = "", success: str = "") -> str:
 .settings-info-item{{background:var(--card-hover);border-radius:var(--r-md);padding:12px}}
 .settings-info-label{{display:block;font-size:.75rem;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.04em}}
 .settings-info-value{{display:block;font-size:1.1rem;font-weight:600;color:var(--ink);margin-top:2px}}
+.settings-btn-logout{{display:inline-flex;align-items:center;gap:8px;padding:12px 24px;border:1px solid var(--danger);border-radius:var(--r-md);background:var(--danger-muted);color:var(--danger);font-size:.95rem;font-weight:600;cursor:pointer;text-decoration:none;transition:all var(--duration) var(--ease-out);min-height:44px}}
+.settings-btn-logout:hover{{background:rgba(248,113,113,.25);box-shadow:var(--shadow-sm)}}
+.settings-btn-logout svg{{width:18px;height:18px}}
 </style>
 
 <script>
@@ -1446,6 +1597,8 @@ def knowledge_tree_page(
                 created_at = str(n.get("created_at", ""))[:19]
                 preview = summary[:140] + ("..." if len(summary) > 140 else "")
 
+                uses_text = f"🔍 {retrieval_count}" if retrieval_count > 0 else ""
+
                 group_cards += f"""<a href="/knowledge/{_html.escape(nid)}" class="card">
   <div class="card-top">{_stage_badge(stage)} {_kn_category_badge(category)} <span class="badge badge-rule" style="font-size:.65rem">{_html.escape(ndomain)}</span></div>
   <div class="card-preview">{_html.escape(preview)}</div>
@@ -1453,9 +1606,8 @@ def knowledge_tree_page(
     {_confidence_bar(confidence)}
   </div>
   <div class="card-meta">
-    <span>🔍 {retrieval_count} uses</span>
-    <span>📁 {_html.escape(source[:30])}</span>
     <span>{_html.escape(created_at)}</span>
+    {"<span>" + uses_text + "</span>" if uses_text else ""}
   </div>
 </a>"""
 
@@ -1470,8 +1622,8 @@ def knowledge_tree_page(
   <div class="kn-domain-cards">{group_cards}</div>
 </div>"""
 
-    body = f"""{_nav(active="queue")}
-<h1 style="padding:16px 16px 0;font-size:1.2rem">🌳 Knowledge Tree</h1>
+    body = f"""{_nav(active="knowledge")}
+<h1 style="padding:16px 16px 0;font-size:1.2rem;font-weight:700;letter-spacing:-.02em">🌳 Knowledge Tree</h1>
 <div class="dash-grid">{stats_html}</div>
 <div class="tabs">{tab_html}</div>
 <div style="padding:0 16px 8px;display:flex;gap:8px;flex-wrap:wrap">
@@ -1481,6 +1633,11 @@ def knowledge_tree_page(
     <select name="domain" class="kn-filter-select" onchange="this.form.submit()">{dom_options}</select>
     <input type="text" name="q" placeholder="Search knowledge…" class="kn-search-input" id="kn-search">
   </form>
+</div>
+<div style="padding:0 16px 8px;display:flex;gap:8px;flex-wrap:wrap">
+  <button class="kn-action-btn" onclick="showAddModal()">+ Add Knowledge</button>
+  <button class="kn-action-btn secondary" onclick="exportKnowledge()">⬇ Export MD</button>
+  <button class="kn-action-btn secondary" onclick="retrospect()">🔄 Retrospect</button>
 </div>
 <div id="kn-card-grid">{cards_html}</div>
 
@@ -1505,7 +1662,7 @@ def knowledge_tree_page(
   padding:10px 14px;cursor:pointer;font-size:.9rem;font-weight:600;color:var(--ink);
   transition:background var(--duration),border-color var(--duration)
 }}
-.kn-domain-header:hover{{background:var(--card-hover);border-color:var(--border-focus)}}
+.kn-domain-header:hover{{background:var(--card-hover);border-color:var(--primary);box-shadow:0 0 0 1px var(--primary)}}
 .kn-domain-toggle{{font-size:.7rem;transition:transform .2s ease}}
 .kn-domain-group.collapsed .kn-domain-toggle{{transform:rotate(-90deg)}}
 .kn-domain-icon{{font-size:1.1rem}}
@@ -1522,7 +1679,39 @@ def knowledge_tree_page(
 }}
 .kn-conf-fill{{height:100%;border-radius:3px;transition:width .3s var(--ease-out)}}
 .kn-conf-label{{font-size:.72rem;color:var(--ink-muted);font-weight:600;min-width:32px;text-align:right}}
+.kn-action-btn{{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border:1px solid var(--border);border-radius:var(--r-pill);background:var(--primary-muted);color:var(--primary);font-size:.84rem;font-weight:600;cursor:pointer;min-height:40px;transition:all var(--duration)}}
+.kn-action-btn:hover{{background:rgba(167,139,250,.25);border-color:var(--border-focus)}}
+.kn-action-btn.secondary{{background:var(--surface);color:var(--ink-muted);border-color:var(--border)}}
+.kn-action-btn.secondary:hover{{color:var(--ink);border-color:var(--border-hover);background:var(--card)}}
+.kn-modal-form textarea,.kn-modal-form input,.kn-modal-form select{{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);color:var(--ink);font-size:.84rem;margin-bottom:8px;min-height:40px;outline:none}}
+.kn-modal-form textarea:focus,.kn-modal-form input:focus,.kn-modal-form select:focus{{border-color:var(--border-focus);box-shadow:0 0 0 3px rgba(167,139,250,.2)}}
+.kn-modal-form textarea{{min-height:120px;resize:vertical}}
+.kn-modal-form label{{display:block;font-size:.78rem;color:var(--ink-muted);margin-bottom:2px;text-transform:uppercase;letter-spacing:.04em}}
 </style>
+<div id="add-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--sp-lg);max-width:480px;width:90%;max-height:80vh;overflow-y:auto">
+    <h2 style="margin-bottom:var(--sp-md);font-size:1.1rem">Add Knowledge</h2>
+    <form class="kn-modal-form" id="add-knowledge-form" onsubmit="return submitKnowledge(event)">
+      <label>Content *</label>
+      <textarea id="kn-form-content" required placeholder="Enter knowledge content..."></textarea>
+      <label>Source</label>
+      <input type="text" id="kn-form-source" placeholder="e.g. conversation, manual, observation">
+      <label>Category</label>
+      <select id="kn-form-category">
+        <option value="fact">fact</option>
+        <option value="rule">rule</option>
+        <option value="workflow_hint">workflow_hint</option>
+        <option value="preference">preference</option>
+      </select>
+      <label>Domain</label>
+      <input type="text" id="kn-form-domain" value="general" placeholder="general">
+      <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
+        <button type="button" class="kn-action-btn secondary" onclick="hideAddModal()">Cancel</button>
+        <button type="submit" class="kn-action-btn">Submit</button>
+      </div>
+    </form>
+  </div>
+</div>
 <script>
 (function(){{
   // Search filter
@@ -1550,6 +1739,59 @@ def knowledge_tree_page(
 function toggleDomain(btn) {{
   var group = btn.closest('.kn-domain-group');
   group.classList.toggle('collapsed');
+}}
+function showAddModal() {{
+  document.getElementById('add-modal-overlay').style.display = 'flex';
+  document.getElementById('kn-form-content').focus();
+}}
+function hideAddModal() {{
+  document.getElementById('add-modal-overlay').style.display = 'none';
+  document.getElementById('add-knowledge-form').reset();
+  document.getElementById('kn-form-domain').value = 'general';
+}}
+function submitKnowledge(e) {{
+  e.preventDefault();
+  var content = document.getElementById('kn-form-content').value.trim();
+  if (!content) return false;
+  var data = {{
+    content: content,
+    source: document.getElementById('kn-form-source').value.trim(),
+    category: document.getElementById('kn-form-category').value,
+    domain: document.getElementById('kn-form-domain').value.trim() || 'general'
+  }};
+  fetch('/api/knowledge/integrate', {{
+    method: 'POST',
+    headers: {{'Content-Type': 'application/json'}},
+    body: JSON.stringify(data)
+  }})
+    .then(function(r) {{ return r.json(); }})
+    .then(function(d) {{
+      showToast(d.message || 'Knowledge added', 'approve');
+      hideAddModal();
+      setTimeout(function(){{ location.reload(); }}, 800);
+    }})
+    .catch(function(e) {{ showToast('Error: ' + e.message, 'reject'); }});
+  return false;
+}}
+function exportKnowledge() {{
+  fetch('/api/knowledge/export', {{method:'POST',headers:{{'Content-Type':'application/json'}}}})
+    .then(function(r) {{ return r.json(); }})
+    .then(function(d) {{ showToast(d.message || 'Export complete', 'approve'); }})
+    .catch(function(e) {{ showToast('Error: ' + e.message, 'reject'); }});
+}}
+function retrospect() {{
+  fetch('/api/knowledge/retrospect?dry_run=false', {{method:'POST',headers:{{'Content-Type':'application/json'}}}})
+    .then(function(r) {{ return r.json(); }})
+    .then(function(d) {{ showToast(d.message || 'Retrospect complete', 'approve'); }})
+    .catch(function(e) {{ showToast('Error: ' + e.message, 'reject'); }});
+}}
+function showToast(msg, type) {{
+  var t = document.createElement('div');
+  t.className = 'toast toast-' + (type||'approve');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(function(){{ t.classList.add('show'); }},10);
+  setTimeout(function(){{ t.classList.remove('show'); setTimeout(function(){{ t.remove(); }},300); }},2500);
 }}
 </script>
 """
@@ -1828,7 +2070,7 @@ def knowledge_detail_page(
     if not btns:
         btns = f'<div class="empty" style="flex:1">Node is {stage} — no actions available.</div>'
 
-    body = f"""{_nav(active="queue")}
+    body = f"""{_nav(active="knowledge")}
 <div class="detail-header">
   <a href="/knowledge" class="back-link">← Knowledge Tree</a>
   <span class="detail-title">{_html.escape(summary[:60])}</span>
@@ -1925,27 +2167,35 @@ def knowledge_detail_page(
 .kn-rel-summary{{flex:1;font-size:.84rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
 .kn-rel-id{{font-size:.72rem;color:var(--ink-dim);font-family:var(--font-mono);flex-shrink:0}}
 
-.kn-timeline{{position:relative;padding-left:24px}}
-.kn-tl-item{{position:relative;padding-bottom:16px}}
+.kn-timeline{{position:relative;padding-left:28px}}
+.kn-tl-item{{position:relative;padding-bottom:20px}}
 .kn-tl-item:last-child{{padding-bottom:0}}
 .kn-tl-item::before{{
-  content:'';position:absolute;left:-20px;top:12px;bottom:-4px;
-  width:2px;background:var(--border)
+  content:'';position:absolute;left:-22px;top:24px;bottom:0;
+  width:2px;background:linear-gradient(to bottom,var(--primary) 0%,var(--border) 100%);
+  border-radius:1px
 }}
 .kn-tl-item:last-child::before{{display:none}}
 .kn-tl-dot{{
-  position:absolute;left:-24px;top:6px;width:12px;height:12px;
-  border-radius:50%;border:2px solid var(--card);z-index:1
+  position:absolute;left:-26px;top:4px;width:14px;height:14px;
+  border-radius:50%;border:2px solid var(--card);z-index:1;
+  box-shadow:0 0 8px rgba(0,0,0,.3),0 0 0 3px var(--surface)
 }}
 .kn-tl-content{{
   background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);
-  padding:10px 14px;transition:border-color var(--duration)
+  padding:12px 16px;transition:border-color var(--duration),box-shadow var(--duration);
+  position:relative;overflow:hidden
 }}
-.kn-tl-content:hover{{border-color:var(--border-hover)}}
+.kn-tl-content::before{{
+  content:'';position:absolute;left:0;top:8px;bottom:8px;width:3px;
+  border-radius:2px;background:var(--primary);opacity:.4;transition:opacity var(--duration)
+}}
+.kn-tl-content:hover{{border-color:var(--primary);box-shadow:0 2px 12px rgba(167,139,250,.12)}}
+.kn-tl-content:hover::before{{opacity:1}}
 .kn-tl-header{{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}}
 .kn-tl-time{{font-size:.72rem;color:var(--ink-dim);font-family:var(--font-mono)}}
-.kn-tl-reasoning{{font-size:.84rem;color:var(--ink);margin-top:6px;line-height:1.5;white-space:pre-wrap;word-break:break-word}}
-.kn-tl-meta{{display:flex;gap:16px;margin-top:6px;font-size:.75rem;color:var(--ink-muted)}}
+.kn-tl-reasoning{{font-size:.84rem;color:var(--ink);margin-top:8px;line-height:1.6;white-space:pre-wrap;word-break:break-word}}
+.kn-tl-meta{{display:flex;gap:16px;margin-top:8px;font-size:.75rem;color:var(--ink-muted)}}
 </style>
 """
     return _page(f"Knowledge · {summary[:40]}", body, extra_js=_KN_ACTION_JS)
