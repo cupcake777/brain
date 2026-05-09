@@ -20,7 +20,7 @@ from hermes.status import StatusPublisher
 from hermes.templates import (
     gallery_page,
     knowledge_detail_page,
-    knowledge_page,
+    knowledge_tree_page as knowledge_page,
     login_page,
     review_detail_page,
     review_queue_page,
@@ -542,26 +542,31 @@ def create_app(
         stage = stage if stage in _VALID_KN_STAGES else "all"
         stage_counts = repo.count_knowledge_nodes_by_stage()
         if stage == "all":
-            nodes = repo.list_knowledge_nodes(
+            node_objs = repo.list_knowledge_nodes(
                 category=category or None,
                 domain=domain or None,
                 limit=limit,
                 offset=offset,
             )
         else:
-            nodes = repo.list_knowledge_nodes(
+            node_objs = repo.list_knowledge_nodes(
                 stage=stage,
                 category=category or None,
                 domain=domain or None,
                 limit=limit,
                 offset=offset,
             )
+        # Convert dataclasses to dicts for template rendering
+        from dataclasses import asdict
+        nodes = [asdict(n) for n in node_objs]
+        all_domains = sorted({n.get("domain", "general") for n in nodes}) if nodes else []
         return knowledge_page(
             nodes=nodes,
-            stage_counts=stage_counts,
+            counts=stage_counts,
             active_stage=stage,
             active_category=category,
             active_domain=domain,
+            domains=all_domains,
         )
 
     @app.get("/knowledge/{node_id}", response_class=HTMLResponse)
@@ -1142,7 +1147,7 @@ def create_app(
             importlib.reload(_tmpl_mod)
             # Re-bind all template functions in this module's scope
             from hermes.templates import (
-                gallery_page, knowledge_detail_page, knowledge_page,
+                gallery_page, knowledge_detail_page, knowledge_tree_page as knowledge_page,
                 login_page,
                 review_detail_page, review_queue_page,
                 security_page, settings_page,

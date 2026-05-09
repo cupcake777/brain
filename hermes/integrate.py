@@ -611,6 +611,7 @@ def retrospect(repo: HermesRepository, *, dry_run: bool = False) -> dict:
     actions = {
         "stale_flagged": 0,
         "canonized": 0,
+        "refined": 0,
         "confidence_updated": 0,
         "merge_candidates": 0,
     }
@@ -633,9 +634,28 @@ def retrospect(repo: HermesRepository, *, dry_run: bool = False) -> dict:
 
     # 2. Auto-canonize
     for node in all_nodes:
-        if node.stage != "refined":
+        if node.stage not in ("refined", "draft"):
             continue
         created = datetime.fromisoformat(node.created_at) if node.created_at else now
+
+        # draft → refined: after 3 days with no contradictions
+        if node.stage == "draft":
+            age_days = (now - created).days
+            if age_days < 3:
+                continue
+            contradict_ids = json.loads(node.contradicts) if isinstance(node.contradicts, str) else node.contradicts
+            has_active_contradiction = any(
+                (repo.get_knowledge_node(cid) and repo.get_knowledge_node(cid).stage != "deprecated")
+                for cid in contradict_ids
+            )
+            if not has_active_contradiction:
+                actions.setdefault("refined", 0)
+                actions["refined"] = actions.get("refined", 0) + 1
+                if not dry_run:
+                    repo.update_knowledge_node(node.id, stage="refined", refined_at=now.isoformat())
+            continue
+
+        # refined → canonized: after 7 days, no contradictions
         refined_at = datetime.fromisoformat(node.refined_at) if node.refined_at else created
         days_refined = (now - refined_at).days
 

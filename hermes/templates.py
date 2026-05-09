@@ -1409,24 +1409,45 @@ def knowledge_tree_page(
         sel = ' selected' if dom == active_domain else ''
         dom_options += f'<option value="{_html.escape(dom)}"{sel}>{_html.escape(dom)}</option>'
 
-    # -- Node cards --
-    cards = ""
+    # -- Node cards grouped by domain --
+    # Group nodes by domain for collapsible sections
+    domain_groups: dict[str, list] = {}
     for n in nodes:
-        nid = str(n.get("id", ""))
-        summary = str(n.get("summary", ""))
-        stage = str(n.get("stage", "draft"))
-        category = str(n.get("category", "fact"))
         domain = str(n.get("domain", "general"))
-        confidence = float(n.get("confidence", 0))
-        source = str(n.get("source", ""))
-        retrieval_count = int(n.get("retrieval_count", 0))
-        created_at = str(n.get("created_at", ""))[:19]
+        domain_groups.setdefault(domain, []).append(n)
 
-        # Truncate summary
-        preview = summary[:140] + ("..." if len(summary) > 140 else "")
+    _domain_icons = {"devops": "🔧", "network": "🌐", "apa": "🧬", "general": "📦", "security": "🔒"}
+    _domain_order = {"devops": 0, "network": 1, "apa": 2, "security": 3, "general": 99}
 
-        cards += f"""<a href="/knowledge/{_html.escape(nid)}" class="card">
-  <div class="card-top">{_stage_badge(stage)} {_kn_category_badge(category)} <span class="badge badge-rule" style="font-size:.65rem">{_html.escape(domain)}</span></div>
+    cards_html = ""
+    if not nodes:
+        cards_html = '<div class="empty">No knowledge nodes match the current filters.</div>'
+    else:
+        for domain in sorted(domain_groups, key=lambda d: _domain_order.get(d, 50)):
+            group = domain_groups[domain]
+            icon = _domain_icons.get(domain, "📁")
+            # Count by stage within this domain
+            stage_counts = {}
+            for n in group:
+                s = str(n.get("stage", "draft"))
+                stage_counts[s] = stage_counts.get(s, 0) + 1
+            stage_summary = " · ".join(f"{s}: {c}" for s, c in sorted(stage_counts.items()))
+
+            group_cards = ""
+            for n in group:
+                nid = str(n.get("id", ""))
+                summary = str(n.get("summary", ""))
+                stage = str(n.get("stage", "draft"))
+                category = str(n.get("category", "fact"))
+                ndomain = str(n.get("domain", "general"))
+                confidence = float(n.get("confidence", 0))
+                source = str(n.get("source", ""))
+                retrieval_count = int(n.get("retrieval_count", 0))
+                created_at = str(n.get("created_at", ""))[:19]
+                preview = summary[:140] + ("..." if len(summary) > 140 else "")
+
+                group_cards += f"""<a href="/knowledge/{_html.escape(nid)}" class="card">
+  <div class="card-top">{_stage_badge(stage)} {_kn_category_badge(category)} <span class="badge badge-rule" style="font-size:.65rem">{_html.escape(ndomain)}</span></div>
   <div class="card-preview">{_html.escape(preview)}</div>
   <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
     {_confidence_bar(confidence)}
@@ -1438,8 +1459,16 @@ def knowledge_tree_page(
   </div>
 </a>"""
 
-    if not nodes:
-        cards = '<div class="empty">No knowledge nodes match the current filters.</div>'
+            cards_html += f"""<div class="kn-domain-group" data-domain="{_html.escape(domain)}">
+  <button class="kn-domain-header" onclick="toggleDomain(this)">
+    <span class="kn-domain-toggle">▼</span>
+    <span class="kn-domain-icon">{icon}</span>
+    <span class="kn-domain-name">{_html.escape(domain.title())}</span>
+    <span class="kn-domain-count">{len(group)} nodes</span>
+    <span class="kn-domain-stages">{_html.escape(stage_summary)}</span>
+  </button>
+  <div class="kn-domain-cards">{group_cards}</div>
+</div>"""
 
     body = f"""{_nav(active="queue")}
 <h1 style="padding:16px 16px 0;font-size:1.2rem">🌳 Knowledge Tree</h1>
@@ -1453,7 +1482,7 @@ def knowledge_tree_page(
     <input type="text" name="q" placeholder="Search knowledge…" class="kn-search-input" id="kn-search">
   </form>
 </div>
-<div class="card-grid" id="kn-card-grid">{cards}</div>
+<div id="kn-card-grid">{cards_html}</div>
 
 <style>
 .kn-filter-select{{
@@ -1469,6 +1498,25 @@ def knowledge_tree_page(
 }}
 .kn-search-input:focus{{border-color:var(--border-focus);box-shadow:0 0 0 3px rgba(167,139,250,.2)}}
 .kn-search-input::placeholder{{color:var(--ink-dim)}}
+.kn-domain-group{{margin-bottom:8px}}
+.kn-domain-header{{
+  display:flex;align-items:center;gap:10px;width:100%;
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);
+  padding:10px 14px;cursor:pointer;font-size:.9rem;font-weight:600;color:var(--ink);
+  transition:background var(--duration),border-color var(--duration)
+}}
+.kn-domain-header:hover{{background:var(--card-hover);border-color:var(--border-focus)}}
+.kn-domain-toggle{{font-size:.7rem;transition:transform .2s ease}}
+.kn-domain-group.collapsed .kn-domain-toggle{{transform:rotate(-90deg)}}
+.kn-domain-icon{{font-size:1.1rem}}
+.kn-domain-name{{flex:1;text-align:left}}
+.kn-domain-count{{font-size:.72rem;color:var(--ink-dim);font-weight:400}}
+.kn-domain-stages{{font-size:.68rem;color:var(--ink-muted);font-weight:400}}
+.kn-domain-cards{{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;
+  padding:8px 0 4px;transition:max-height .3s ease,opacity .2s ease;overflow:hidden
+}}
+.kn-domain-group.collapsed .kn-domain-cards{{max-height:0;opacity:0;padding:0;border:0;pointer-events:none}}
 .kn-conf-bar{{
   flex:1;height:6px;background:var(--border-hover);border-radius:3px;overflow:hidden;min-width:60px
 }}
@@ -1477,16 +1525,32 @@ def knowledge_tree_page(
 </style>
 <script>
 (function(){{
+  // Search filter
   var input = document.getElementById('kn-search');
-  if (!input) return;
-  input.addEventListener('input', function(){{
-    var q = this.value.toLowerCase();
-    var cards = document.querySelectorAll('#kn-card-grid .card');
-    cards.forEach(function(c){{
-      c.style.display = c.textContent.toLowerCase().includes(q) ? '' : 'none';
+  if (input) {{
+    input.addEventListener('input', function(){{
+      var q = this.value.toLowerCase();
+      var cards = document.querySelectorAll('#kn-card-grid .card');
+      cards.forEach(function(c){{
+        c.style.display = c.textContent.toLowerCase().includes(q) ? '' : 'none';
+      }});
+      // Show/hide domain groups based on visible cards
+      document.querySelectorAll('.kn-domain-group').forEach(function(g){{
+        var visible = g.querySelectorAll('.card[style=""], .card:not([style])');
+        var allHidden = true;
+        g.querySelectorAll('.card').forEach(function(c){{
+          if (c.style.display !== 'none') allHidden = false;
+        }});
+        g.style.display = allHidden ? 'none' : '';
+      }});
     }});
-  }});
+  }}
 }})();
+
+function toggleDomain(btn) {{
+  var group = btn.closest('.kn-domain-group');
+  group.classList.toggle('collapsed');
+}}
 </script>
 """
     return _page("Knowledge Tree", body)
