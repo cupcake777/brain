@@ -869,6 +869,73 @@ def create_app(
             f.write(_json.dumps(entry) + "\n")
         return {"ok": True, "action": action, "chart": chart}
 
+    # ------------------------------------------------------------------
+    # Gallery figure submission – submit an external figure for analysis
+    # ------------------------------------------------------------------
+    _FIGURE_SUBMIT_DIR = Path(os.environ.get("BRAIN_PLOTTING_DIR", "")) / "submitted_figures"
+    _FIGURE_SUBMIT_DIR.mkdir(parents=True, exist_ok=True)
+
+    @app.post("/api/gallery/submit_figure")
+    async def gallery_submit_figure(request: Request) -> dict:
+        """Submit a figure image URL or upload for reverse-engineering analysis."""
+        import urllib.request as _urlreq
+        import hashlib as _hashlib
+        content_type = request.headers.get("content-type", "")
+
+        image_url = ""
+        image_b64 = ""
+        notes = ""
+
+        if "multipart/form-data" in content_type:
+            # Handle file upload
+            form = await request.form()
+            image_url = form.get("image_url", "")
+            notes = form.get("notes", "")
+            upload = form.get("file")
+            if upload and hasattr(upload, "filename"):
+                data = await upload.read()
+                ext = Path(upload.filename or "img.png").suffix or ".png"
+                fname = _hashlib.md5(data).hexdigest()[:12] + ext
+                fpath = _FIGURE_SUBMIT_DIR / fname
+                fpath.write_bytes(data)
+                image_url = image_url or f"/gallery/submitted/{fname}"
+        else:
+            body = await request.json()
+            image_url = body.get("image_url", "")
+            notes = body.get("notes", "")
+
+        if not image_url:
+            return {"ok": False, "error": "image_url or file required"}
+
+        # Download remote URLs locally
+        if image_url.startswith("http"):
+            try:
+                resp = _urlreq.urlopen(image_url, timeout=15)
+                data = resp.read()
+                ext = Path(image_url.split("?")[0]).suffix or ".png"
+                if len(ext) > 5:
+                    ext = ".png"
+                fname = _hashlib.md5(data).hexdigest()[:12] + ext
+                fpath = _FIGURE_SUBMIT_DIR / fname
+                fpath.write_bytes(data)
+                image_url = f"/gallery/submitted/{fname}"
+            except Exception as e:
+                # Keep original URL if download fails
+                pass
+
+        entry = {
+            "action": "analyze_figure",
+            "image_url": image_url,
+            "notes": notes,
+            "timestamp": _dt.now(_tz.utc).isoformat(),
+        }
+        with open(_GALLERY_FEEDBACK, "a") as f:
+            f.write(_json.dumps(entry) + "\n")
+        return {"ok": True, "image_url": image_url, "notes": notes}
+
+    # Serve submitted figures
+    app.mount("/gallery/submitted", StaticFiles(directory=str(_FIGURE_SUBMIT_DIR)), name="gallery-submitted")
+
 
     # ------------------------------------------------------------------
     # Security Monitor – collects data from DO VPS + Proxy VPS
