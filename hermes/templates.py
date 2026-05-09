@@ -1789,6 +1789,15 @@ def knowledge_tree_page(
     <div style="margin-top:12px;text-align:right"><button class="kn-action-btn secondary" onclick="document.getElementById('stage-help-overlay').style.display='none'">Close</button></div>
   </div>
 </div>
+<div id="confirm-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(8px);z-index:200;justify-content:center;align-items:center" onclick="if(event.target===this)this.style.display='none'">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--sp-lg);max-width:400px;text-align:center">
+    <h3 id="confirm-title" style="margin-bottom:var(--sp-md)"></h3>
+    <div style="display:flex;gap:8px;justify-content:center">
+      <button id="confirm-action-btn" style="padding:8px 20px;border-radius:var(--r-md);border:none;cursor:pointer;font-weight:600;background:var(--danger-muted);color:var(--danger)">Confirm</button>
+      <button style="padding:8px 20px;border-radius:var(--r-md);border:1px solid var(--border);background:var(--surface);color:var(--ink-muted);cursor:pointer" onclick="document.getElementById('confirm-overlay').style.display='none'">Cancel</button>
+    </div>
+  </div>
+</div>
 <script>
 (function(){{
   // Search filter
