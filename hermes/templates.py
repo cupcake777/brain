@@ -1624,8 +1624,8 @@ def knowledge_tree_page(
         domain = str(n.get("domain", "general"))
         domain_groups.setdefault(domain, []).append(n)
 
-    _domain_icons = {"devops": "🔧", "network": "🌐", "apa": "🧬", "general": "📦", "security": "🔒"}
-    _domain_order = {"devops": 0, "network": 1, "apa": 2, "security": 3, "general": 99}
+    _domain_icons = {"devops": "🔧", "network": "🌐", "study": "🧬", "general": "📦", "security": "🔒"}
+    _domain_order = {"devops": 0, "network": 1, "study": 2, "security": 3, "general": 99}
 
     cards_html = ""
     if not nodes:
@@ -2309,7 +2309,7 @@ def knowledge_detail_page(
           <label style="display:block;font-size:.78rem;color:var(--ink-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">Domain</label>
           <input type="text" id="edit-domain" value="{_html.escape(domain)}" list="domain-list" style="width:100%;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);color:var(--ink);font-size:.84rem;outline:none" onfocus="this.style.borderColor='var(--border-focus)'" onblur="this.style.borderColor='var(--border)'">
           <datalist id="domain-list">
-            <option value="general"><option value="devops"><option value="apa"><option value="network"><option value="security">
+            <option value="general"><option value="devops"><option value="study"><option value="network"><option value="security">
           </datalist>
         </div>
       </div>
