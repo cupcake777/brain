@@ -274,6 +274,7 @@ _ICON_QUOTA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke
 _ICON_GROK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/></svg>'
 _ICON_GALLERY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>'
 _ICON_SHIELD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>'
+_ICON_KNOWLEDGE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>'
 
 
 _ICON_SETTINGS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>'
@@ -281,6 +282,7 @@ _ICON_SETTINGS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 def _nav(*, active: str = "queue") -> str:
     links = [
         ("review", "Review", "/review", _ICON_QUEUE),
+        ("knowledge", "Knowledge", "/knowledge", _ICON_KNOWLEDGE),
         ("gallery", "Gallery", "/gallery", _ICON_GALLERY),
         ("security", "Security", "/security", _ICON_SECURITY),
         ("settings", "Settings", "/settings", _ICON_SETTINGS),
@@ -1200,4 +1202,674 @@ function savePrefs(){{
 """
 
     return _page("Settings", body)
+
+
+# ---------------------------------------------------------------------------
+# Knowledge Tree page
+# ---------------------------------------------------------------------------
+
+_STAGE_BADGE_MAP_KN = {
+    "draft": "badge-pending",
+    "refined": "badge-pattern",
+    "verified": "badge-approved_db_only",
+    "canonized": "badge-approved_for_export",
+    "deprecated": "badge-superseded",
+}
+
+def _stage_badge_knowledge(stage: str) -> str:
+    cls = _STAGE_BADGE_MAP_KN.get(stage, "badge-pending")
+    return f'<span class="badge {cls}">{_html.escape(stage)}</span>'
+
+# Stage badge mapping (knowledge lifecycle)
+_STAGE_BADGE_MAP = {
+    "draft": "badge-pending",
+    "refined": "badge-pattern",
+    "verified": "badge-approved_db_only",
+    "canonized": "badge-approved_for_export",
+    "deprecated": "badge-superseded",
+}
+
+_STAGE_LABEL = {
+    "draft": "Draft",
+    "refined": "Refined",
+    "verified": "Verified",
+    "canonized": "Canonized",
+    "deprecated": "Deprecated",
+}
+
+# Category badge (reuse existing _CATEGORY_BADGE_MAP + extras)
+_KN_CATEGORY_BADGE_MAP = {
+    "rule": "badge-rule",
+    "pattern": "badge-pattern",
+    "insight": "badge-insight",
+    "warning": "badge-warning",
+    "workflow": "badge-approved_db_only",
+    "preference": "badge-pending",
+    "fact": "badge-pattern",
+}
+
+
+def _stage_badge(stage: str) -> str:
+    cls = _STAGE_BADGE_MAP.get(stage, "badge-pending")
+    label = _STAGE_LABEL.get(stage, stage.title())
+    return f'<span class="badge {cls}">{_html.escape(label)}</span>'
+
+
+def _kn_category_badge(category: str) -> str:
+    cls = _KN_CATEGORY_BADGE_MAP.get(category, "badge-rule")
+    return f'<span class="badge {cls}">{_html.escape(category)}</span>'
+
+
+def _confidence_bar(confidence: float) -> str:
+    """Render a horizontal confidence bar 0-100%."""
+    pct = max(0, min(100, int(confidence * 100)))
+    if pct >= 70:
+        color = "var(--success)"
+    elif pct >= 40:
+        color = "var(--warning)"
+    else:
+        color = "var(--danger)"
+    return (
+        f'<div class="kn-conf-bar">'
+        f'<div class="kn-conf-fill" style="width:{pct}%;background:{color}"></div>'
+        f'</div>'
+        f'<span class="kn-conf-label">{pct}%</span>'
+    )
+
+
+def knowledge_page(
+    *,
+    nodes: list,
+    stage_counts: dict[str, int],
+    active_stage: str = "all",
+    active_category: str = "",
+    active_domain: str = "",
+) -> str:
+    """Render the knowledge tree browser with stage filters."""
+    total = sum(stage_counts.values())
+    stages = [
+        ("all", "All", total),
+        ("draft", "Draft", stage_counts.get("draft", 0)),
+        ("refined", "Refined", stage_counts.get("refined", 0)),
+        ("verified", "Verified", stage_counts.get("verified", 0)),
+        ("canonized", "Canonized", stage_counts.get("canonized", 0)),
+        ("deprecated", "Deprecated", stage_counts.get("deprecated", 0)),
+    ]
+    tab_html = ""
+    for key, label, count in stages:
+        active_cls = " active" if key == active_stage else ""
+        href = f"/knowledge?stage={key}" if key != "all" else "/knowledge"
+        tab_html += (
+            f'<a href="{href}" class="{active_cls.lstrip()}">'
+            f'{_html.escape(label)} <span class="tab-count">{count}</span></a>'
+        )
+
+    cards = ""
+    for n in nodes:
+        nid = str(n.id) if hasattr(n, 'id') else str(n.get("id", ""))
+        summary = str(n.summary[:120]) if hasattr(n, 'summary') else str(n.get("summary", ""))[:120]
+        category = str(n.category) if hasattr(n, 'category') else str(n.get("category", ""))
+        domain = str(n.domain) if hasattr(n, 'domain') else str(n.get("domain", ""))
+        stage = str(n.stage) if hasattr(n, 'stage') else str(n.get("stage", ""))
+        confidence = n.confidence if hasattr(n, 'confidence') else n.get("confidence", 0)
+        source = str(n.source) if hasattr(n, 'source') else str(n.get("source", ""))
+        cards += f"""<a href="/knowledge/{_html.escape(nid)}" class="card">
+  <div class="card-top">{_category_badge(category)} {_stage_badge_knowledge(stage)}</div>
+  <div class="card-preview">{_html.escape(summary)}</div>
+  <div class="card-meta">
+    <span>{_html.escape(domain)}</span>
+    <span>conf: {confidence:.2f}</span>
+  </div>
+</a>"""
+
+    if not nodes:
+        cards = '<div class="empty">No knowledge nodes in this view.</div>'
+
+    body = f"""{_nav(active="knowledge")}
+<h1 style="padding:16px 16px 0;font-size:1.2rem">📚 Knowledge Tree</h1>
+<div class="tabs">{tab_html}</div>
+<div class="search-bar"><input type="text" id="search-input" placeholder="Search knowledge…" oninput="filterCards()"></div>
+<div class="card-grid" id="card-grid">{cards}</div>
+<script>
+function filterCards(){{
+  var q = document.getElementById('search-input').value.toLowerCase();
+  var cards = document.querySelectorAll('#card-grid .card');
+  cards.forEach(function(c){{
+    c.style.display = c.textContent.toLowerCase().includes(q) ? '' : 'none';
+  }});
+}}
+</script>
+"""
+    return _page("Hermes Knowledge", body)
+
+
+def knowledge_tree_page(
+    *,
+    nodes: list[dict],
+    counts: dict[str, int],
+    active_stage: str = "all",
+    active_category: str = "",
+    active_domain: str = "",
+    domains: list[str] | None = None,
+) -> str:
+    """Render the knowledge tree overview with stats bar, filters, and node cards."""
+    if domains is None:
+        domains = []
+    total = sum(counts.values())
+
+    # -- Stats bar --
+    stat_cards = [
+        ("Total", str(total), "var(--ink)"),
+        ("Draft", str(counts.get("draft", 0)), "var(--warning)"),
+        ("Refined", str(counts.get("refined", 0)), "var(--info)"),
+        ("Verified", str(counts.get("verified", 0)), "var(--success)"),
+        ("Canonized", str(counts.get("canonized", 0)), "var(--primary)"),
+        ("Deprecated", str(counts.get("deprecated", 0)), "var(--ink-dim)"),
+    ]
+    stats_html = ""
+    for label, num, color in stat_cards:
+        stats_html += (
+            f'<div class="dash-card">'
+            f'<div class="num" style="color:{color}">{num}</div>'
+            f'<div class="label">{_html.escape(label)}</div>'
+            f'</div>'
+        )
+
+    # -- Stage filter tabs --
+    stage_tabs = [
+        ("all", "All", total),
+        ("draft", "Draft", counts.get("draft", 0)),
+        ("refined", "Refined", counts.get("refined", 0)),
+        ("verified", "Verified", counts.get("verified", 0)),
+        ("canonized", "Canonized", counts.get("canonized", 0)),
+        ("deprecated", "Deprecated", counts.get("deprecated", 0)),
+    ]
+    tab_html = ""
+    for key, label, count in stage_tabs:
+        active_cls = " active" if key == active_stage else ""
+        href = f"/knowledge?stage={key}" if key != "all" else "/knowledge"
+        if active_category:
+            href += f"&category={active_category}"
+        if active_domain:
+            href += f"&domain={active_domain}"
+        tab_html += (
+            f'<a href="{href}" class="{active_cls.lstrip()}">'
+            f'{_html.escape(label)} <span class="tab-count">{count}</span></a>'
+        )
+
+    # -- Category options for filter --
+    cat_options = '<option value="">All Categories</option>'
+    for cat in sorted(_KN_CATEGORY_BADGE_MAP):
+        sel = ' selected' if cat == active_category else ''
+        cat_options += f'<option value="{_html.escape(cat)}"{sel}>{_html.escape(cat.title())}</option>'
+
+    # -- Domain options for filter --
+    dom_options = '<option value="">All Domains</option>'
+    for dom in sorted(domains):
+        sel = ' selected' if dom == active_domain else ''
+        dom_options += f'<option value="{_html.escape(dom)}"{sel}>{_html.escape(dom)}</option>'
+
+    # -- Node cards --
+    cards = ""
+    for n in nodes:
+        nid = str(n.get("id", ""))
+        summary = str(n.get("summary", ""))
+        stage = str(n.get("stage", "draft"))
+        category = str(n.get("category", "fact"))
+        domain = str(n.get("domain", "general"))
+        confidence = float(n.get("confidence", 0))
+        source = str(n.get("source", ""))
+        retrieval_count = int(n.get("retrieval_count", 0))
+        created_at = str(n.get("created_at", ""))[:19]
+
+        # Truncate summary
+        preview = summary[:140] + ("..." if len(summary) > 140 else "")
+
+        cards += f"""<a href="/knowledge/{_html.escape(nid)}" class="card">
+  <div class="card-top">{_stage_badge(stage)} {_kn_category_badge(category)} <span class="badge badge-rule" style="font-size:.65rem">{_html.escape(domain)}</span></div>
+  <div class="card-preview">{_html.escape(preview)}</div>
+  <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
+    {_confidence_bar(confidence)}
+  </div>
+  <div class="card-meta">
+    <span>🔍 {retrieval_count} uses</span>
+    <span>📁 {_html.escape(source[:30])}</span>
+    <span>{_html.escape(created_at)}</span>
+  </div>
+</a>"""
+
+    if not nodes:
+        cards = '<div class="empty">No knowledge nodes match the current filters.</div>'
+
+    body = f"""{_nav(active="queue")}
+<h1 style="padding:16px 16px 0;font-size:1.2rem">🌳 Knowledge Tree</h1>
+<div class="dash-grid">{stats_html}</div>
+<div class="tabs">{tab_html}</div>
+<div style="padding:0 16px 8px;display:flex;gap:8px;flex-wrap:wrap">
+  <form method="get" action="/knowledge" style="display:flex;gap:8px;flex-wrap:wrap;flex:1" id="kn-filter-form">
+    <input type="hidden" name="stage" value="{_html.escape(active_stage)}">
+    <select name="category" class="kn-filter-select" onchange="this.form.submit()">{cat_options}</select>
+    <select name="domain" class="kn-filter-select" onchange="this.form.submit()">{dom_options}</select>
+    <input type="text" name="q" placeholder="Search knowledge…" class="kn-search-input" id="kn-search">
+  </form>
+</div>
+<div class="card-grid" id="kn-card-grid">{cards}</div>
+
+<style>
+.kn-filter-select{{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);
+  color:var(--ink);font-size:.84rem;padding:8px 12px;min-height:40px;outline:none;
+  transition:border-color var(--duration);cursor:pointer
+}}
+.kn-filter-select:focus{{border-color:var(--border-focus)}}
+.kn-search-input{{
+  flex:1;min-width:160px;padding:8px 14px;border:1px solid var(--border);border-radius:var(--r-md);
+  background:var(--surface);color:var(--ink);font-size:.84rem;outline:none;min-height:40px;
+  transition:border-color var(--duration),box-shadow var(--duration)
+}}
+.kn-search-input:focus{{border-color:var(--border-focus);box-shadow:0 0 0 3px rgba(167,139,250,.2)}}
+.kn-search-input::placeholder{{color:var(--ink-dim)}}
+.kn-conf-bar{{
+  flex:1;height:6px;background:var(--border-hover);border-radius:3px;overflow:hidden;min-width:60px
+}}
+.kn-conf-fill{{height:100%;border-radius:3px;transition:width .3s var(--ease-out)}}
+.kn-conf-label{{font-size:.72rem;color:var(--ink-muted);font-weight:600;min-width:32px;text-align:right}}
+</style>
+<script>
+(function(){{
+  var input = document.getElementById('kn-search');
+  if (!input) return;
+  input.addEventListener('input', function(){{
+    var q = this.value.toLowerCase();
+    var cards = document.querySelectorAll('#kn-card-grid .card');
+    cards.forEach(function(c){{
+      c.style.display = c.textContent.toLowerCase().includes(q) ? '' : 'none';
+    }});
+  }});
+}})();
+</script>
+"""
+    return _page("Knowledge Tree", body)
+
+
+# ---------------------------------------------------------------------------
+# Knowledge Detail page
+# ---------------------------------------------------------------------------
+
+_KN_ACTION_JS = """\
+function knAct(url, actionName, successMsg) {
+  var overlay = document.getElementById('confirm-overlay');
+  var modal = document.getElementById('confirm-modal');
+  var modalTitle = document.getElementById('confirm-title');
+  var modalBtn = document.getElementById('confirm-action-btn');
+  modalTitle.textContent = actionName + '?';
+  modalBtn.onclick = function() {
+    overlay.style.display = 'none';
+    fetch(url, {method:'POST',headers:{'Content-Type':'application/json'}})
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        showToast(successMsg || 'Done', 'approve');
+        setTimeout(function(){ location.reload(); }, 800);
+      })
+      .catch(function(e){
+        showToast('Error: ' + e.message, 'reject');
+      });
+  };
+  overlay.style.display = 'flex';
+  modalBtn.focus();
+}
+function knDeprecate(url) {
+  knAct(url, 'Deprecate this knowledge node', 'Node deprecated');
+}
+function knPromote(url) {
+  knAct(url, 'Promote to next stage', 'Stage updated');
+}
+function hideConfirm() {
+  document.getElementById('confirm-overlay').style.display = 'none';
+}
+function showToast(msg, type) {
+  var t = document.createElement('div');
+  t.className = 'toast toast-' + (type||'approve');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(function(){ t.classList.add('show'); },10);
+  setTimeout(function(){ t.classList.remove('show'); setTimeout(function(){ t.remove(); },300); },2500);
+}
+document.addEventListener('keydown', function(e){
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.key === 'Escape') { hideConfirm(); }
+});
+"""
+
+
+def knowledge_detail_page(
+    *,
+    node: dict,
+    thought_chains: list[dict] | None = None,
+    parent_node: dict | None = None,
+    child_nodes: list[dict] | None = None,
+    supersedes_node: dict | None = None,
+    superseded_by: list[dict] | None = None,
+    contradicts_nodes: list[dict] | None = None,
+) -> str:
+    """Render the full detail view for a knowledge node with relationships, thought chain, and actions."""
+    if thought_chains is None:
+        thought_chains = []
+    if child_nodes is None:
+        child_nodes = []
+    if superseded_by is None:
+        superseded_by = []
+    if contradicts_nodes is None:
+        contradicts_nodes = []
+
+    nid = str(node.get("id", ""))
+    summary = str(node.get("summary", ""))
+    content = str(node.get("content", ""))
+    stage = str(node.get("stage", "draft"))
+    category = str(node.get("category", "fact"))
+    domain = str(node.get("domain", "general"))
+    operation = str(node.get("operation", ""))
+    confidence = float(node.get("confidence", 0))
+    source = str(node.get("source", ""))
+    evidence_raw = str(node.get("evidence", "[]"))
+    merged_from_raw = str(node.get("merged_from", "[]"))
+    contradicts_raw = str(node.get("contradicts", "[]"))
+    verified_by_raw = str(node.get("verified_by", "[]"))
+    created_at = str(node.get("created_at", ""))[:19]
+    refined_at = str(node.get("refined_at", ""))[:19] if node.get("refined_at") else ""
+    verified_at = str(node.get("verified_at", ""))[:19] if node.get("verified_at") else ""
+    deprecated_at = str(node.get("deprecated_at", ""))[:19] if node.get("deprecated_at") else ""
+    retrieval_count = int(node.get("retrieval_count", 0))
+    last_used_at = str(node.get("last_used_at", ""))[:19] if node.get("last_used_at") else ""
+    correction_count = int(node.get("correction_count", 0))
+
+    # -- Confidence bar (larger, detail view) --
+    pct = max(0, min(100, int(confidence * 100)))
+    if pct >= 70:
+        conf_color = "var(--success)"
+    elif pct >= 40:
+        conf_color = "var(--warning)"
+    else:
+        conf_color = "var(--danger)"
+    confidence_html = (
+        f'<div style="display:flex;align-items:center;gap:12px">'
+        f'<div style="flex:1;height:10px;background:var(--border-hover);border-radius:5px;overflow:hidden">'
+        f'<div style="width:{pct}%;height:100%;background:{conf_color};border-radius:5px;transition:width .4s var(--ease-out)"></div>'
+        f'</div>'
+        f'<span style="font-size:1.1rem;font-weight:700;color:{conf_color}">{pct}%</span>'
+        f'</div>'
+    )
+
+    # -- Evidence list --
+    import json as _json
+    try:
+        evidence_list = _json.loads(evidence_raw) if evidence_raw else []
+    except Exception:
+        evidence_list = []
+    evidence_html = ""
+    for ev in evidence_list:
+        evidence_html += f'<div style="padding:4px 0;font-size:.88rem;color:var(--ink);border-bottom:1px solid var(--border)">• {_html.escape(str(ev))}</div>'
+    if not evidence_html:
+        evidence_html = '<div style="color:var(--ink-dim);font-style:italic">No evidence recorded</div>'
+
+    # -- Merged from / Contradicts / Verified by --
+    try:
+        merged_list = _json.loads(merged_from_raw) if merged_from_raw else []
+    except Exception:
+        merged_list = []
+    try:
+        contradict_list = _json.loads(contradicts_raw) if contradicts_raw else []
+    except Exception:
+        contradict_list = []
+    try:
+        verified_list = _json.loads(verified_by_raw) if verified_by_raw else []
+    except Exception:
+        verified_list = []
+
+    def _id_list_html(items: list, base_url: str = "/knowledge/") -> str:
+        if not items:
+            return '<span style="color:var(--ink-dim);font-style:italic">None</span>'
+        parts = []
+        for item_id in items:
+            sid = _html.escape(str(item_id))
+            parts.append(f'<a href="{base_url}{sid}" style="font-family:var(--font-mono);font-size:.82rem">{sid[:16]}…</a>')
+        return " ".join(parts)
+
+    # -- Relationships section --
+    rel_cards = ""
+
+    if parent_node:
+        pid = str(parent_node.get("id", ""))[:16]
+        psummary = str(parent_node.get("summary", ""))[:60]
+        rel_cards += f"""<a href="/knowledge/{_html.escape(str(parent_node.get('id', '')))}" class="kn-rel-card">
+  <span class="kn-rel-type">⬆ Parent</span>
+  <span class="kn-rel-summary">{_html.escape(psummary)}</span>
+  <span class="kn-rel-id">{_html.escape(pid)}…</span>
+</a>"""
+
+    if supersedes_node:
+        sid = str(supersedes_node.get("id", ""))[:16]
+        ssummary = str(supersedes_node.get("summary", ""))[:60]
+        rel_cards += f"""<a href="/knowledge/{_html.escape(str(supersedes_node.get('id', '')))}" class="kn-rel-card">
+  <span class="kn-rel-type">⬅ Supersedes</span>
+  <span class="kn-rel-summary">{_html.escape(ssummary)}</span>
+  <span class="kn-rel-id">{_html.escape(sid)}…</span>
+</a>"""
+
+    for child in child_nodes:
+        cid = str(child.get("id", ""))[:16]
+        csummary = str(child.get("summary", ""))[:60]
+        rel_cards += f"""<a href="/knowledge/{_html.escape(str(child.get('id', '')))}" class="kn-rel-card">
+  <span class="kn-rel-type">⬇ Child</span>
+  <span class="kn-rel-summary">{_html.escape(csummary)}</span>
+  <span class="kn-rel-id">{_html.escape(cid)}…</span>
+</a>"""
+
+    for sup in superseded_by:
+        sid2 = str(sup.get("id", ""))[:16]
+        ssummary2 = str(sup.get("summary", ""))[:60]
+        rel_cards += f"""<a href="/knowledge/{_html.escape(str(sup.get('id', '')))}" class="kn-rel-card">
+  <span class="kn-rel-type">➡ Superseded by</span>
+  <span class="kn-rel-summary">{_html.escape(ssummary2)}</span>
+  <span class="kn-rel-id">{_html.escape(sid2)}…</span>
+</a>"""
+
+    for con in contradicts_nodes:
+        conid = str(con.get("id", ""))[:16]
+        cons = str(con.get("summary", ""))[:60]
+        rel_cards += f"""<a href="/knowledge/{_html.escape(str(con.get('id', '')))}" class="kn-rel-card">
+  <span class="kn-rel-type">⚡ Contradicts</span>
+  <span class="kn-rel-summary">{_html.escape(cons)}</span>
+  <span class="kn-rel-id">{_html.escape(conid)}…</span>
+</a>"""
+
+    if not rel_cards:
+        rel_cards = '<div style="color:var(--ink-dim);font-style:italic;padding:8px 0">No relationships</div>'
+
+    # -- Thought chain timeline --
+    _ACTION_ICON = {
+        "dedup_check": "🔍",
+        "merge": "🔗",
+        "refine": "✏️",
+        "contradiction_detect": "⚡",
+        "canonize": "✅",
+        "deprecate": "🗑️",
+        "create": "🆕",
+    }
+    _DECISION_COLOR = {
+        "create": "var(--success)",
+        "merge": "var(--primary)",
+        "refine": "var(--info)",
+        "ignore": "var(--ink-dim)",
+        "flag_contradiction": "var(--danger)",
+        "canonize": "var(--success)",
+        "deprecate": "var(--warning)",
+    }
+
+    timeline_html = ""
+    for tc in (thought_chains or []):
+        tc_action = str(tc.get("action", ""))
+        tc_reasoning = str(tc.get("reasoning", ""))
+        tc_decision = str(tc.get("decision", ""))
+        tc_conf = float(tc.get("confidence_in_decision", 0) or 0)
+        tc_created = str(tc.get("created_at", ""))[:19]
+        icon = _ACTION_ICON.get(tc_action, "📝")
+        dec_color = _DECISION_COLOR.get(tc_decision, "var(--ink-muted)")
+
+        timeline_html += f"""<div class="kn-tl-item">
+  <div class="kn-tl-dot" style="background:{dec_color}"></div>
+  <div class="kn-tl-content">
+    <div class="kn-tl-header">
+      <span>{icon} <strong>{_html.escape(tc_action.replace('_', ' ').title())}</strong></span>
+      <span class="kn-tl-time">{_html.escape(tc_created)}</span>
+    </div>
+    <div class="kn-tl-reasoning">{_html.escape(tc_reasoning)}</div>
+    <div class="kn-tl-meta">
+      <span>Decision: <strong style="color:{dec_color}">{_html.escape(tc_decision)}</strong></span>
+      <span>Confidence: {int(tc_conf * 100)}%</span>
+    </div>
+  </div>
+</div>"""
+
+    if not timeline_html:
+        timeline_html = '<div style="color:var(--ink-dim);font-style:italic;padding:16px 0;text-align:center">No thought chain entries</div>'
+
+    # -- Action buttons --
+    btns = ""
+    next_stage = {"draft": "refined", "refined": "verified", "verified": "canonized"}
+    if stage in next_stage:
+        nxt = next_stage[stage]
+        btns += (
+            f'<button class="btn btn-approve" onclick="knPromote(&apos;/api/knowledge/{_html.escape(nid)}/stage&apos;)">'
+            f'⬆ Promote to {_html.escape(nxt.title())} <kbd>P</kbd></button>'
+        )
+    if stage not in ("deprecated",):
+        btns += (
+            f'<button class="btn btn-reject" onclick="knDeprecate(&apos;/api/knowledge/{_html.escape(nid)}/stage&apos;)">'
+            f'🗑 Deprecate <kbd>D</kbd></button>'
+        )
+    if not btns:
+        btns = f'<div class="empty" style="flex:1">Node is {stage} — no actions available.</div>'
+
+    body = f"""{_nav(active="queue")}
+<div class="detail-header">
+  <a href="/knowledge" class="back-link">← Knowledge Tree</a>
+  <span class="detail-title">{_html.escape(summary[:60])}</span>
+  {_stage_badge(stage)}
+  {_kn_category_badge(category)}
+</div>
+
+<div class="detail-body">
+
+  <!-- Summary & Confidence -->
+  <div class="section">
+    <h3>Summary</h3>
+    <p style="font-size:1rem;font-weight:500">{_html.escape(summary)}</p>
+  </div>
+
+  <div class="section">
+    <h3>Confidence</h3>
+    {confidence_html}
+  </div>
+
+  <!-- Full content -->
+  <div class="section">
+    <h3>Content</h3>
+    <p style="white-space:pre-wrap">{_html.escape(content)}</p>
+  </div>
+
+  <!-- Metadata grid -->
+  <div class="meta-grid" style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);margin-bottom:var(--sp-lg)">
+    <span class="label">Node ID</span><span class="value" style="font-family:var(--font-mono);font-size:.78rem;word-break:break-all">{_html.escape(nid)}</span>
+    <span class="label">Category</span><span class="value">{_kn_category_badge(category)}</span>
+    <span class="label">Domain</span><span class="value">{_html.escape(domain)}</span>
+    <span class="label">Stage</span><span class="value">{_stage_badge(stage)}</span>
+    <span class="label">Operation</span><span class="value">{_html.escape(operation)}</span>
+    <span class="label">Source</span><span class="value" style="font-size:.82rem;word-break:break-all">{_html.escape(source)}</span>
+    <span class="label">Created</span><span class="value">{_html.escape(created_at)}</span>
+    {'<span class="label">Refined</span><span class="value">' + _html.escape(refined_at) + '</span>' if refined_at else ''}
+    {'<span class="label">Verified</span><span class="value">' + _html.escape(verified_at) + '</span>' if verified_at else ''}
+    {'<span class="label">Deprecated</span><span class="value">' + _html.escape(deprecated_at) + '</span>' if deprecated_at else ''}
+    <span class="label">Retrievals</span><span class="value">{retrieval_count}</span>
+    <span class="label">Last Used</span><span class="value">{_html.escape(last_used_at) if last_used_at else '—'}</span>
+    <span class="label">Corrections</span><span class="value">{correction_count}</span>
+  </div>
+
+  <!-- Evidence -->
+  <div class="section">
+    <h3>Evidence</h3>
+    {evidence_html}
+  </div>
+
+  <!-- Provenance (merged/contradicts/verified) -->
+  <div class="section">
+    <h3>Provenance</h3>
+    <div style="display:grid;gap:8px">
+      <div><span style="color:var(--ink-muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.04em">Merged From</span><div style="margin-top:2px">{_id_list_html(merged_list)}</div></div>
+      <div><span style="color:var(--ink-muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.04em">Contradicts</span><div style="margin-top:2px">{_id_list_html(contradict_list)}</div></div>
+      <div><span style="color:var(--ink-muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.04em">Verified By</span><div style="margin-top:2px">{_id_list_html(verified_list)}</div></div>
+    </div>
+  </div>
+
+  <!-- Relationships -->
+  <div class="section">
+    <h3>Relationships</h3>
+    <div style="display:flex;flex-direction:column;gap:6px">{rel_cards}</div>
+  </div>
+
+  <!-- Thought Chain Timeline -->
+  <div class="section">
+    <h3>Thought Chain Timeline</h3>
+    <div class="kn-timeline">{timeline_html}</div>
+  </div>
+
+</div>
+
+<div class="action-bar">{btns}</div>
+
+<div class="confirm-overlay" id="confirm-overlay" onclick="if(event.target===this)hideConfirm()">
+  <div class="confirm-modal">
+    <h3 id="confirm-title"></h3>
+    <div class="confirm-actions">
+      <button class="btn-yes" id="confirm-action-btn">Confirm</button>
+      <button class="btn-no" onclick="hideConfirm()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<style>
+.kn-rel-card{{
+  display:flex;align-items:center;gap:10px;padding:10px 14px;
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);
+  text-decoration:none;color:var(--ink);transition:all var(--duration);min-height:44px
+}}
+.kn-rel-card:hover{{border-color:var(--border-focus);background:var(--card-hover);text-decoration:none}}
+.kn-rel-type{{font-size:.72rem;font-weight:600;color:var(--primary);min-width:100px;white-space:nowrap}}
+.kn-rel-summary{{flex:1;font-size:.84rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
+.kn-rel-id{{font-size:.72rem;color:var(--ink-dim);font-family:var(--font-mono);flex-shrink:0}}
+
+.kn-timeline{{position:relative;padding-left:24px}}
+.kn-tl-item{{position:relative;padding-bottom:16px}}
+.kn-tl-item:last-child{{padding-bottom:0}}
+.kn-tl-item::before{{
+  content:'';position:absolute;left:-20px;top:12px;bottom:-4px;
+  width:2px;background:var(--border)
+}}
+.kn-tl-item:last-child::before{{display:none}}
+.kn-tl-dot{{
+  position:absolute;left:-24px;top:6px;width:12px;height:12px;
+  border-radius:50%;border:2px solid var(--card);z-index:1
+}}
+.kn-tl-content{{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);
+  padding:10px 14px;transition:border-color var(--duration)
+}}
+.kn-tl-content:hover{{border-color:var(--border-hover)}}
+.kn-tl-header{{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}}
+.kn-tl-time{{font-size:.72rem;color:var(--ink-dim);font-family:var(--font-mono)}}
+.kn-tl-reasoning{{font-size:.84rem;color:var(--ink);margin-top:6px;line-height:1.5;white-space:pre-wrap;word-break:break-word}}
+.kn-tl-meta{{display:flex;gap:16px;margin-top:6px;font-size:.75rem;color:var(--ink-muted)}}
+</style>
+"""
+    return _page(f"Knowledge · {summary[:40]}", body, extra_js=_KN_ACTION_JS)
 

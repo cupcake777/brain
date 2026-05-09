@@ -19,6 +19,8 @@ from hermes.repository import HermesRepository
 from hermes.status import StatusPublisher
 from hermes.templates import (
     gallery_page,
+    knowledge_detail_page,
+    knowledge_page,
     login_page,
     review_detail_page,
     review_queue_page,
@@ -468,6 +470,133 @@ def create_app(
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="proposal not found") from exc
         return review_detail_page(proposal=proposal)
+
+    # ------------------------------------------------------------------
+    # HTML pages – knowledge tree
+    # ------------------------------------------------------------------
+
+    _VALID_KN_STAGES = {"draft", "refined", "verified", "canonized", "deprecated", "all"}
+
+    @app.get("/knowledge", response_class=HTMLResponse)
+    def knowledge_page_route(
+        stage: str = Query(default="all"),
+        category: str = Query(default=""),
+        domain: str = Query(default=""),
+        limit: int = Query(default=100, le=500),
+        offset: int = Query(default=0, ge=0),
+    ) -> str:
+        stage = stage if stage in _VALID_KN_STAGES else "all"
+        stage_counts = repo.count_knowledge_nodes_by_stage()
+        if stage == "all":
+            nodes = repo.list_knowledge_nodes(
+                category=category or None,
+                domain=domain or None,
+                limit=limit,
+                offset=offset,
+            )
+        else:
+            nodes = repo.list_knowledge_nodes(
+                stage=stage,
+                category=category or None,
+                domain=domain or None,
+                limit=limit,
+                offset=offset,
+            )
+        return knowledge_page(
+            nodes=nodes,
+            stage_counts=stage_counts,
+            active_stage=stage,
+            active_category=category,
+            active_domain=domain,
+        )
+
+    @app.get("/knowledge/{node_id}", response_class=HTMLResponse)
+    def knowledge_detail_page_route(node_id: str) -> str:
+        node = repo.get_knowledge_node(node_id)
+        if node is None:
+            raise HTTPException(status_code=404, detail="node not found")
+        chains = repo.get_thought_chains(node_id)
+        children = repo.find_children(node_id)
+        # Resolve parent node if parent_id exists
+        parent_node = None
+        if node.parent_id:
+            pn = repo.get_knowledge_node(node.parent_id)
+            if pn:
+                parent_node = {"id": pn.id, "summary": pn.summary, "stage": pn.stage}
+        # Resolve supersedes node
+        supersedes_node = None
+        if node.supersedes:
+            sn = repo.get_knowledge_node(node.supersedes)
+            if sn:
+                supersedes_node = {"id": sn.id, "summary": sn.summary, "stage": sn.stage}
+        # Resolve superseded_by (nodes that supersede this one)
+        superseded_by_nodes = repo.find_superseded_nodes(node_id)
+        return knowledge_detail_page(
+            node={
+                "id": node.id,
+                "parent_id": node.parent_id,
+                "content": node.content,
+                "summary": node.summary,
+                "category": node.category,
+                "domain": node.domain,
+                "stage": node.stage,
+                "operation": node.operation,
+                "confidence": node.confidence,
+                "source": node.source,
+                "evidence": node.evidence,
+                "supersedes": node.supersedes,
+                "merged_from": node.merged_from,
+                "contradicts": node.contradicts,
+                "verified_by": node.verified_by,
+                "created_at": node.created_at,
+                "refined_at": node.refined_at,
+                "verified_at": node.verified_at,
+                "deprecated_at": node.deprecated_at,
+                "retrieval_count": node.retrieval_count,
+                "correction_count": node.correction_count,
+                "last_used_at": node.last_used_at,
+            },
+            thought_chains=[
+                {
+                    "id": tc.id,
+                    "action": tc.action,
+                    "reasoning": tc.reasoning,
+                    "decision": tc.decision,
+                    "confidence_in_decision": tc.confidence_in_decision,
+                    "created_at": tc.created_at,
+                }
+                for tc in chains
+            ],
+            parent_node=parent_node,
+            child_nodes=[{"id": c.id, "summary": c.summary, "stage": c.stage} for c in children],
+            supersedes_node=supersedes_node,
+            superseded_by=[{"id": s.id, "summary": s.summary, "stage": s.stage} for s in superseded_by_nodes],
+        )
+
+    @app.post("/knowledge/{node_id}/stage")
+    async def knowledge_stage_action(node_id: str, stage: str = Form(...)) -> dict:
+        """Update a knowledge node's stage (promote/deprecate) via form POST."""
+        node = repo.get_knowledge_node(node_id)
+        if node is None:
+            raise HTTPException(status_code=404, detail="node not found")
+        if stage not in ("draft", "refined", "verified", "canonized", "deprecated"):
+            raise HTTPException(status_code=400, detail=f"invalid stage: {stage}")
+        now = datetime.now(timezone.utc).isoformat()
+        update_fields: dict = {"stage": stage}
+        if stage == "refined":
+            update_fields["refined_at"] = now
+        elif stage == "verified":
+            update_fields["verified_at"] = now
+        elif stage == "deprecated":
+            update_fields["deprecated_at"] = now
+        repo.update_knowledge_node(node_id, **update_fields)
+        # Recompute confidence after stage change
+        from hermes.integrate import recompute_confidence
+        updated_node = repo.get_knowledge_node(node_id)
+        if updated_node:
+            new_conf = recompute_confidence(updated_node, repo)
+            repo.update_knowledge_node(node_id, confidence=new_conf)
+        return {"node_id": node_id, "stage": stage}
 
     # ------------------------------------------------------------------
     # Security Monitor – standalone page
@@ -959,7 +1088,8 @@ def create_app(
             importlib.reload(_tmpl_mod)
             # Re-bind all template functions in this module's scope
             from hermes.templates import (
-                gallery_page, login_page,
+                gallery_page, knowledge_detail_page, knowledge_page,
+                login_page,
                 review_detail_page, review_queue_page,
                 security_page, settings_page,
             )

@@ -215,40 +215,88 @@ def dedup_check(
     """Check if new knowledge duplicates existing knowledge.
 
     Thresholds:
-    - similarity > 0.92: highly similar → merge
-    - similarity > 0.70: moderately similar → review (LLM decides)
-    - similarity ≤ 0.70: new knowledge → create
+    - similarity > merge_threshold: highly similar → merge
+    - similarity > review_threshold: moderately similar → review (LLM decides)
+    - similarity ≤ review_threshold: new knowledge → create
 
-    Uses text similarity now; will be upgraded to embedding similarity.
+    Uses hybrid similarity (embedding + text) when embeddings are available,
+    falls back to pure text similarity otherwise.
     """
     if not existing_nodes:
         return DedupResult(action="create")
 
     best_node = None
     best_sim = 0.0
+    candidates_for_review: list[tuple[KnowledgeNode, float]] = []
 
+    # Try embedding-based similarity for the top candidates
+    # Strategy: text similarity pre-filter (fast) → embedding refinement (accurate)
+    # This avoids embedding 100+ candidates on every integrate() call
+    MAX_EMBEDDING_CANDIDATES = 20
+
+    # Step 1: Fast text pre-filter to find top candidates
+    text_candidates: list[tuple[KnowledgeNode, float]] = []
     for node in existing_nodes:
         if node.stage == "deprecated":
             continue
-        # Compare against both summary and content
-        sim_summary = _text_similarity(summary, node.summary)
-        sim_content = _text_similarity(content, node.content)
-        sim = max(sim_summary, sim_content)
-        if sim > best_sim:
-            best_sim = sim
-            best_node = node
+        sim_sum = _text_similarity(summary, node.summary)
+        sim_con = _text_similarity(content, node.content)
+        sim = max(sim_sum, sim_con)
+        text_candidates.append((node, sim))
+
+    text_candidates.sort(key=lambda x: x[1], reverse=True)
+
+    # Step 2: Try embedding refinement on top candidates
+    import os as _os
+    use_embeddings = _os.environ.get("BRAIN_DISABLE_EMBEDDINGS", "").lower() not in ("1", "true", "yes")
+
+    if use_embeddings and len(text_candidates) > 0:
+        try:
+            from hermes.embedding import batch_embedding_similarity
+            top_nodes = text_candidates[:MAX_EMBEDDING_CANDIDATES]
+            top_nodes_list = [n for n, s in top_nodes]
+            text_sims = [s for n, s in top_nodes]
+
+            # Embed query vs top candidate summaries
+            candidate_summaries = [n.summary for n in top_nodes_list]
+            sim_by_summary = batch_embedding_similarity(summary, candidate_summaries)
+
+            if sim_by_summary is not None:
+                # Hybrid: 70% embedding + 30% text
+                for i, (node, txt_sim) in enumerate(top_nodes):
+                    emb_sim = next((s for idx, s in sim_by_summary if idx == i), txt_sim)
+                    hybrid_sim = 0.7 * emb_sim + 0.3 * txt_sim
+                    candidates_for_review.append((node, hybrid_sim))
+                    if hybrid_sim > best_sim:
+                        best_sim = hybrid_sim
+                        best_node = node
+                candidates_for_review.sort(key=lambda x: x[1], reverse=True)
+            else:
+                # Embedding failed, use text similarity results
+                candidates_for_review = text_candidates[:MAX_EMBEDDING_CANDIDATES]
+                if text_candidates:
+                    best_sim = text_candidates[0][1]
+                    best_node = text_candidates[0][0]
+
+        except Exception:
+            # Embedding import/execution failed, use text-only results
+            candidates_for_review = text_candidates[:MAX_EMBEDDING_CANDIDATES]
+            if text_candidates:
+                best_sim = text_candidates[0][1]
+                best_node = text_candidates[0][0]
+    else:
+        # Embeddings disabled, use text-only results
+        candidates_for_review = text_candidates[:MAX_EMBEDDING_CANDIDATES]
+        if text_candidates:
+            best_sim = text_candidates[0][1]
+            best_node = text_candidates[0][0]
 
     if best_sim > merge_threshold and best_node:
         return DedupResult(action="merge", target=best_node, similarity=best_sim)
 
     if best_sim > review_threshold and best_node:
-        # Collect top-3 candidates for review
-        candidates = sorted(
-            [n for n in existing_nodes if n.stage != "deprecated"],
-            key=lambda n: max(_text_similarity(summary, n.summary), _text_similarity(content, n.content)),
-            reverse=True,
-        )[:3]
-        return DedupResult(action="review", target=best_node, candidates=candidates, similarity=best_sim)
+        top_candidates = [n for n, s in candidates_for_review[:3] if s > review_threshold]
+        return DedupResult(action="review", target=best_node, candidates=top_candidates, similarity=best_sim)
 
     return DedupResult(action="create")
 
