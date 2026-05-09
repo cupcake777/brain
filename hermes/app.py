@@ -409,6 +409,24 @@ def create_app(
             repo.update_knowledge_node(node_id, confidence=new_conf)
         return {"node_id": node_id, "stage": new_stage}
 
+    @app.patch("/api/knowledge/{node_id}")
+    async def knowledge_patch_node(node_id: str, request: Request) -> dict:
+        """Edit summary, content, category, or domain of a knowledge node."""
+        node = repo.get_knowledge_node(node_id)
+        if node is None:
+            raise HTTPException(status_code=404, detail="node not found")
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        editable = {"summary", "content", "category", "domain"}
+        updates = {k: v for k, v in body.items() if k in editable and v is not None}
+        if not updates:
+            raise HTTPException(status_code=400, detail="no editable fields provided")
+        repo.update_knowledge_node(node_id, **updates)
+        updated = repo.get_knowledge_node(node_id)
+        return {"node_id": node_id, "updated_fields": list(updates.keys()), "summary": updated.summary, "domain": updated.domain}
+
     @app.post("/api/knowledge/{node_id}/merge/{source_id}")
     async def knowledge_merge_nodes(node_id: str, source_id: str) -> dict:
         """Merge source_id into node_id. Source gets deprecated, target gets content merged."""

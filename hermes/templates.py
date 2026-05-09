@@ -1942,6 +1942,30 @@ function knMerge(url, actionName) {
 function knDelete(url) {
   knAct(url, 'Permanently delete this node', 'Node deleted', null, 'DELETE');
 }
+function showEditModal() {
+  document.getElementById('edit-modal-overlay').style.display = 'flex';
+}
+function hideEditModal() {
+  document.getElementById('edit-modal-overlay').style.display = 'none';
+}
+function submitEdit(e) {
+  e.preventDefault();
+  var nodeId = window.location.pathname.split('/knowledge/')[1];
+  var data = {
+    summary: document.getElementById('edit-summary').value.trim(),
+    content: document.getElementById('edit-content').value.trim(),
+    category: document.getElementById('edit-category').value,
+    domain: document.getElementById('edit-domain').value.trim() || 'general'
+  };
+  fetch('/api/knowledge/' + nodeId, {method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      showToast('Node updated', 'approve');
+      setTimeout(function(){ location.reload(); }, 800);
+    })
+    .catch(function(e){ showToast('Error: ' + e.message, 'reject'); });
+  return false;
+}
 function hideConfirm() {
   document.getElementById('confirm-overlay').style.display = 'none';
 }
@@ -2154,6 +2178,9 @@ def knowledge_detail_page(
 
     # -- Action buttons --
     btns = ""
+    btns += (
+        f'<button class="btn" style="background:var(--surface);border:1px solid var(--border)" onclick="showEditModal()">✏️ Edit</button>'
+    )
     next_stage = {"draft": "refined", "refined": "verified", "verified": "canonized"}
     if stage in next_stage:
         nxt = next_stage[stage]
@@ -2259,6 +2286,40 @@ def knowledge_detail_page(
 </div>
 
 <div class="action-bar">{btns}</div>
+
+<div id="edit-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center" onclick="if(event.target===this)hideEditModal()">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--sp-lg);max-width:600px;width:90%;max-height:80vh;overflow-y:auto">
+    <h2 style="margin-bottom:var(--sp-md);font-size:1.1rem">✏️ Edit Node</h2>
+    <form id="edit-node-form" onsubmit="return submitEdit(event)">
+      <label style="display:block;font-size:.78rem;color:var(--ink-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">Summary</label>
+      <input type="text" id="edit-summary" value="{_html.escape(summary)}" style="width:100%;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);color:var(--ink);font-size:.9rem;margin-bottom:12px;outline:none" onfocus="this.style.borderColor='var(--border-focus)'" onblur="this.style.borderColor='var(--border)'">
+      <label style="display:block;font-size:.78rem;color:var(--ink-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">Content</label>
+      <textarea id="edit-content" rows="8" style="width:100%;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);color:var(--ink);font-size:.84rem;margin-bottom:12px;outline:none;resize:vertical;font-family:var(--font-mono)" onfocus="this.style.borderColor='var(--border-focus)'" onblur="this.style.borderColor='var(--border)'">{_html.escape(content)}</textarea>
+      <div style="display:flex;gap:12px;margin-bottom:12px">
+        <div style="flex:1">
+          <label style="display:block;font-size:.78rem;color:var(--ink-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">Category</label>
+          <select id="edit-category" style="width:100%;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);color:var(--ink);font-size:.84rem;outline:none">
+            <option value="fact"{" selected" if category=="fact" else ""}>fact</option>
+            <option value="rule"{" selected" if category=="rule" else ""}>rule</option>
+            <option value="workflow_hint"{" selected" if category=="workflow_hint" else ""}>workflow_hint</option>
+            <option value="preference"{" selected" if category=="preference" else ""}>preference</option>
+          </select>
+        </div>
+        <div style="flex:1">
+          <label style="display:block;font-size:.78rem;color:var(--ink-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">Domain</label>
+          <input type="text" id="edit-domain" value="{_html.escape(domain)}" list="domain-list" style="width:100%;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);color:var(--ink);font-size:.84rem;outline:none" onfocus="this.style.borderColor='var(--border-focus)'" onblur="this.style.borderColor='var(--border)'">
+          <datalist id="domain-list">
+            <option value="general"><option value="devops"><option value="apa"><option value="network"><option value="security">
+          </datalist>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button type="button" class="kn-action-btn secondary" onclick="hideEditModal()">Cancel</button>
+        <button type="submit" class="kn-action-btn">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 <div class="confirm-overlay" id="confirm-overlay" onclick="if(event.target===this)hideConfirm()">
   <div class="confirm-modal">
