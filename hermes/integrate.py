@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import uuid
 from dataclasses import replace
 from datetime import datetime, timezone
@@ -135,30 +136,48 @@ class IntegrateResult:
 
 
 # ---------------------------------------------------------------------------
-# Semantic simularity (text-based, embedding placeholder)
+# Semantic similarity engine (hybrid: text + fastembed embeddings)
 # ---------------------------------------------------------------------------
+
+_CJK_PATTERN = re.compile(r"[a-z0-9_]+|[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]")
+
+
+def _tokenize_unicode(text: str) -> set[str]:
+    """Unicode-aware tokenization: splits CJK characters individually,
+    keeps Latin words/numbers together. Handles mixed CJK+Latin text
+    that ``re.findall(r'\\w+', ...)`` silently mis-tokenizes.
+
+    Examples::
+
+        _tokenize_unicode("SSH端口50022是DO")
+        → {'ssh', '端', '口', '50022', '是', 'do'}
+
+        _tokenize_unicode("SSH port for DO is 50022")
+        → {'ssh', 'port', 'for', 'do', 'is', '50022'}
+    """
+    # Pattern: Latin words/numbers | individual CJK characters
+    return set(_CJK_PATTERN.findall(text.lower()))
+
 
 def _text_similarity(text_a: str, text_b: str) -> float:
     """Compute text similarity between two strings.
 
     Multi-signal approach:
-    1. Word Jaccard similarity
+    1. Word Jaccard similarity (Unicode-aware tokenization for CJK)
     2. Bigram Jaccard (catches reorder like "SSH port DO" ≈ "DO SSH port")
     3. Prefix match (catches near-identical entries)
     4. Containment bonus (one contains the other)
     5. Shared numeric tokens (port numbers, IPs are key identifiers)
 
-    This is a PLACEHOLDER for embedding-based similarity.
-    When embeddings are available, replace with cosine_similarity(emb_a, emb_b).
+    Text component of hybrid dedup. Embedding similarity is applied downstream
+    in dedup_check() via batch_embedding_similarity() (hybrid: 70% emb + 30% text).
     """
     if not text_a or not text_b:
         return 0.0
 
-    import re as _re
-
-    # 1. Word-level Jaccard
-    words_a = set(_re.findall(r"\w+", text_a.lower()))
-    words_b = set(_re.findall(r"\w+", text_b.lower()))
+    # 1. Word-level Jaccard (Unicode-aware)
+    words_a = _tokenize_unicode(text_a)
+    words_b = _tokenize_unicode(text_b)
     if not words_a or not words_b:
         return 0.0
     word_jaccard = len(words_a & words_b) / len(words_a | words_b)
@@ -173,8 +192,8 @@ def _text_similarity(text_a: str, text_b: str) -> float:
     bigram_jaccard = len(bigrams_a & bigrams_b) / len(bigrams_a | bigrams_b) if (bigrams_a | bigrams_b) else 0.0
 
     # 3. Numeric token matching (ports, IPs, version numbers are key identifiers)
-    nums_a = set(_re.findall(r"\d+", text_a))
-    nums_b = set(_re.findall(r"\d+", text_b))
+    nums_a = set(re.findall(r"\d+", text_a))
+    nums_b = set(re.findall(r"\d+", text_b))
     if nums_a and nums_b:
         # Numbers are highly discriminative — different numbers → much less similar
         shared_nums = nums_a & nums_b
@@ -253,24 +272,42 @@ def dedup_check(
 
     text_candidates.sort(key=lambda x: x[1], reverse=True)
 
-    # Step 2: Try embedding refinement on top candidates
+    # Step 2: Try embedding-based dedup
+    # Strategy: use embeddings as the PRIMARY similarity signal when available.
+    # Text pre-filter is used to narrow candidates, but we ALSO include nodes
+    # that share key numeric tokens (ports, IPs) even if text sim is low,
+    # because CJK vs Latin text similarity is unreliable.
     import os as _os
     use_embeddings = _os.environ.get("BRAIN_DISABLE_EMBEDDINGS", "").lower() not in ("1", "true", "yes")
 
     if use_embeddings and len(text_candidates) > 0:
         try:
             from hermes.embedding import batch_embedding_similarity
-            top_nodes = text_candidates[:MAX_EMBEDDING_CANDIDATES]
-            top_nodes_list = [n for n, s in top_nodes]
-            text_sims = [s for n, s in top_nodes]
 
-            # Embed query vs top candidate summaries
+            # Build candidate set: text top-N + numeric-overlap extras
+            text_top = text_candidates[:MAX_EMBEDDING_CANDIDATES]
+            text_top_ids = {n.id for n, _ in text_top}
+
+            # Find nodes sharing key numeric tokens (≥2 digits) that text sim missed
+            query_nums = set(re.findall(r"\d{2,}", summary + " " + content))
+            numeric_extras: list[tuple[KnowledgeNode, float]] = []
+            if query_nums:
+                for node, txt_sim in text_candidates[MAX_EMBEDDING_CANDIDATES:]:
+                    node_nums = set(re.findall(r"\d{2,}", node.summary + " " + node.content))
+                    if query_nums & node_nums:  # shared multi-digit numbers
+                        numeric_extras.append((node, txt_sim))
+
+            # Combine: text top-N + numeric extras
+            all_emb_candidates = text_top + numeric_extras[:10]  # cap extras
+            top_nodes_list = [n for n, _ in all_emb_candidates]
             candidate_summaries = [n.summary for n in top_nodes_list]
+
+            # Embed query vs candidate summaries
             sim_by_summary = batch_embedding_similarity(summary, candidate_summaries)
 
             if sim_by_summary is not None:
                 # Hybrid: 70% embedding + 30% text
-                for i, (node, txt_sim) in enumerate(top_nodes):
+                for i, (node, txt_sim) in enumerate(all_emb_candidates):
                     emb_sim = next((s for idx, s in sim_by_summary if idx == i), txt_sim)
                     hybrid_sim = 0.7 * emb_sim + 0.3 * txt_sim
                     candidates_for_review.append((node, hybrid_sim))

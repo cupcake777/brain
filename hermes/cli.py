@@ -62,6 +62,11 @@ def main(argv: list[str] | None = None) -> int:
     dedup_parser = subparsers.add_parser("dedup", help="Find and mark semantic duplicates in proposals")
     dedup_parser.add_argument("--dry-run", action="store_true", help="Show duplicates without modifying DB")
 
+    dedup_v2_parser = subparsers.add_parser("dedup-v2", help="Find and deprecate duplicate knowledge nodes using embeddings")
+    dedup_v2_parser.add_argument("--dry-run", action="store_true", help="Show duplicates without modifying DB")
+    dedup_v2_parser.add_argument("--threshold", type=float, default=0.85, help="Embedding similarity threshold for auto-merge (default: 0.85)")
+    dedup_v2_parser.add_argument("--review-threshold", type=float, default=0.70, help="Threshold for review candidates (default: 0.70)")
+
     migrate_parser = subparsers.add_parser("migrate-v2", help="Migrate proposals to V2 knowledge_nodes table")
     migrate_parser.add_argument("--dry-run", action="store_true", help="Show what would be migrated without writing")
 
@@ -166,6 +171,115 @@ def main(argv: list[str] | None = None) -> int:
         else:
             print(f"Found {dupes_found} duplicate groups (dry run, no changes)")
         conn.close()
+        return 0
+
+    if args.command == "dedup-v2":
+        """Find and deprecate duplicate knowledge nodes using embedding similarity.
+
+        Strategy:
+        1. Batch embed all active node summaries using bge-small-en-v1.5
+        2. Compute pairwise cosine similarity
+        3. Auto-deprecate pairs above --threshold (default 0.85)
+        4. Report pairs above --review-threshold (default 0.70) for manual review
+        """
+        import os as _os
+        _os.environ.setdefault("ORT_LOGGING_LEVEL", "3")
+        import numpy as np
+        from datetime import datetime, timezone
+        from hermes.repository import HermesRepository as _HRepo
+        from hermes.embedding import embed_texts
+        from hermes.integrate import _text_similarity
+
+        v2_repo = _HRepo(config.db_path)
+        nodes = v2_repo.list_knowledge_nodes(limit=10000)
+        active = [n for n in nodes if n.stage != "deprecated"]
+        merge_threshold = args.threshold
+        review_threshold = args.review_threshold
+
+        if not active:
+            print("No active nodes found.")
+            return 0
+
+        print(f"Scanning {len(active)} active nodes for duplicates...")
+        summaries = [n.summary for n in active]
+
+# Embed all summaries
+        print("Loading embedding model...")
+        try:
+            embs = embed_texts(summaries)
+        except Exception as e:
+            print(f"Embedding failed ({e}), falling back to text similarity only.")
+            embs = None
+
+        if embs is not None:
+            # Embedding-based: compute full pairwise similarity matrix
+            emb_matrix = np.array(embs)
+            norms = np.linalg.norm(emb_matrix, axis=1, keepdims=True)
+            norms[norms == 0] = 1
+            emb_matrix = emb_matrix / norms
+
+            merge_pairs = []
+            review_pairs = []
+
+            for i in range(len(active)):
+                for j in range(i + 1, len(active)):
+                    sim = float(emb_matrix[i] @ emb_matrix[j])
+                    if sim > merge_threshold:
+                        merge_pairs.append((sim, i, j))
+                    elif sim > review_threshold:
+                        review_pairs.append((sim, i, j))
+        else:
+            # Text-only fallback: compute pairwise text similarity
+            merge_threshold = 0.55  # Lower thresholds for text-only mode
+            review_threshold = 0.35
+            print(f"Using text-only mode with lower thresholds: merge={merge_threshold}, review={review_threshold}")
+            merge_pairs = []
+            review_pairs = []
+
+            for i in range(len(active)):
+                for j in range(i + 1, len(active)):
+                    sim = max(
+                        _text_similarity(active[i].summary, active[j].summary),
+                        _text_similarity(active[i].content, active[j].content),
+                    )
+                    if sim > merge_threshold:
+                        merge_pairs.append((sim, i, j))
+                    elif sim > review_threshold:
+                        review_pairs.append((sim, i, j))
+
+        merge_pairs.sort(key=lambda x: x[0], reverse=True)
+        review_pairs.sort(key=lambda x: x[0], reverse=True)
+
+        # Auto-deprecate merge pairs (keep the one with higher confidence)
+        deprecated_count = 0
+        now = datetime.now(timezone.utc).isoformat()
+
+        print(f"\n=== MERGE candidates (emb sim > {merge_threshold}): {len(merge_pairs)} ===")
+        for sim, i, j in merge_pairs:
+            a, b = active[i], active[j]
+            # Keep the node with higher confidence
+            keep, drop = (a, b) if a.confidence >= b.confidence else (b, a)
+            print(f"  sim={sim:.3f}  KEEP [{keep.stage}] c={keep.confidence:.2f} {keep.summary[:70]}")
+            print(f"  {'':14s}DROP [{drop.stage}] c={drop.confidence:.2f} {drop.summary[:70]}")
+            if drop.id not in seen:
+                seen.add(drop.id)
+                if not args.dry_run:
+                    v2_repo.update_knowledge_node(drop.id, stage="deprecated", deprecated_at=now)
+                deprecated_count += 1
+
+        print(f"\n=== REVIEW candidates (emb sim {review_threshold}-{merge_threshold}): {len(review_pairs)} ===")
+        for sim, i, j in review_pairs[:15]:
+            a, b = active[i], active[j]
+            print(f"  sim={sim:.3f}")
+            print(f"    [{a.stage}] c={a.confidence:.2f} {a.summary[:70]}")
+            print(f"    [{b.stage}] c={b.confidence:.2f} {b.summary[:70]}")
+
+        if args.dry_run:
+            print(f"\nDry run: would deprecate {deprecated_count} nodes. No changes made.")
+        else:
+            print(f"\nDeprecated {deprecated_count} duplicate nodes.")
+            remaining = [n for n in v2_repo.list_knowledge_nodes(limit=10000) if n.stage != "deprecated"]
+            print(f"Remaining active nodes: {len(remaining)}")
         return 0
 
     if args.command == "migrate-v2":
