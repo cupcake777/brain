@@ -1463,10 +1463,7 @@ _STAGE_LABEL = {
 # Category badge (reuse existing _CATEGORY_BADGE_MAP + extras)
 _KN_CATEGORY_BADGE_MAP = {
     "rule": "badge-rule",
-    "pattern": "badge-pattern",
-    "insight": "badge-insight",
-    "warning": "badge-warning",
-    "workflow": "badge-approved_db_only",
+    "workflow_hint": "badge-approved_db_only",
     "preference": "badge-pending",
     "fact": "badge-pattern",
 }
@@ -1498,72 +1495,6 @@ def _confidence_bar(confidence: float) -> str:
         f'</div>'
         f'<span class="kn-conf-label">{pct}%</span>'
     )
-
-
-def knowledge_page(
-    *,
-    nodes: list,
-    stage_counts: dict[str, int],
-    active_stage: str = "all",
-    active_category: str = "",
-    active_domain: str = "",
-) -> str:
-    """Render the knowledge tree browser with stage filters."""
-    total = sum(stage_counts.values())
-    stages = [
-        ("all", "All", total),
-        ("draft", "Draft", stage_counts.get("draft", 0)),
-        ("refined", "Refined", stage_counts.get("refined", 0)),
-        ("verified", "Verified", stage_counts.get("verified", 0)),
-        ("canonized", "Canonized", stage_counts.get("canonized", 0)),
-        ("deprecated", "Deprecated", stage_counts.get("deprecated", 0)),
-    ]
-    tab_html = ""
-    for key, label, count in stages:
-        active_cls = " active" if key == active_stage else ""
-        href = f"/knowledge?stage={key}" if key != "all" else "/knowledge"
-        tab_html += (
-            f'<a href="{href}" class="{active_cls.lstrip()}">'
-            f'{_html.escape(label)} <span class="tab-count">{count}</span></a>'
-        )
-
-    cards = ""
-    for n in nodes:
-        nid = str(n.id) if hasattr(n, 'id') else str(n.get("id", ""))
-        summary = str(n.summary[:120]) if hasattr(n, 'summary') else str(n.get("summary", ""))[:120]
-        category = str(n.category) if hasattr(n, 'category') else str(n.get("category", ""))
-        domain = str(n.domain) if hasattr(n, 'domain') else str(n.get("domain", ""))
-        stage = str(n.stage) if hasattr(n, 'stage') else str(n.get("stage", ""))
-        confidence = n.confidence if hasattr(n, 'confidence') else n.get("confidence", 0)
-        source = str(n.source) if hasattr(n, 'source') else str(n.get("source", ""))
-        cards += f"""<a href="/knowledge/{_html.escape(nid)}" class="card">
-  <div class="card-top">{_category_badge(category)} {_stage_badge_knowledge(stage)}</div>
-  <div class="card-preview">{_html.escape(summary)}</div>
-  <div class="card-meta">
-    <span>{_html.escape(domain)}</span>
-    <span>conf: {confidence:.2f}</span>
-  </div>
-</a>"""
-
-    if not nodes:
-        cards = '<div class="empty">No knowledge nodes in this view.</div>'
-
-    body = f"""{_nav(active="knowledge")}
-<h1 style="padding:16px 16px 0;font-size:1.2rem">📚 Knowledge Tree</h1>
-<div class="tabs">{tab_html}</div>
-<div class="search-bar"><input type="text" id="search-input" placeholder="Search knowledge…" oninput="filterCards()"></div>
-<div class="card-grid" id="card-grid">{cards}</div>
-<script>
-function filterCards(){{
-  var q = document.getElementById('search-input').value.toLowerCase();
-  var cards = document.querySelectorAll('#card-grid .card');
-  cards.forEach(function(c){{
-    c.style.display = c.textContent.toLowerCase().includes(q) ? '' : 'none';
-  }});
-}}
-</script>
-"""
-    return _page("Hermes Knowledge", body)
 
 
 def knowledge_tree_page(
@@ -1779,12 +1710,12 @@ def knowledge_tree_page(
   <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--sp-lg);max-width:520px;width:90%;max-height:80vh;overflow-y:auto">
     <h2 style="margin-bottom:var(--sp-md);font-size:1.1rem">Stage 生命周期</h2>
     <div style="font-size:.84rem;line-height:1.7;color:var(--ink)">
-      <div style="margin-bottom:12px"><span style="color:var(--warning);font-weight:700">Draft</span><br>原始知识条目。未经整理的observation或手动输入，需要精炼和验证。</div>
-      <div style="margin-bottom:12px"><span style="color:var(--info);font-weight:700">Refined</span><br>Agent已整理的表述。去冗余、结构化完成，但尚未经事实核查。3天无矛盾自动晋级Verified。</div>
-      <div style="margin-bottom:12px"><span style="color:var(--success);font-weight:700">Verified</span><br>经来源或用户确认的可信事实。7天无矛盾自动晋级Canonized。</div>
-      <div style="margin-bottom:12px"><span style="color:var(--primary);font-weight:700">Canonized</span><br>核心知识。验证通过且被检索使用多次，高置信度，导出至KNOWLEDGE.md。</div>
+      <div style="margin-bottom:12px"><span style="color:var(--warning);font-weight:700">Draft</span><br>原始知识条目。未经整理的observation或手动输入。3天无矛盾自动晋级Refined。</div>
+      <div style="margin-bottom:12px"><span style="color:var(--info);font-weight:700">Refined</span><br>Agent已整理的表述。去冗余、结构化完成，但尚未经事实核查。7天无矛盾自动晋级Canonized。</div>
+      <div style="margin-bottom:12px"><span style="color:var(--success);font-weight:700">Verified</span><br>经来源或用户确认的可信事实。手动Promote到达，确认后可继续晋级Canonized。</div>
+      <div style="margin-bottom:12px"><span style="color:var(--primary);font-weight:700">Canonized</span><br>核心知识。高置信度，导出至KNOWLEDGE.md。</div>
       <div style="margin-bottom:12px"><span style="color:var(--ink-dim);font-weight:700">Deprecated</span><br>垃圾箱。过时、错误或被替代的知识。点击"Empty Trash"永久删除。</div>
-      <div style="margin-top:16px;padding:8px 12px;background:var(--surface);border-radius:var(--r-md);color:var(--ink-muted);font-size:.78rem">Confidence = category_base + source_bonus + evidence×0.1 − contradictions×0.3 + retrieval_bonus − staleness_penalty<br>Clamped [0.0, 1.0]，Retrospect自动重算。</div>
+      <div style="margin-top:16px;padding:8px 12px;background:var(--surface);border-radius:var(--r-md);color:var(--ink-muted);font-size:.78rem">Confidence = category_base + source_bonus + evidence×0.05(上限0.2) − corrections×0.1 + retrieval_bonus + time_bonus − age_penalty<br>Clamped [0.0, 1.0]，Retrospect自动重算。</div>
     </div>
     <div style="margin-top:12px;text-align:right"><button class="kn-action-btn secondary" onclick="document.getElementById('stage-help-overlay').style.display='none'">Close</button></div>
   </div>
@@ -1980,6 +1911,14 @@ function showToast(msg, type) {
 document.addEventListener('keydown', function(e){
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
   if (e.key === 'Escape') { hideConfirm(); }
+  if (e.key === 'p' || e.key === 'P') {
+    var promoteBtn = document.querySelector('button[onclick*="knPromote"]');
+    if (promoteBtn) promoteBtn.click();
+  }
+  if (e.key === 'd' || e.key === 'D') {
+    var deprecateBtn = document.querySelector('button[onclick*="knDeprecate"]');
+    if (deprecateBtn) deprecateBtn.click();
+  }
 });
 """
 
@@ -2011,6 +1950,11 @@ def knowledge_detail_page(
     category = str(node.get("category", "fact"))
     domain = str(node.get("domain", "general"))
     operation = str(node.get("operation", ""))
+    _OPERATION_LABEL = {
+        "draft": "📝 Draft", "refine": "🔧 Refined", "merge": "🔗 Merged",
+        "supersede": "⬆ Superseded", "debug": "🐛 Debugged", "canonize": "✅ Canonized", "deprecate": "🗑 Deprecated",
+    }
+    operation_label = _OPERATION_LABEL.get(operation, operation.title())
     confidence = float(node.get("confidence", 0))
     source = str(node.get("source", ""))
     evidence_raw = str(node.get("evidence", "[]"))
@@ -2244,7 +2188,7 @@ def knowledge_detail_page(
     <span class="label">Category</span><span class="value">{_kn_category_badge(category)}</span>
     <span class="label">Domain</span><span class="value">{_html.escape(domain)}</span>
     <span class="label">Stage</span><span class="value">{_stage_badge(stage)}</span>
-    <span class="label">Operation</span><span class="value">{_html.escape(operation)}</span>
+    <span class="label">Operation</span><span class="value">{_html.escape(operation_label)}</span>
     <span class="label">Source</span><span class="value" style="font-size:.82rem;word-break:break-all">{_html.escape(source)}</span>
     <span class="label">Created</span><span class="value">{_html.escape(created_at)}</span>
     {'<span class="label">Refined</span><span class="value">' + _html.escape(refined_at) + '</span>' if refined_at else ''}

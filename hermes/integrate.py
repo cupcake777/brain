@@ -35,7 +35,7 @@ _LLM_AVAILABLE = os.environ.get("BRAIN_LLM_ENABLED", "1").lower() not in ("0", "
 # Confidence computation (replaces static weight)
 # ---------------------------------------------------------------------------
 
-_CATEGORY_BASE = {"rule": 0.7, "workflow": 0.6, "preference": 0.5, "fact": 0.4}
+_CATEGORY_BASE = {"rule": 0.7, "workflow_hint": 0.6, "preference": 0.5, "fact": 0.4}
 _SOURCE_BONUS = {"user_direct": 0.3, "verified": 0.2, "migration": 0.15, "reflection": 0.1, "conversation": 0.1}
 _EVIDENCE_BONUS_PER = 0.05
 _EVIDENCE_BONUS_CAP = 0.2

@@ -376,6 +376,7 @@ def create_app(
             "confidence": result.confidence,
             "merged_from": result.merged_from,
             "superseded": result.superseded,
+            "message": f"{result.action.replace('_', ' ').title()}: {result.node_id[:8]}… (stage={result.stage})",
         }
 
     @app.post("/api/knowledge/{node_id}/stage")

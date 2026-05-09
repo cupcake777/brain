@@ -354,9 +354,9 @@ class ExportCompiler:
 
     def _compile_knowledge_md(self, nodes: list) -> str:
         # Group by domain, then category
-        _domain_order = {"devops": 0, "network": 1, "apa": 2, "network": 3, "general": 99}
+        _domain_order = {"devops": 0, "network": 1, "study": 2, "security": 3, "general": 99}
         _stage_icons = {"canonized": "✅", "verified": "🔒", "refined": "🔧", "draft": "📝", "deprecated": "❌"}
-        _category_labels = {"rule": "Rule", "workflow": "Workflow", "preference": "Preference", "fact": "Fact"}
+        _category_labels = {"rule": "Rule", "workflow_hint": "Workflow Hint", "preference": "Preference", "fact": "Fact"}
 
         groups: dict[str, list] = {}
         for n in nodes:
