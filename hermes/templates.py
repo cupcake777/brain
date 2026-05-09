@@ -1875,7 +1875,7 @@ function showToast(msg, type) {{
 # ---------------------------------------------------------------------------
 
 _KN_ACTION_JS = """\
-function knAct(url, actionName, successMsg) {
+function knAct(url, actionName, successMsg, body) {
   var overlay = document.getElementById('confirm-overlay');
   var modal = document.getElementById('confirm-modal');
   var modalTitle = document.getElementById('confirm-title');
@@ -1883,7 +1883,9 @@ function knAct(url, actionName, successMsg) {
   modalTitle.textContent = actionName + '?';
   modalBtn.onclick = function() {
     overlay.style.display = 'none';
-    fetch(url, {method:'POST',headers:{'Content-Type':'application/json'}})
+    var opts = {method:'POST',headers:{'Content-Type':'application/json'}};
+    if (body) opts.body = JSON.stringify(body);
+    fetch(url, opts)
       .then(function(r){ return r.json(); })
       .then(function(data){
         showToast(successMsg || 'Done', 'approve');
@@ -1897,10 +1899,10 @@ function knAct(url, actionName, successMsg) {
   modalBtn.focus();
 }
 function knDeprecate(url) {
-  knAct(url, 'Deprecate this knowledge node', 'Node deprecated');
+  knAct(url, 'Deprecate this knowledge node', 'Node deprecated', {stage: 'deprecated'});
 }
-function knPromote(url) {
-  knAct(url, 'Promote to next stage', 'Stage updated');
+function knPromote(url, nextStage) {
+  knAct(url, 'Promote to ' + nextStage, 'Stage updated', {stage: nextStage});
 }
 function knMerge(url, actionName) {
   knAct(url, actionName || 'Merge nodes', 'Nodes merged');
@@ -2121,7 +2123,7 @@ def knowledge_detail_page(
     if stage in next_stage:
         nxt = next_stage[stage]
         btns += (
-            f'<button class="btn btn-approve" onclick="knPromote(&apos;/api/knowledge/{_html.escape(nid)}/stage&apos;)">'
+            f'<button class="btn btn-approve" onclick="knPromote(&apos;/api/knowledge/{_html.escape(nid)}/stage&apos;,&apos;{_html.escape(nxt)}&apos;)">'
             f'⬆ Promote to {_html.escape(nxt.title())} <kbd>P</kbd></button>'
         )
     if stage not in ("deprecated",):

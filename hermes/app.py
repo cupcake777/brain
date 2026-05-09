@@ -384,7 +384,10 @@ def create_app(
         node = repo.get_knowledge_node(node_id)
         if node is None:
             raise HTTPException(status_code=404, detail="node not found")
-        body = await request.json()
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
         new_stage = body.get("stage")
         if new_stage not in ("draft", "refined", "verified", "canonized", "deprecated"):
             raise HTTPException(status_code=400, detail=f"invalid stage: {new_stage}")
