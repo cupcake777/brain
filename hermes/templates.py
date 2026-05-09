@@ -1680,7 +1680,7 @@ def knowledge_tree_page(
 </div>"""
 
     body = f"""{_nav(active="knowledge")}
-<h1 style="padding:16px 16px 0;font-size:1.2rem;font-weight:700;letter-spacing:-.02em">🌳 Knowledge Tree</h1>
+<h1 style="padding:16px 16px 0;font-size:1.2rem;font-weight:700;letter-spacing:-.02em;display:flex;align-items:center;gap:8px">🌳 Knowledge Tree <span class="kn-info-btn" onclick="showStageHelp()" title="Stage definitions">ⓘ</span></h1>
 <div class="dash-grid">{stats_html}</div>
 <div style="padding:0 16px 8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
   <form method="get" action="/knowledge" style="display:flex;gap:8px;flex-wrap:wrap;flex:1" id="kn-filter-form">
@@ -1703,6 +1703,8 @@ def knowledge_tree_page(
 .dash-card-active .label{{color:var(--primary)!important;font-weight:600}}
 .kn-action-btn.danger{{background:var(--danger-muted);color:var(--danger);border-color:var(--danger)}}
 .kn-action-btn.danger:hover{{background:rgba(248,113,113,.25)}}
+.kn-info-btn{{font-size:.85rem;cursor:pointer;opacity:.4;transition:opacity var(--duration);color:var(--ink-muted)}}
+.kn-info-btn:hover{{opacity:1;color:var(--primary)}}
 .kn-filter-select{{
   background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);
   color:var(--ink);font-size:.84rem;padding:8px 12px;min-height:40px;outline:none;
@@ -1773,6 +1775,20 @@ def knowledge_tree_page(
     </form>
   </div>
 </div>
+<div id="stage-help-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center" onclick="if(event.target===this)document.getElementById('stage-help-overlay').style.display='none'">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--sp-lg);max-width:520px;width:90%;max-height:80vh;overflow-y:auto">
+    <h2 style="margin-bottom:var(--sp-md);font-size:1.1rem">Stage 生命周期</h2>
+    <div style="font-size:.84rem;line-height:1.7;color:var(--ink)">
+      <div style="margin-bottom:12px"><span style="color:var(--warning);font-weight:700">Draft</span><br>原始知识条目。未经整理的observation或手动输入，需要精炼和验证。</div>
+      <div style="margin-bottom:12px"><span style="color:var(--info);font-weight:700">Refined</span><br>Agent已整理的表述。去冗余、结构化完成，但尚未经事实核查。3天无矛盾自动晋级Verified。</div>
+      <div style="margin-bottom:12px"><span style="color:var(--success);font-weight:700">Verified</span><br>经来源或用户确认的可信事实。7天无矛盾自动晋级Canonized。</div>
+      <div style="margin-bottom:12px"><span style="color:var(--primary);font-weight:700">Canonized</span><br>核心知识。验证通过且被检索使用多次，高置信度，导出至KNOWLEDGE.md。</div>
+      <div style="margin-bottom:12px"><span style="color:var(--ink-dim);font-weight:700">Deprecated</span><br>垃圾箱。过时、错误或被替代的知识。点击"Empty Trash"永久删除。</div>
+      <div style="margin-top:16px;padding:8px 12px;background:var(--surface);border-radius:var(--r-md);color:var(--ink-muted);font-size:.78rem">Confidence = category_base + source_bonus + evidence×0.1 − contradictions×0.3 + retrieval_bonus − staleness_penalty<br>Clamped [0.0, 1.0]，Retrospect自动重算。</div>
+    </div>
+    <div style="margin-top:12px;text-align:right"><button class="kn-action-btn secondary" onclick="document.getElementById('stage-help-overlay').style.display='none'">Close</button></div>
+  </div>
+</div>
 <script>
 (function(){{
   // Search filter
@@ -1839,6 +1855,9 @@ function exportKnowledge() {{
     .then(function(r) {{ return r.json(); }})
     .then(function(d) {{ showToast(d.message || 'Export complete', 'approve'); }})
     .catch(function(e) {{ showToast('Error: ' + e.message, 'reject'); }});
+}}
+function showStageHelp() {{
+  document.getElementById('stage-help-overlay').style.display = 'flex';
 }}
 function retrospect() {{
   fetch('/api/knowledge/retrospect?dry_run=false', {{method:'POST',headers:{{'Content-Type':'application/json'}}}})
