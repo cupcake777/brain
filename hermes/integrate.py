@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import uuid
 from dataclasses import replace
 from datetime import datetime, timezone
@@ -22,6 +23,12 @@ from typing import Literal
 from hermes.repository import HermesRepository, KnowledgeNode, ThoughtChain
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# LLM availability check
+# ---------------------------------------------------------------------------
+
+_LLM_AVAILABLE = os.environ.get("BRAIN_LLM_ENABLED", "1").lower() not in ("0", "false", "no")
 
 # ---------------------------------------------------------------------------
 # Confidence computation (replaces static weight)
@@ -438,7 +445,82 @@ def integrate(
         )
 
     # Step 2: Contradiction check (for new or review-action nodes)
+    # First: fast heuristic check
     contradiction = check_contradiction(content, existing_active)
+
+    # Second: LLM-powered deep check on top similar nodes (if heuristic found potential)
+    llm_contradictions = None
+    if _LLM_AVAILABLE:
+        try:
+            from hermes.llm_contradiction import batch_llm_contradiction_check
+            llm_contradictions = batch_llm_contradiction_check(
+                content, existing_active, max_candidates=3
+            )
+        except Exception as e:
+            logger.warning("LLM contradiction check failed: %s", e)
+
+    # Use LLM result if available, otherwise heuristic
+    contradict_ids: list[str] = []
+    superseded_id: str | None = None
+    contradiction_explanation = ""
+
+    if llm_contradictions:
+        # LLM found contradictions
+        for lc in llm_contradictions:
+            contradict_ids.append(lc["node_id"])
+            contradiction_explanation += f"vs '{lc['node_summary']}…': {lc['explanation']} ({lc['severity']}). "
+
+        # Auto-deprecate if LLM says prefer_new
+        for lc in llm_contradictions:
+            if lc["resolution"] == "prefer_new" and lc["severity"] == "critical":
+                old_node = repo.get_knowledge_node(lc["node_id"])
+                if old_node and old_node.stage != "deprecated":
+                    repo.update_knowledge_node(
+                        lc["node_id"], stage="deprecated", deprecated_at=now,
+                    )
+                    superseded_id = lc["node_id"]
+                    break  # Only deprecate one node per integrate
+
+        if contradict_ids:
+            tc = ThoughtChain(
+                id=str(uuid.uuid4()),
+                node_id=node_id,
+                action="contradiction_detect",
+                reasoning=f"LLM detected contradiction: {contradiction_explanation}",
+                evidence_used=json.dumps(contradict_ids),
+                decision="flag_contradiction",
+                confidence_in_decision=0.85,
+                created_at=now,
+            )
+            repo.insert_thought_chain(tc)
+
+    elif contradiction:
+        # Fallback to heuristic result
+        contradict_ids = [c.id for c in contradiction.contradicts[:3]]
+        contradiction_explanation = contradiction.explanation
+
+        # If resolution is "prefer_new", mark contradicted nodes as deprecated
+        if contradiction.resolution == "prefer_new" and contradiction.contradicts:
+            for old_node in contradiction.contradicts[:1]:  # Only deprecate the most similar
+                repo.update_knowledge_node(
+                    old_node.id,
+                    stage="deprecated",
+                    deprecated_at=now,
+                )
+                superseded_id = old_node.id
+
+        if contradict_ids:
+            tc = ThoughtChain(
+                id=str(uuid.uuid4()),
+                node_id=node_id,
+                action="contradiction_detect",
+                reasoning=f"Heuristic: {contradiction.explanation}",
+                evidence_used=json.dumps(contradict_ids),
+                decision="flag_contradiction",
+                confidence_in_decision=0.6,
+                created_at=now,
+            )
+            repo.insert_thought_chain(tc)
 
     # Determine confidence
     evidence_list = evidence or []
@@ -450,37 +532,13 @@ def integrate(
 
     # Determine initial stage
     # - High confidence sources (user_direct, verified) → refined
+    # - Contradictions → draft (needs review)
     # - Everything else → draft
     source_type = source.split(":")[0] if ":" in source else source
-    initial_stage = "refined" if source_type in ("user_direct", "verified", "migration") else "draft"
-
-    contradict_ids: list[str] = []
-    superseded_id: str | None = None
-
-    if contradiction:
-        contradict_ids = [c.id for c in contradiction.contradicts[:3]]
-        # If resolution is "prefer_new", mark contradicted nodes as deprecated
-        if contradiction.resolution == "prefer_new" and contradiction.contradicts:
-            for old_node in contradiction.contradicts[:1]:  # Only deprecate the most similar
-                repo.update_knowledge_node(
-                    old_node.id,
-                    stage="deprecated",
-                    deprecated_at=now,
-                )
-                superseded_id = old_node.id
-
-        tc = ThoughtChain(
-            id=str(uuid.uuid4()),
-            node_id=node_id,
-            action="contradiction_detect",
-            reasoning=f"Detected contradiction with {len(contradiction.contradicts)} node(s): "
-                       f"{contradiction.explanation}",
-            evidence_used=json.dumps(contradict_ids),
-            decision="flag_contradiction",
-            confidence_in_decision=0.7,
-            created_at=now,
-        )
-        repo.insert_thought_chain(tc)
+    if contradict_ids:
+        initial_stage = "draft"  # Needs review if contradicts existing
+    else:
+        initial_stage = "refined" if source_type in ("user_direct", "verified", "migration") else "draft"
 
     # Step 3: Create new node
     node = KnowledgeNode(

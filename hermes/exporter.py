@@ -302,3 +302,94 @@ class ExportCompiler:
         if soft_cap is not None:
             return self._enforce_soft_cap(body, soft_cap)
         return body
+
+    # -----------------------------------------------------------------------
+    # V2: Knowledge Node export
+    # -----------------------------------------------------------------------
+
+    def build_knowledge_export(self) -> Path:
+        """Export canonized knowledge nodes to CLAUDE.md format.
+
+        Includes nodes at canonized and verified stages with confidence >= 0.5.
+        """
+        nodes = self.repo.list_knowledge_nodes(
+            limit=5000,
+            order_by="confidence DESC, created_at ASC",
+        )
+        # Only export active, high-confidence knowledge
+        active = [
+            n for n in nodes
+            if n.stage in ("canonized", "verified") and n.confidence >= 0.5
+        ]
+        # Collapse superseded: if a node supersedes another, hide the superseded
+        superseded_ids = {n.supersedes for n in active if n.supersedes}
+        active = [n for n in active if n.id not in superseded_ids]
+
+        if not active:
+            body = self._build_empty_knowledge_md()
+        else:
+            body = self._compile_knowledge_md(active)
+
+        body = self._enforce_cap(body, hard_cap=self.budgets.claude_md_hard_cap)
+        export_dir = self.sync_root / "exports" / "global"
+        export_dir.mkdir(parents=True, exist_ok=True)
+        path = export_dir / "KNOWLEDGE.md"
+        path.write_text(body, encoding="utf-8")
+        self.repo.record_export(
+            scope_type="global",
+            project_key="knowledge",
+            file_name="KNOWLEDGE.md",
+            size_bytes=path.stat().st_size,
+        )
+        return path
+
+    def _build_empty_knowledge_md(self) -> str:
+        now = datetime.now(timezone.utc).isoformat()
+        return (
+            f"# KNOWLEDGE.md\n\n"
+            f"<!-- Hermes Brain V2: auto-generated from knowledge nodes. -->\n"
+            f"<!-- Updated: {now} | Nodes: 0 -->\n\n"
+            f"*No canonized knowledge yet.*\n"
+        )
+
+    def _compile_knowledge_md(self, nodes: list) -> str:
+        # Group by domain, then category
+        _domain_order = {"devops": 0, "network": 1, "apa": 2, "network": 3, "general": 99}
+        _stage_icons = {"canonized": "✅", "verified": "🔒", "refined": "🔧", "draft": "📝", "deprecated": "❌"}
+        _category_labels = {"rule": "Rule", "workflow": "Workflow", "preference": "Preference", "fact": "Fact"}
+
+        groups: dict[str, list] = {}
+        for n in nodes:
+            domain = n.domain or "general"
+            groups.setdefault(domain, []).append(n)
+
+        now = datetime.now(timezone.utc).isoformat()
+        header = (
+            f"# KNOWLEDGE.md\n\n"
+            f"<!-- Hermes Brain V2: auto-generated from knowledge nodes. -->\n"
+            f"<!-- Updated: {now} | Nodes: {len(nodes)} -->\n\n"
+        )
+
+        sections = []
+        for domain in sorted(groups, key=lambda d: _domain_order.get(d, 50)):
+            items = groups[domain]
+            section = f"## {domain.title()}\n\n"
+            for n in items:
+                cat = _category_labels.get(n.category, n.category.title())
+                icon = _stage_icons.get(n.stage, "•")
+                conf_bar = "█" * int(n.confidence * 10) + "░" * (10 - int(n.confidence * 10))
+                section += f"### {icon} {cat}: {n.summary[:80]}\n"
+                section += f"Confidence: {n.confidence:.2f} [{conf_bar}] | Stage: {n.stage} | Source: {n.source.split(':')[0]}\n\n"
+                # Split content into readable lines
+                for line in n.content.split("\n"):
+                    line = line.strip()
+                    if line:
+                        section += f"- {line}\n"
+                section += "\n"
+            sections.append(section)
+
+        footer = (
+            "---\n\n"
+            f"*End of Hermes-managed knowledge. {len(nodes)} canonized entries.*\n"
+        )
+        return header + "\n".join(sections) + footer

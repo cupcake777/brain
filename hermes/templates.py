@@ -1524,6 +1524,9 @@ function knDeprecate(url) {
 function knPromote(url) {
   knAct(url, 'Promote to next stage', 'Stage updated');
 }
+function knMerge(url, actionName) {
+  knAct(url, actionName || 'Merge nodes', 'Nodes merged');
+}
 function hideConfirm() {
   document.getElementById('confirm-overlay').style.display = 'none';
 }
@@ -1748,6 +1751,16 @@ def knowledge_detail_page(
             f'<button class="btn btn-reject" onclick="knDeprecate(&apos;/api/knowledge/{_html.escape(nid)}/stage&apos;)">'
             f'🗑 Deprecate <kbd>D</kbd></button>'
         )
+    # Merge buttons for contradicted nodes
+    if contradict_list:
+        for cid in contradict_list:
+            cid_esc = _html.escape(str(cid))
+            btns += (
+                f'<button class="btn" style="background:var(--primary);color:#fff" '
+                f'onclick="knMerge(&apos;/api/knowledge/{cid_esc}/merge/{_html.escape(nid)}&apos;, '
+                f'&apos;Merge this node into {cid_esc[:8]}…&apos;)">'
+                f'🔗 Merge into {cid_esc[:8]}… </button>'
+            )
     if not btns:
         btns = f'<div class="empty" style="flex:1">Node is {stage} — no actions available.</div>'
 

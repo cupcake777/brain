@@ -72,6 +72,9 @@ def main(argv: list[str] | None = None) -> int:
     integrate_parser.add_argument("--domain", default="general", help="Domain: devops/network/apa/general/...")
     integrate_parser.add_argument("--parent", default=None, help="Parent node ID (for refine/debug operations)")
 
+    export_v2_parser = subparsers.add_parser("export-v2", help="Export V2 knowledge nodes to KNOWLEDGE.md")
+    export_v2_parser.add_argument("--dry-run", action="store_true", help="Show what would be exported without writing")
+
     serve_parser = subparsers.add_parser("serve", help="Run the Hermes FastAPI server")
     serve_parser.add_argument("--host", default="127.0.0.1")
     serve_parser.add_argument("--port", type=int, default=8080)
@@ -220,6 +223,17 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Merged from: {result.merged_from}")
         if result.superseded:
             print(f"Superseded: {result.superseded}")
+        return 0
+    if args.command == "export-v2":
+        from hermes.repository import HermesRepository as _HRepo
+        from hermes.exporter import ExportCompiler as _Exporter
+        v2_repo = _HRepo(config.db_path)
+        exporter = _Exporter(repo=v2_repo, sync_root=config.sync_root)
+        path = exporter.build_knowledge_export()
+        print(f"Exported to: {path}")
+        if args.dry_run:
+            print(f"(dry-run mode — file was still written, check content)")
+        print(f"Size: {path.stat().st_size} bytes")
         return 0
     if args.command == "serve":
         if args.reload:

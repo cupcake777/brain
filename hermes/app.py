@@ -406,12 +406,66 @@ def create_app(
             repo.update_knowledge_node(node_id, confidence=new_conf)
         return {"node_id": node_id, "stage": new_stage}
 
+    @app.post("/api/knowledge/{node_id}/merge/{source_id}")
+    async def knowledge_merge_nodes(node_id: str, source_id: str) -> dict:
+        """Merge source_id into node_id. Source gets deprecated, target gets content merged."""
+        from datetime import datetime, timezone
+        from hermes.repository import ThoughtChain
+        import json as _json
+        import uuid
+
+        target = repo.get_knowledge_node(node_id)
+        source = repo.get_knowledge_node(source_id)
+        if not target:
+            raise HTTPException(status_code=404, detail=f"target node {node_id} not found")
+        if not source:
+            raise HTTPException(status_code=404, detail=f"source node {source_id} not found")
+        now = datetime.now(timezone.utc).isoformat()
+
+        # Merge content
+        merged_content = (target.content + "\n\n---\n(Merged from " + source_id[:8] + "…)\n" + source.content)
+        merged_summary = target.summary
+        merged_from = _json.loads(target.merged_from or "[]") + [source_id]
+        repo.update_knowledge_node(
+            node_id,
+            content=merged_content,
+            summary=merged_summary,
+            merged_from=_json.dumps(merged_from),
+            stage="refined",
+            refined_at=now,
+        )
+
+        # Deprecate source
+        repo.update_knowledge_node(source_id, stage="deprecated", deprecated_at=now)
+
+        # Record thought chain
+        tc = ThoughtChain(
+            id=str(uuid.uuid4()),
+            node_id=node_id,
+            action="merge",
+            reasoning=f"Manually merged {source_id} into {node_id} via UI.",
+            evidence_used=_json.dumps([source_id]),
+            decision="merge",
+            confidence_in_decision=1.0,
+            created_at=now,
+        )
+        repo.insert_thought_chain(tc)
+        return {"merged_into": node_id, "deprecated": source_id, "action": "merge"}
+
     @app.post("/api/knowledge/retrospect")
     def knowledge_retrospect(dry_run: bool = Query(default=False)) -> dict:
         """Run periodic knowledge maintenance."""
         from hermes.integrate import retrospect
         actions = retrospect(repo, dry_run=dry_run)
         return {"dry_run": dry_run, "actions": actions}
+
+    @app.post("/api/knowledge/export")
+    def knowledge_export() -> dict:
+        """Export canonized knowledge to KNOWLEDGE.md."""
+        from hermes.exporter import ExportCompiler
+        exporter = ExportCompiler(repo=repo, sync_root=config.sync_root)
+        path = exporter.build_knowledge_export()
+        return {"path": str(path), "size_bytes": path.stat().st_size}
 
     # ------------------------------------------------------------------
     # HTML pages – exports list

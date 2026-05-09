@@ -42,18 +42,50 @@ def _get_model():
         return None
 
 
+# Embedding cache: text[:200] → numpy array
+_embed_cache: dict[str, np.ndarray] = {}
+
+
 def embed_texts(texts: list[str]) -> list[np.ndarray] | None:
-    """Embed a list of texts. Returns None if embedding is unavailable."""
+    """Embed a list of texts. Returns None if embedding is unavailable.
+    
+    Results are cached in memory for the session to avoid re-embedding.
+    Cache key: first 200 chars of text.
+    """
+    global _embed_cache
     model = _get_model()
     if model is None or not texts:
         return None
     
-    try:
-        embeddings = list(model.embed(texts))
-        return [np.array(e) for e in embeddings]
-    except Exception as e:
-        logger.warning("Embedding failed: %s", e)
-        return None
+    # Check which texts need embedding
+    uncached_texts = []
+    uncached_indices = []
+    for i, text in enumerate(texts):
+        key = text[:200]
+        if key not in _embed_cache:
+            uncached_texts.append(text)
+            uncached_indices.append(i)
+    
+    # Embed uncached texts in batch
+    if uncached_texts:
+        try:
+            new_embeddings = list(model.embed(uncached_texts))
+            for text, emb in zip(uncached_texts, new_embeddings):
+                _embed_cache[text[:200]] = np.array(emb)
+        except Exception as e:
+            logger.warning("Embedding failed: %s", e)
+            return None
+    
+    # Build results from cache
+    results = []
+    for text in texts:
+        key = text[:200]
+        if key in _embed_cache:
+            results.append(_embed_cache[key])
+        else:
+            return None  # Shouldn't happen
+    
+    return results
 
 
 def embed_text(text: str) -> np.ndarray | None:
