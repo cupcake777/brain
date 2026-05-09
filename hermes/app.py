@@ -18,10 +18,8 @@ from hermes.exporter import ExportCompiler
 from hermes.repository import HermesRepository
 from hermes.status import StatusPublisher
 from hermes.templates import (
-    dashboard_page,
     gallery_page,
     login_page,
-    pools_page,
     review_detail_page,
     review_queue_page,
     security_page,
@@ -119,6 +117,21 @@ def create_app(
     def health() -> dict[str, str]:
         return {"status": "ok"}
 
+    def _get_next_proposal_id(repo: HermesRepository, state: str, current_id: str) -> str:
+        """Get the next proposal ID in the same state queue after the current one."""
+        if state == "all":
+            proposals = repo.list_proposals_ordered()
+        else:
+            proposals = repo.list_proposals_by_state(state)
+        ids = [str(p.get("proposal_id", "")) for p in proposals]
+        try:
+            idx = ids.index(current_id)
+            if idx + 1 < len(ids):
+                return ids[idx + 1]
+        except ValueError:
+            pass
+        return ""
+
     @app.get("/api/review/pending")
     def review_pending() -> dict[str, object]:
         return {"items": repo.list_proposals_by_state("pending")}
@@ -131,13 +144,14 @@ def create_app(
             raise HTTPException(status_code=404, detail="proposal not found") from exc
 
     @app.post("/api/review/{proposal_id}/approve-db-only")
-    def approve_db_only(proposal_id: str) -> dict[str, str]:
+    def approve_db_only(proposal_id: str, state: str = Query(default="pending")) -> dict[str, str]:
         repo.transition_state(proposal_id, "approved_db_only")
         status_publisher.publish()
-        return {"proposal_id": proposal_id, "state": "approved_db_only"}
+        next_id = _get_next_proposal_id(repo, state, proposal_id)
+        return {"proposal_id": proposal_id, "state": "approved_db_only", "next_id": next_id}
 
     @app.post("/api/review/{proposal_id}/approve-for-export")
-    def approve_for_export(proposal_id: str) -> dict[str, str]:
+    def approve_for_export(proposal_id: str, state: str = Query(default="pending")) -> dict[str, str]:
         proposal = repo.get_proposal(proposal_id)
         repo.transition_state(proposal_id, "approved_for_export")
         if proposal["project_key"] == "global" or proposal["scope"] == "global":
@@ -146,10 +160,11 @@ def create_app(
         else:
             exporter.build_project_export(str(proposal["project_key"]))
         status_publisher.publish()
-        return {"proposal_id": proposal_id, "state": "approved_for_export"}
+        next_id = _get_next_proposal_id(repo, state, proposal_id)
+        return {"proposal_id": proposal_id, "state": "approved_for_export", "next_id": next_id}
 
     @app.post("/api/review/{proposal_id}/promote-to-export")
-    def promote_to_export(proposal_id: str) -> dict[str, str]:
+    def promote_to_export(proposal_id: str, state: str = Query(default="pending")) -> dict[str, str]:
         """Promote an approved_db_only proposal to approved_for_export."""
         proposal = repo.get_proposal(proposal_id)
         if proposal["state"] != "approved_db_only":
@@ -161,13 +176,15 @@ def create_app(
         else:
             exporter.build_project_export(str(proposal["project_key"]))
         status_publisher.publish()
-        return {"proposal_id": proposal_id, "state": "approved_for_export"}
+        next_id = _get_next_proposal_id(repo, state, proposal_id)
+        return {"proposal_id": proposal_id, "state": "approved_for_export", "next_id": next_id}
 
     @app.post("/api/review/{proposal_id}/reject")
-    def reject(proposal_id: str) -> dict[str, str]:
+    def reject(proposal_id: str, state: str = Query(default="pending")) -> dict[str, str]:
         repo.transition_state(proposal_id, "rejected")
         status_publisher.publish()
-        return {"proposal_id": proposal_id, "state": "rejected"}
+        next_id = _get_next_proposal_id(repo, state, proposal_id)
+        return {"proposal_id": proposal_id, "state": "rejected", "next_id": next_id}
 
     # ------------------------------------------------------------------
     # Proposal submission endpoint (for remote agents)
@@ -202,21 +219,22 @@ def create_app(
         if not content.strip():
             raise HTTPException(status_code=400, detail="empty proposal content")
 
-        # Generate filename if not provided
-        if not filename:
-            filename = f"{uuid.uuid4()}.md"
+        # Sanitize filename — prevent path traversal
+        safe_filename = Path(filename).name  # strips any directory components
+        if not safe_filename or safe_filename.startswith("."):
+            safe_filename = f"{uuid.uuid4()}.md"
 
         # Ensure .md extension
-        if not filename.endswith(".md"):
-            filename += ".md"
+        if not safe_filename.endswith(".md"):
+            safe_filename += ".md"
 
         # Write to inbox
         proposals_dir = sync_root / "inbox" / "proposals"
         proposals_dir.mkdir(parents=True, exist_ok=True)
-        filepath = proposals_dir / filename
+        filepath = proposals_dir / safe_filename
         filepath.write_text(content, encoding="utf-8")
 
-        return {"status": "ok", "filename": filename, "message": "Proposal written to inbox; will be ingested on next watch cycle"}
+        return {"status": "ok", "filename": safe_filename, "message": "Proposal written to inbox; will be ingested on next watch cycle"}
 
     # ------------------------------------------------------------------
     # Export file endpoints
@@ -224,14 +242,20 @@ def create_app(
 
     @app.get("/exports/projects/{file_name}", response_class=PlainTextResponse)
     def get_project_export(file_name: str) -> str:
-        path = sync_root / "exports" / "projects" / file_name
+        base_dir = (sync_root / "exports" / "projects").resolve()
+        path = (base_dir / file_name).resolve()
+        if not str(path).startswith(str(base_dir) + os.sep) and path != base_dir:
+            raise HTTPException(status_code=403, detail="access denied")
         if not path.exists():
             raise HTTPException(status_code=404, detail="export not found")
         return path.read_text(encoding="utf-8")
 
     @app.get("/exports/global/{file_name}", response_class=PlainTextResponse)
     def get_global_export(file_name: str) -> str:
-        path = sync_root / "exports" / "global" / file_name
+        base_dir = (sync_root / "exports" / "global").resolve()
+        path = (base_dir / file_name).resolve()
+        if not str(path).startswith(str(base_dir) + os.sep) and path != base_dir:
+            raise HTTPException(status_code=403, detail="access denied")
         if not path.exists():
             raise HTTPException(status_code=404, detail="export not found")
         return path.read_text(encoding="utf-8")
@@ -240,6 +264,152 @@ def create_app(
     def get_status() -> str:
         path = status_publisher.publish()
         return path.read_text(encoding="utf-8")
+
+    # ------------------------------------------------------------------
+    # V2 Knowledge API endpoints
+    # ------------------------------------------------------------------
+
+    @app.get("/api/knowledge/stats")
+    def knowledge_stats() -> dict:
+        """Return node counts by stage."""
+        counts = repo.count_knowledge_nodes_by_stage()
+        total = sum(counts.values())
+        return {"total": total, "by_stage": counts}
+
+    @app.get("/api/knowledge/list")
+    def knowledge_list(
+        stage: str | None = None,
+        category: str | None = None,
+        domain: str | None = None,
+        limit: int = Query(default=50, le=500),
+        offset: int = Query(default=0, ge=0),
+    ) -> list[dict]:
+        """List knowledge nodes with optional filters."""
+        nodes = repo.list_knowledge_nodes(
+            stage=stage, category=category, domain=domain,
+            limit=limit, offset=offset,
+        )
+        return [
+            {
+                "id": n.id,
+                "summary": n.summary[:120],
+                "category": n.category,
+                "domain": n.domain,
+                "stage": n.stage,
+                "confidence": n.confidence,
+                "source": n.source,
+                "created_at": n.created_at,
+                "supersedes": n.supersedes,
+            }
+            for n in nodes
+        ]
+
+    @app.get("/api/knowledge/{node_id}")
+    def knowledge_detail(node_id: str) -> dict:
+        """Get full details of a knowledge node including thought chains."""
+        node = repo.get_knowledge_node(node_id)
+        if node is None:
+            raise HTTPException(status_code=404, detail="node not found")
+        chains = repo.get_thought_chains(node_id)
+        children = repo.find_children(node_id)
+        return {
+            "node": {
+                "id": node.id,
+                "parent_id": node.parent_id,
+                "content": node.content,
+                "summary": node.summary,
+                "category": node.category,
+                "domain": node.domain,
+                "stage": node.stage,
+                "operation": node.operation,
+                "confidence": node.confidence,
+                "source": node.source,
+                "evidence": node.evidence,
+                "supersedes": node.supersedes,
+                "merged_from": node.merged_from,
+                "contradicts": node.contradicts,
+                "verified_by": node.verified_by,
+                "created_at": node.created_at,
+                "refined_at": node.refined_at,
+                "verified_at": node.verified_at,
+                "deprecated_at": node.deprecated_at,
+                "retrieval_count": node.retrieval_count,
+                "correction_count": node.correction_count,
+            },
+            "thought_chains": [
+                {
+                    "id": tc.id,
+                    "action": tc.action,
+                    "reasoning": tc.reasoning,
+                    "decision": tc.decision,
+                    "confidence": tc.confidence_in_decision,
+                    "created_at": tc.created_at,
+                }
+                for tc in chains
+            ],
+            "children_count": len(children),
+        }
+
+    @app.post("/api/knowledge/integrate")
+    async def knowledge_integrate(request: Request) -> dict:
+        """Integrate new knowledge into the knowledge tree via API."""
+        from hermes.integrate import integrate as _integrate
+        body = await request.json()
+        content = body.get("content", "")
+        if not content:
+            raise HTTPException(status_code=400, detail="content is required")
+        result = _integrate(
+            content=content,
+            source=body.get("source", "api"),
+            category=body.get("category", "fact"),
+            domain=body.get("domain", "general"),
+            parent_id=body.get("parent_id"),
+            evidence=body.get("evidence"),
+            repo=repo,
+        )
+        return {
+            "action": result.action,
+            "node_id": result.node_id,
+            "stage": result.stage,
+            "confidence": result.confidence,
+            "merged_from": result.merged_from,
+            "superseded": result.superseded,
+        }
+
+    @app.post("/api/knowledge/{node_id}/stage")
+    async def knowledge_update_stage(node_id: str, request: Request) -> dict:
+        """Update a knowledge node's stage (promote/demote)."""
+        node = repo.get_knowledge_node(node_id)
+        if node is None:
+            raise HTTPException(status_code=404, detail="node not found")
+        body = await request.json()
+        new_stage = body.get("stage")
+        if new_stage not in ("draft", "refined", "verified", "canonized", "deprecated"):
+            raise HTTPException(status_code=400, detail=f"invalid stage: {new_stage}")
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc).isoformat()
+        update_fields = {"stage": new_stage}
+        if new_stage == "refined":
+            update_fields["refined_at"] = now
+        elif new_stage == "verified":
+            update_fields["verified_at"] = now
+        elif new_stage == "deprecated":
+            update_fields["deprecated_at"] = now
+        repo.update_knowledge_node(node_id, **update_fields)
+        # Recompute confidence after stage change
+        from hermes.integrate import recompute_confidence
+        updated_node = repo.get_knowledge_node(node_id)
+        if updated_node:
+            new_conf = recompute_confidence(updated_node, repo)
+            repo.update_knowledge_node(node_id, confidence=new_conf)
+        return {"node_id": node_id, "stage": new_stage}
+
+    @app.post("/api/knowledge/retrospect")
+    def knowledge_retrospect(dry_run: bool = Query(default=False)) -> dict:
+        """Run periodic knowledge maintenance."""
+        from hermes.integrate import retrospect
+        actions = retrospect(repo, dry_run=dry_run)
+        return {"dry_run": dry_run, "actions": actions}
 
     # ------------------------------------------------------------------
     # HTML pages – exports list
@@ -300,34 +470,20 @@ def create_app(
         return review_detail_page(proposal=proposal)
 
     # ------------------------------------------------------------------
-    # HTML pages – dashboard
+    # Security Monitor – standalone page
     # ------------------------------------------------------------------
 
-    @app.get("/dashboard", response_class=HTMLResponse)
-    def dashboard_route() -> str:
-        counts = repo.counts_by_state()
-        oldest = repo.oldest_pending_age_seconds()
-        export_records = [_asdict(r) for r in repo.list_export_records()]
-        # Security data for integrated dashboard
+    @app.get("/security", response_class=HTMLResponse, response_model=None)
+    def security_route() -> str:
         do_status = _collect_do_security()
         proxy_status, proxy_traffic = _collect_proxy_security()
-        return dashboard_page(
-            counts=counts,
-            oldest_pending=oldest,
-            export_records=export_records,
+        return security_page(
             do_status=do_status,
             proxy_status=proxy_status,
             proxy_traffic=proxy_traffic,
         )
 
-    @app.get("/security", response_class=HTMLResponse)
-    def security_redirect_route() -> str:
-        """Redirect old /security to /dashboard (security is now a dashboard section)."""
-        return RedirectResponse(url="/dashboard")
-
-    # ------------------------------------------------------------------
-    # Quota board – pulls live data from HF Space
-    # ------------------------------------------------------------------
+    # --- Pools/Quota/Grok data collection (kept for /api endpoints) ---
 
     _QUOTA_API_BASE = os.environ.get("QUOTA_API_BASE", "")
     _QUOTA_API_KEY = os.environ.get("QUOTA_API_KEY", "")
@@ -412,32 +568,6 @@ def create_app(
         except Exception as exc:
             return [], {}, "", str(exc)
 
-    @app.get("/pools", response_class=HTMLResponse)
-    def pools_route(tab: str = "cpa") -> str:
-        accounts, summary, last_updated, quota_error = _fetch_quota_data()
-        tokens, grok_summary, grok_last_updated, grok_error = _fetch_grok_data()
-        return pools_page(
-            accounts=accounts,
-            summary=summary,
-            last_updated=last_updated,
-            space_error=quota_error,
-            tokens=tokens,
-            grok_summary=grok_summary,
-            grok_last_updated=grok_last_updated,
-            grok_error=grok_error,
-            active_tab=tab,
-        )
-
-    @app.get("/quota", response_class=HTMLResponse)
-    def quota_redirect() -> str:
-        """Redirect old /quota to /pools?tab=cpa."""
-        return RedirectResponse(url="/pools?tab=cpa")
-
-    @app.get("/grok", response_class=HTMLResponse)
-    def grok_redirect() -> str:
-        """Redirect old /grok to /pools?tab=grok."""
-        return RedirectResponse(url="/pools?tab=grok")
-
     @app.get("/api/quota")
     def quota_api() -> dict:
         """JSON API for quota data."""
@@ -454,7 +584,7 @@ def create_app(
     # ------------------------------------------------------------------
 
     _GROK_API_BASE = "http://127.0.0.1:8000"
-    _GROK_API_KEY=os.environ.get("GROK_API_KEY", "grok2api")
+    _GROK_API_KEY = os.environ.get("GROK_API_KEY", "grok2api")
 
     def _fetch_grok_data() -> tuple[list[dict], dict, str, str | None]:
         """Fetch token data from grok2api and classify tokens.
@@ -697,19 +827,32 @@ def create_app(
         except Exception:
             pass
 
-        # --- Fetch proxy VPS security data via SSH ---
-        try:
-            out = _sp.run(
-                ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=5",
-                 "-i", os.environ.get("BRAIN_SSH_KEY", os.path.expanduser("~/.ssh/id_rsa")), "-p", os.environ.get("BRAIN_SSH_PORT", "22"),
-                 os.environ.get("BRAIN_PROXY_HOST", ""),
-                 "echo '===F2B==='; fail2ban-client status sshd 2>/dev/null || echo 'f2b-err'; "
-                 "echo '===UFW==='; ufw status numbered 2>/dev/null || echo 'ufw-err'; "
-                 "echo '===UPTIME==='; uptime -p; "
-                 "echo '===SYSCTL==='; sysctl -n net.ipv4.tcp_syncookies net.ipv4.conf.all.accept_redirects net.ipv4.ip_forward"],
-                capture_output=True, text=True, timeout=15
-            )
-            import re as _re
+        # --- Fetch proxy VPS security data via SSH (with retry for intermittent connectivity) ---
+        import re as _re, logging as _logging
+        _ssh_logger = _logging.getLogger("brain.security")
+        _ssh_key = os.environ.get("BRAIN_SSH_KEY", os.path.expanduser("~/.ssh/id_rsa"))
+        _ssh_port = os.environ.get("BRAIN_SSH_PORT", "22")
+        _ssh_host = os.environ.get("BRAIN_PROXY_HOST", "")
+        _ssh_cmd = [
+            "ssh", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=8",
+            "-o", "ServerAliveInterval=5", "-o", "ServerAliveCountMax=2",
+            "-i", _ssh_key, "-p", _ssh_port, _ssh_host,
+            "echo '===F2B==='; fail2ban-client status sshd 2>/dev/null || echo 'f2b-err'; "
+            "echo '===UFW==='; ufw status numbered 2>/dev/null || echo 'ufw-err'; "
+            "echo '===UPTIME==='; uptime -p; "
+            "echo '===SYSCTL==='; sysctl -n net.ipv4.tcp_syncookies net.ipv4.conf.all.accept_redirects net.ipv4.ip_forward"
+        ]
+        out = None
+        for _attempt in range(3):
+            try:
+                out = _sp.run(_ssh_cmd, capture_output=True, text=True, timeout=25)
+                if out.returncode == 0 and out.stdout.strip():
+                    break
+                _ssh_logger.warning("SSH attempt %d RC=%s stderr=%s", _attempt + 1, out.returncode, out.stderr[:200])
+            except _sp.TimeoutExpired:
+                _ssh_logger.warning("SSH attempt %d timed out", _attempt + 1)
+        if out and out.returncode == 0 and out.stdout.strip():
+            _ssh_logger.info("SSH success RC=%s stdout_len=%s", out.returncode, len(out.stdout))
             text = out.stdout
             sections = text.split("===")
             # Parse fail2ban
@@ -753,15 +896,10 @@ def create_app(
                         "accept_redirects": sysctl_section[1].strip() != "0",
                         "ip_forward": sysctl_section[2].strip() != "0",
                     }
-        except Exception:
-            pass
+        else:
+            _ssh_logger.warning("SSH failed after 3 attempts: no data")
 
         return proxy_status, proxy_traffic
-
-    @app.get("/security", response_class=HTMLResponse, response_model=None)
-    def security_route() -> str:
-        """Redirect old /security to /dashboard (security is now a dashboard section)."""
-        return RedirectResponse(url="/dashboard")
 
     @app.get("/api/security", response_model=None)
     def security_api() -> dict:
@@ -786,7 +924,7 @@ def create_app(
         if len(new_password) < 6:
             return settings_page(error="Password must be at least 6 characters")
         # Update password in config
-        config.auth_password = new_password
+        object.__setattr__(config, "auth_password", new_password)
         # Also write to .env for persistence
         import hashlib as _hl
         try:
@@ -810,16 +948,19 @@ def create_app(
     # Admin: hot-reload templates without full restart
     # ------------------------------------------------------------------
     @app.post("/api/admin/reload")
-    def admin_reload_templates() -> dict:
+    def admin_reload_templates(request: Request) -> dict:
         """Hot-reload hermes.templates module (no process restart needed)."""
+        if auth_enabled and not _has_valid_cookie(request):
+            from fastapi import HTTPException
+            raise HTTPException(status_code=403, detail="Admin authentication required")
         import importlib
         from hermes import templates as _tmpl_mod
         try:
             importlib.reload(_tmpl_mod)
             # Re-bind all template functions in this module's scope
             from hermes.templates import (
-                dashboard_page, gallery_page, login_page,
-                pools_page, review_detail_page, review_queue_page,
+                gallery_page, login_page,
+                review_detail_page, review_queue_page,
                 security_page, settings_page,
             )
             return {"ok": True, "message": "Templates reloaded successfully"}

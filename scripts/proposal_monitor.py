@@ -57,24 +57,25 @@ def send_telegram(text: str):
 def check_proposals():
     db = sqlite3.connect(DB_PATH)
     db.row_factory = sqlite3.Row
-    cur = db.cursor()
+    try:
+        cur = db.cursor()
 
-    cutoff = (datetime.utcnow() - timedelta(days=SILENCE_DAYS)).isoformat()
+        cutoff = (datetime.utcnow() - timedelta(days=SILENCE_DAYS)).isoformat()
 
-    # Get latest proposal per agent
-    cur.execute("""
-        SELECT source_agent, MAX(created_at) as last_proposal, COUNT(*) as total
-        FROM proposals
-        GROUP BY source_agent
-    """)
-    agent_stats = {}
-    for row in cur.fetchall():
-        agent_stats[row["source_agent"]] = {
-            "last": row["last_proposal"],
-            "total": row["total"],
-        }
-
-    db.close()
+        # Get latest proposal per agent
+        cur.execute("""
+            SELECT source_agent, MAX(created_at) as last_proposal, COUNT(*) as total
+            FROM proposals
+            GROUP BY source_agent
+        """)
+        agent_stats = {}
+        for row in cur.fetchall():
+            agent_stats[row["source_agent"]] = {
+                "last": row["last_proposal"],
+                "total": row["total"],
+            }
+    finally:
+        db.close()
 
     alerts = []
 

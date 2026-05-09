@@ -33,62 +33,68 @@ STATE_FILE = Path(os.environ.get("BRAIN_DATA_DIR", str(Path(__file__).resolve().
 # ── Research Interest Keywords ─────────────────────────────────────────
 # Weighted keywords for relevance scoring
 RESEARCH_KEYWORDS = {
-    # === Core: APA/QTL ===
-    "apa": 3.0,
-    "polyadenylation": 3.0,
-    "3'utr": 2.5,
-    "3' aqtl": 3.0,
-    "3'aqtl": 3.0,
-    "apa qtl": 3.0,
-    "colocalization": 2.0,
-    "coloc": 2.0,
-    "eqtl": 2.0,
-    "sqtl": 1.5,
-    "single cell": 1.5,
-    "scRNA": 1.5,
-    "brain": 1.0,
-    "prefrontal": 1.5,
-    "cortex": 1.0,
-    "neuropsychiatric": 1.5,
-    "schizophrenia": 1.5,
-    "bipolar": 1.0,
-    "lifespan": 1.0,
-    "developmental": 1.0,
-    "postmortem": 1.0,
-    "deconvolution": 1.0,
-    "susi": 1.5,
-    "finemapping": 1.5,
-    "fine-mapping": 1.5,
+    # === Core: Neurogenomics & APA (focused but not exclusive) ===
+    "apa": 2.5,
+    "polyadenylation": 2.5,
+    "3'utr": 2.0,
+    "aqtl": 2.5,
     "daPas": 2.0,
-    "das": 1.0,
     "pas": 1.0,
     "cleavage": 0.5,
-    # === Adjacent: Statistical genetics ===
+    # === Core: QTL & Statistical Genetics ===
+    "eqtl": 2.5,
+    "sqtl": 2.0,
+    "colocalization": 2.0,
+    "coloc": 2.0,
+    "finemapping": 2.0,
+    "fine-mapping": 2.0,
     "mendelian randomization": 2.0,
     "causal variant": 1.5,
     "polygenic risk": 1.5,
     "prs": 1.5,
     "gwas": 1.5,
-    "ldsc": 1.0,
-    "magma": 1.0,
-    # === Adjacent: Single-cell / spatial ===
+    # === Core: Brain & Neuroscience ===
+    "brain": 1.5,
+    "prefrontal": 2.0,
+    "cortex": 1.0,
+    "neuropsychiatric": 2.0,
+    "schizophrenia": 2.0,
+    "bipolar": 1.5,
+    "neurodevelopment": 2.0,
+    "postmortem": 1.5,
+    "lifespan": 1.0,
+    # === Adjacent: Single-cell / Spatial ===
+    "single cell": 2.0,
+    "scRNA": 1.5,
     "spatial transcriptomics": 2.0,
     "cell type deconvolution": 1.5,
-    "dynamic eqtl": 2.0,
-    # === Adjacent: Population genomics ===
-    "pangenome": 1.5,
-    "long-read sequencing": 1.5,
-    "structural variation": 1.0,
-    "epigenome-wide": 1.5,
-    # === Adjacent: Bioinformatics tools ===
-    "batch effect": 1.0,
-    "differential splicing": 1.5,
+    "single-cell ATAC": 2.0,
+    "chromatin accessibility": 1.5,
+    # === Adjacent: Epigenomics & Methods ===
+    "epigenome-wide": 2.0,
+    "dna methylation": 1.5,
+    "histone modification": 1.0,
     "multi-omics": 1.5,
-    "integration method": 1.0,
+    "long-read sequencing": 1.5,
+    "pangenome": 1.0,
+    "structural variation": 1.0,
+    # === Adjacent: Bioinformatics & AI ===
+    "differential splicing": 1.5,
     "novel method": 1.5,
-    "benchmark": 1.0,
+    "deconvolution": 1.0,
+    "benchmark": 0.5,
     "new tool": 1.5,
-    "software": 0.5,
+    "integration method": 1.0,
+    # === Emerging: AI for Genomics ===
+    "transformer": 1.0,
+    "foundation model": 1.5,
+    "deep learning genomics": 1.5,
+    "graph neural network": 0.5,
+    "representation learning": 1.0,
+    # === Emerging: Developmental Biology ===
+    "brain organoid": 1.5,
+    "developmental dynamics": 1.5,
+    "cell fate": 1.0,
 }
 
 # ── Configuration ──────────────────────────────────────────────────────
@@ -99,8 +105,10 @@ PUBMED_BASE = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
 PUBMED_QUERIES = [
     # === Core: APA/QTL (user's own field) ===
     'alternative polyadenylation brain',
-    "'3 aQTL' colocalization",
+    '3 aQTL colocalization',
     'APA schizophrenia prefrontal',
+    'polyadenylation site usage brain development',
+    'alternative polyadenylation single cell',
     # === Adjacent: Statistical genetics ===
     'Mendelian randomization neuropsychiatric',
     'fine-mapping GWAS causal variant',
@@ -156,7 +164,7 @@ def load_seen_urls() -> set[str]:
     return set(data.get("urls", []))
 
 def save_seen_urls(urls: set[str]):
-    recent = list(urls)[-2000:]  # keep last 2000
+    recent = sorted(urls)[-2000:]  # deterministic ordering (fixes #213)
     save_json(SEEN_FILE, {"urls": recent, "updated": datetime.now(timezone.utc).isoformat()})
 
 def relevance_score(title: str, abstract: str) -> float:
@@ -198,8 +206,8 @@ def scan_pubmed() -> list[tuple[str, str, str, float]]:
             "retmax": 15,
             "retmode": "json",
             "sort": "date",
-            "mindate": "2025/01/01",
-            "maxdate": "2026/12/31",
+            "mindate": f"{datetime.now(timezone.utc).year - 1}/01/01",
+            "maxdate": f"{datetime.now(timezone.utc).year}/12/31",
         })
         search_url = f"{PUBMED_BASE}esearch.fcgi?{params}"
         data = fetch_url(search_url)
@@ -361,7 +369,7 @@ WECHAT_ALBUMS = [
 
 # WeChat RSS source: wewe-rss (self-hosted on same VPS)
 WEWE_RSS_URL = os.environ.get("WEWE_RSS_URL", "http://127.0.0.1:7788")
-WEWE_RSS_AUTH = os.environ.get("WEWE_RSS_AUTH", "brain2026")
+WEWE_RSS_AUTH = os.environ.get("WEWE_RSS_AUTH", "")
 
 # WeChat public accounts to follow ( synced with wewe-rss subscriptions)
 WECHAT_ACCOUNTS = [
@@ -460,7 +468,15 @@ def scan_wechat_wewe() -> list[dict]:
                 if link in seen:
                     continue
                 
-                summary = item.get("summary", "") or item.get("content_text", "")[:500]
+                # Extract summary: prefer summary, then content_text, then strip HTML from content_html
+                summary = item.get("summary", "") or item.get("content_text", "")
+                if not summary:
+                    content_html = item.get("content_html", "")
+                    if content_html:
+                        # Strip HTML tags for a plain-text summary (first 800 chars)
+                        import re as _re
+                        summary = _re.sub(r'<[^>]+>', ' ', content_html)[:800]
+                        summary = _re.sub(r'\s+', ' ', summary).strip()
                 
                 # Score based on account tags + research keywords
                 text = (title + " " + summary).lower()
@@ -589,7 +605,7 @@ GITHUB_WATCH_REPOS = [
     "chanzuckerberg/cellxgene",  # Single-cell portal
     "samtools/htslib",        # SAM/BAM/VCF tools
     "pysam-developers/pysam", # Python genomic I/O
-    "statgen/WMAP",           # Statistical genetics
+    "statgen/WMAP",           # Statistical genetics (may 404, handled gracefully)
 ]
 
 
@@ -691,49 +707,74 @@ def _days_ago(n: int) -> str:
 def self_audit() -> list[dict]:
     """Review existing rules for contradictions, staleness, and gaps."""
     issues = []
-    conn = sqlite3.connect(str(DB_PATH))
+    conn = None
+    try:
+        conn = sqlite3.connect(str(DB_PATH))
 
-    # 1. Find duplicates (>60% word overlap)
-    rows = conn.execute("""
-        SELECT a.proposal_id, a.summary, b.proposal_id, b.summary
-        FROM proposals a, proposals b
-        WHERE a.proposal_id < b.proposal_id
-        AND a.state NOT IN ('rejected') AND b.state NOT IN ('rejected')
-        AND length(a.summary) > 20 AND length(b.summary) > 20
-    """).fetchall()
+        # 1. Find duplicates using inverted-index pre-filtering (O(N) vs O(N²))
+        rows = conn.execute("""
+            SELECT proposal_id, summary FROM proposals
+            WHERE state NOT IN ('rejected') AND length(summary) > 20
+        """).fetchall()
 
-    for r in rows:
-        words_a = set(r[1].lower().split())
-        words_b = set(r[3].lower().split())
-        overlap = len(words_a & words_b) / max(len(words_a | words_b), 1)
-        if overlap > 0.6:
+        from collections import defaultdict
+        word_to_ids: dict[str, set[int]] = defaultdict(set)
+        proposals = []  # (proposal_id, summary, word_set)
+        for idx, (pid, summary) in enumerate(rows):
+            words = set(summary.lower().split())
+            proposals.append((pid, summary, words))
+            for w in words:
+                word_to_ids[w].add(idx)
+
+        seen_pairs: set[tuple[int, int]] = set()
+        for idx_a, (pid_a, sum_a, words_a) in enumerate(proposals):
+            if not words_a:
+                continue
+            candidate_ids: set[int] = set()
+            for w in words_a:
+                candidate_ids |= word_to_ids[w]
+            for idx_b in candidate_ids:
+                if idx_b <= idx_a:
+                    continue
+                pair = (idx_a, idx_b)
+                if pair in seen_pairs:
+                    continue
+                seen_pairs.add(pair)
+                words_b = proposals[idx_b][2]
+                union_size = len(words_a | words_b)
+                if union_size == 0:
+                    continue
+                overlap = len(words_a & words_b) / union_size
+                if overlap > 0.6:
+                    issues.append({
+                        "type": "potential_duplicate",
+                        "id1": pid_a[:12], "summary1": sum_a[:60],
+                        "id2": proposals[idx_b][0][:12], "summary2": proposals[idx_b][1][:60],
+                        "overlap": f"{overlap:.0%}",
+                    })
+
+        # 2. Find stale rules (0 retrievals in 30d, older than 60d)
+        rows = conn.execute("""
+            SELECT proposal_id, summary, inserted_at, (retrieval_count_30d or 0)
+            FROM proposals
+            WHERE state IN ('approved_for_export', 'approved_db_only')
+            AND inserted_at < datetime('now', '-60 days')
+            AND (retrieval_count_30d IS NULL OR retrieval_count_30d = 0)
+        """).fetchall()
+        for r in rows:
             issues.append({
-                "type": "potential_duplicate",
-                "id1": r[0][:12], "summary1": r[1][:60],
-                "id2": r[2][:12], "summary2": r[3][:60],
-                "overlap": f"{overlap:.0%}",
+                "type": "stale_rule",
+                "id": r[0][:12], "summary": r[1][:60],
+                "since": r[2][:10], "retrievals_30d": r[3],
             })
 
-    # 2. Find stale rules (0 retrievals in 30d, older than 60d)
-    rows = conn.execute("""
-        SELECT proposal_id, summary, inserted_at, (retrieval_count_30d or 0)
-        FROM proposals
-        WHERE state IN ('approved_for_export', 'approved_db_only')
-        AND inserted_at < datetime('now', '-60 days')
-        AND (retrieval_count_30d IS NULL OR retrieval_count_30d = 0)
-    """).fetchall()
-    for r in rows:
-        issues.append({
-            "type": "stale_rule",
-            "id": r[0][:12], "summary": r[1][:60],
-            "since": r[2][:10], "retrievals_30d": r[3],
-        })
+        # 3. State distribution
+        state_counts = conn.execute("SELECT state, count(*) FROM proposals GROUP BY state ORDER BY count(*) DESC").fetchall()
+        issues.append({"type": "state_summary", "counts": {r[0]: r[1] for r in state_counts}})
 
-    # 3. State distribution
-    state_counts = conn.execute("SELECT state, count(*) FROM proposals GROUP BY state ORDER BY count(*) DESC").fetchall()
-    issues.append({"type": "state_summary", "counts": {r[0]: r[1] for r in state_counts}})
-
-    conn.close()
+    finally:
+        if conn is not None:
+            conn.close()
     return issues
 
 
@@ -845,12 +886,10 @@ def _extract_methods(text: str) -> list[str]:
         r'permutation test', r'bootstrap', r'Bonferroni', r'FDR',
         r'PCA', r'UMAP', r't[- ]SNE', r'differential expression',
     ]
-    text_lower = text.lower()
     for kw in method_keywords:
-        if re.search(kw, text_lower):
-            match = re.search(kw, text, re.IGNORECASE)
-            if match:
-                methods.append(match.group())
+        match = re.search(kw, text, re.IGNORECASE)
+        if match:
+            methods.append(match.group())
     return methods[:10]
 
 
@@ -866,10 +905,9 @@ def _extract_tools(text: str) -> list[str]:
         r'Docker', r'Singularity', r'Conda',
     ]
     for pattern in tool_patterns:
-        if re.search(pattern, text, re.IGNORECASE):
-            match = re.search(pattern, text, re.IGNORECASE)
-            if match:
-                tools.append(match.group())
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            tools.append(match.group())
     return list(set(tools))[:8]
 
 

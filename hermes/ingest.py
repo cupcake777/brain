@@ -58,6 +58,11 @@ class IngestionService:
         semantic_hash = _compute_semantic_hash(body)
         duplicate_of = self.repo.find_by_semantic_hash(semantic_hash)
         route = self._route(front_matter["category"], front_matter["risk_level"])
+        from hermes.weight import compute_weight
+        weight = compute_weight(
+            category=front_matter["category"],
+            risk_level=front_matter["risk_level"],
+        )
         self.repo.insert_proposal(
             {
                 "proposal_id": proposal_id,
@@ -77,6 +82,7 @@ class IngestionService:
                 "semantic_hash": semantic_hash,
                 "semantic_duplicate_of": duplicate_of,
                 "supersedes": None,
+                "weight": weight,
                 "inserted_at": datetime.now(timezone.utc).isoformat(),
             }
         )

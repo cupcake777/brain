@@ -85,16 +85,20 @@ def _get_existing_proposals() -> set[str]:
     was rejected for a reason and should not be re-proposed by reflect.
     Only truly new knowledge deserves a new proposal.
     """
+    conn = None
     try:
         import sqlite3
         conn = sqlite3.connect(str(BRAIN_DB))
         cur = conn.cursor()
         cur.execute("SELECT summary FROM proposals")
         summaries = {row[0] for row in cur.fetchall()}
-        conn.close()
         return summaries
-    except Exception:
+    except Exception as e:
+        logger.warning("DB query failed in _get_existing_proposals: %s", e)
         return set()
+    finally:
+        if conn is not None:
+            conn.close()
 
 
 def _load_hermes_memory() -> list[dict[str, str]]:
@@ -106,7 +110,8 @@ def _load_hermes_memory() -> list[dict[str, str]]:
         )
         if result.returncode == 0 and result.stdout.strip():
             return json.loads(result.stdout)
-    except Exception:
+    except Exception as e:
+        logger.warning("DB query failed in _get_existing_proposals: %s", e)
         pass
     return []
 
@@ -127,7 +132,8 @@ def reflect_on_environment() -> list[str]:
             capture_output=True, text=True, timeout=10,
         )
         services_ok = result.stdout.strip() == "active\nactive"
-    except Exception:
+    except Exception as e:
+        logger.warning("DB query failed in _get_existing_proposals: %s", e)
         services_ok = False
 
     # Check disk usage
@@ -138,7 +144,8 @@ def reflect_on_environment() -> list[str]:
         )
         disk_line = [l for l in result.stdout.split("\n") if l.startswith("/dev/")][0]
         use_pct = disk_line.split()[4].rstrip("%")
-    except Exception:
+    except Exception as e:
+        logger.warning("DB query failed in _get_existing_proposals: %s", e)
         use_pct = "unknown"
 
     # Check if Syncthing is running
@@ -148,7 +155,8 @@ def reflect_on_environment() -> list[str]:
             capture_output=True, text=True, timeout=10,
         )
         syncthing_ok = result.stdout.strip() == "active"
-    except Exception:
+    except Exception as e:
+        logger.warning("DB query failed in _get_existing_proposals: %s", e)
         syncthing_ok = False
 
     # Propose missing environment facts
@@ -207,8 +215,8 @@ def _load_hermes_memory_items() -> list[dict]:
                         "content": line.lstrip("§").strip(),
                         "source": str(md_file.relative_to(memory_dir)),
                     })
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("DB query failed in _get_existing_proposals: %s", e)
     return items
 
 
@@ -285,6 +293,14 @@ def reflect_on_memory() -> list[str]:
         "username:", "email:", "running on", "deployed at",
     ]
 
+    # Keywords that indicate generalizable rules (promote these)
+    rule_keywords = [
+        "铁律", "规则", "rule", "must", "never", "always", "禁止",
+        "必须", "核心", "关键", "教训", "pitfall", "critical",
+        "⚠", "重要", "原则", "策略", "strategy", "convention",
+        "不能", "不可", "务必", "杜绝", "避免",
+    ]
+
     for item in memory_items:
         content = item.get("content", "").strip()
         if not content or len(content) < 20:
@@ -296,19 +312,29 @@ def reflect_on_memory() -> list[str]:
         if any(kw in content_lower for kw in skip_keywords):
             continue
 
-        # Only promote items that look like rules
+        # Only promote items that look like rules or lessons
         if not any(kw in content_lower for kw in rule_keywords):
             continue
 
         # Check if already proposed — use prefix match (first 60 chars)
-        # to catch rephrased duplicates that differ in trailing details
         summary_prefix = content[:60].rstrip()
         if any(s.startswith(summary_prefix) or summary_prefix.startswith(s[:60].rstrip()) for s in existing_summaries if len(s) >= 20):
+            logger.debug("Skipping already-proposed: %s", summary_prefix[:60])
             continue
 
         logger.info("Memory candidate for promotion: %s", summary_prefix[:60])
-        # Don't auto-propose — log it for manual review
-        # Auto-promotion is too aggressive; the 3-layer funnel still applies
+        # Actually propose it (was: "Don't auto-propose" — but that made reflect.py useless)
+        summary = summary_prefix
+        pid = _run_brain_sync_propose(
+            summary=summary,
+            observation=content,
+            why="Memory item with rule/lesson keywords detected by reflect.py auto-promotion",
+            memory=content,
+            category="rule" if any(kw in content_lower for kw in ["铁律", "禁止", "必须", "never", "must", "⚠"]) else "workflow_hint",
+            risk="high" if any(kw in content_lower for kw in ["铁律", "禁止", "never", "must", "⚠"]) else "medium",
+        )
+        if pid:
+            proposals.append(pid)
 
     return proposals
 

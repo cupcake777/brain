@@ -108,12 +108,16 @@ def _format_claude_entry(proposal: dict) -> str:
     slug = _slugify(str(proposal.get("suggested_memory", "")))
     scope = str(proposal.get("scope", "global"))
     risk = proposal.get("risk_level", "medium")
+    weight = float(proposal.get("weight", 1.0))
+
+    from hermes.weight import weight_label
+    w_label = weight_label(weight)
 
     # Heading with optional scope annotation
     heading = f"### {cat}: {slug}"
     if scope != "global":
         heading += f" (scope: {scope})"
-    heading += f" [{risk}]"
+    heading += f" [{risk}, {w_label}({weight})]"
 
     # Decompose suggested_memory into imperative lines
     memory = str(proposal.get("suggested_memory", ""))
@@ -221,6 +225,7 @@ class ExportCompiler:
             seen.values(),
             key=lambda p: (
                 _CATEGORY_ORDER.get(p.get("category", "rule"), 99),
+                -float(p.get("weight", 1.0)),  # Higher weight = earlier (negated for DESC)
                 -_RISK_ORDER.get(p.get("risk_level", "medium"), 1),
                 _slugify(str(p.get("suggested_memory", ""))),
             ),

@@ -8,8 +8,10 @@ Handles user-section preservation per the CLAUDE.md spec:
 """
 from __future__ import annotations
 
+import os
 import shutil
 import sys
+import tempfile
 from pathlib import Path
 
 SYNC_ROOT = Path.home() / "hermes-sync"
@@ -20,6 +22,27 @@ HERMES_START = "<!-- Hermes Brain sync:"
 HERMES_END = "<!-- End of Hermes-managed rules"
 USER_START = "<!-- User-managed section:"
 USER_END = "<!-- End of user-managed section"
+
+
+def _atomic_write(target: Path, content: str) -> None:
+    """Write content to target atomically using tmpfile + rename."""
+    target.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_path = tempfile.mkstemp(
+        dir=str(target.parent), suffix=".tmp", prefix=".claude-md-"
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(content)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, str(target))
+    except BaseException:
+        # Clean up temp file on failure
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
 
 def find_marker_range(text: str, start_marker: str, end_marker: str) -> tuple[int, int] | None:
@@ -93,7 +116,7 @@ def project_claude_md(*, dry_run: bool = False) -> bool:
             print(f"Would update: {target} (merging user content with Hermes section)")
             return True
         
-        target.write_text(merged, encoding="utf-8")
+        _atomic_write(target, merged)
         print(f"Updated: {target} (merged user + Hermes sections)")
         return True
 
@@ -137,7 +160,7 @@ def project_claude_md(*, dry_run: bool = False) -> bool:
         print(f"Would update: {target}")
         return True
 
-    target.write_text(merged, encoding="utf-8")
+    _atomic_write(target, merged)
     print(f"Updated: {target}")
     return True
 

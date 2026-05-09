@@ -56,6 +56,22 @@ def main(argv: list[str] | None = None) -> int:
     subparsers.add_parser("watch", help="Run the polling watcher loop")
     subparsers.add_parser("evict", help="Run export eviction / budget pressure check")
 
+    reweight_parser = subparsers.add_parser("reweight", help="Recalculate proposal weights from category/risk/retrieval")
+    reweight_parser.add_argument("--dry-run", action="store_true", help="Show what weights would change without writing")
+
+    dedup_parser = subparsers.add_parser("dedup", help="Find and mark semantic duplicates in proposals")
+    dedup_parser.add_argument("--dry-run", action="store_true", help="Show duplicates without modifying DB")
+
+    migrate_parser = subparsers.add_parser("migrate-v2", help="Migrate proposals to V2 knowledge_nodes table")
+    migrate_parser.add_argument("--dry-run", action="store_true", help="Show what would be migrated without writing")
+
+    integrate_parser = subparsers.add_parser("integrate", help="Integrate a new knowledge entry into the V2 knowledge tree")
+    integrate_parser.add_argument("--content", required=True, help="Knowledge content to integrate")
+    integrate_parser.add_argument("--source", default="cli", help="Source of the knowledge (e.g., conversation:session_id, user_direct)")
+    integrate_parser.add_argument("--category", default="fact", help="Category: rule/workflow/preference/fact")
+    integrate_parser.add_argument("--domain", default="general", help="Domain: devops/network/apa/general/...")
+    integrate_parser.add_argument("--parent", default=None, help="Parent node ID (for refine/debug operations)")
+
     serve_parser = subparsers.add_parser("serve", help="Run the Hermes FastAPI server")
     serve_parser.add_argument("--host", default="127.0.0.1")
     serve_parser.add_argument("--port", type=int, default=8080)
@@ -92,6 +108,118 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "evict":
         result = runtime.run_eviction_cycle()
         print(f"Evicted: {result.evicted_count}, Flagged rebuild: {result.flagged_for_rebuild_count}")
+        return 0
+    if args.command == "reweight":
+        if args.dry_run:
+            import sqlite3
+            conn = sqlite3.connect(str(config.db_path))
+            conn.row_factory = sqlite3.Row
+            cur = conn.cursor()
+            cur.execute("SELECT proposal_id, summary, category, risk_level, weight, retrieval_count_30d FROM proposals")
+            from hermes.weight import compute_weight
+            for row in cur.fetchall():
+                new_w = compute_weight(category=row["category"], risk_level=row["risk_level"], retrieval_count_30d=row["retrieval_count_30d"] or 0)
+                old_w = row["weight"] or 0
+                marker = " ← CHANGE" if abs(new_w - old_w) > 0.01 else ""
+                print(f"{row['proposal_id'][:8]}… [{row['category']}/{row['risk_level']}] w={old_w}→{new_w} ret={row['retrieval_count_30d']} {row['summary'][:60]}{marker}")
+            conn.close()
+            return 0
+        count = runtime.repo.recalculate_all_weights()
+        print(f"Recalculated weights for {count} proposals")
+        return 0
+    if args.command == "dedup":
+        import sqlite3
+        from collections import defaultdict
+        conn = sqlite3.connect(str(config.db_path))
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute("SELECT proposal_id, summary, semantic_hash, state, semantic_duplicate_of FROM proposals ORDER BY inserted_at")
+        rows = cur.fetchall()
+        # Group by semantic_hash
+        by_hash = defaultdict(list)
+        for row in rows:
+            h = row["semantic_hash"]
+            if h:
+                by_hash[h].append(dict(row))
+        dupes_found = 0
+        for h, group in by_hash.items():
+            if len(group) <= 1:
+                continue
+            dupes_found += 1
+            primary = group[0]
+            for dup in group[1:]:
+                if dup["semantic_duplicate_of"] is None and dup["state"] not in ("rejected", "superseded"):
+                    if args.dry_run:
+                        print(f"WOULD mark {dup['proposal_id'][:8]}… as duplicate of {primary['proposal_id'][:8]}… (hash={h[:12]}…)")
+                    else:
+                        cur.execute(
+                            "UPDATE proposals SET semantic_duplicate_of = ?, state = 'rejected' WHERE proposal_id = ?",
+                            (primary["proposal_id"], dup["proposal_id"]),
+                        )
+                    dupes_found += 1
+        if not args.dry_run:
+            conn.commit()
+            print(f"Marked {dupes_found} duplicates")
+        else:
+            print(f"Found {dupes_found} duplicate groups (dry run, no changes)")
+        conn.close()
+        return 0
+
+    if args.command == "migrate-v2":
+        from hermes.repository import HermesRepository
+        from hermes.integrate import compute_confidence
+        v2_repo = HermesRepository(config.db_path)
+        if args.dry_run:
+            import sqlite3
+            conn = sqlite3.connect(str(config.db_path))
+            conn.row_factory = sqlite3.Row
+            cur = conn.cursor()
+            cur.execute("SELECT proposal_id, state, category, risk_level, weight, summary FROM proposals ORDER BY inserted_at")
+            rows = cur.fetchall()
+            stage_map = {"approved_for_export": "canonized", "approved_db_only": "canonized", "pending": "draft", "superseded": "deprecated"}
+            for row in rows:
+                state = str(row["state"])
+                if state == "rejected":
+                    print(f"  SKIP (rejected): {row['summary'][:60]}")
+                    continue
+                new_stage = stage_map.get(state, "draft")
+                conf = round(float(row["weight"] or 1.0) / 5.0, 2)
+                print(f"  {row['proposal_id'][:8]}… [{state}→{new_stage}] conf={conf} cat={row['category']} | {row['summary'][:60]}")
+            conn.close()
+            return 0
+        result = v2_repo.migrate_proposals_to_knowledge_nodes()
+        print(f"Migrated {result['migrated']} proposals, skipped {result['skipped']}")
+        counts = v2_repo.count_knowledge_nodes_by_stage()
+        print(f"Stage distribution: {counts}")
+        return 0
+
+    if args.command == "integrate":
+        # Integrate a new knowledge entry from CLI
+        import json as _json
+        from hermes.repository import HermesRepository as _HRepo
+        from hermes.integrate import integrate as _integrate
+        v2_repo = _HRepo(config.db_path)
+        content = args.content
+        source = args.source
+        category = args.category
+        domain = args.domain
+        parent_id = args.parent
+        result = _integrate(
+            content=content,
+            source=source,
+            category=category,
+            domain=domain,
+            parent_id=parent_id,
+            repo=v2_repo,
+        )
+        print(f"Action: {result.action}")
+        print(f"Node ID: {result.node_id}")
+        print(f"Stage: {result.stage}")
+        print(f"Confidence: {result.confidence:.3f}")
+        if result.merged_from:
+            print(f"Merged from: {result.merged_from}")
+        if result.superseded:
+            print(f"Superseded: {result.superseded}")
         return 0
     if args.command == "serve":
         if args.reload:
