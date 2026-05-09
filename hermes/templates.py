@@ -1580,44 +1580,29 @@ def knowledge_tree_page(
         domains = []
     total = sum(counts.values())
 
-    # -- Stats bar --
+    # -- Stats bar (clickable filter cards — replaces tabs) --
     stat_cards = [
-        ("Total", str(total), "var(--ink)"),
-        ("Draft", str(counts.get("draft", 0)), "var(--warning)"),
-        ("Refined", str(counts.get("refined", 0)), "var(--info)"),
-        ("Verified", str(counts.get("verified", 0)), "var(--success)"),
-        ("Canonized", str(counts.get("canonized", 0)), "var(--primary)"),
-        ("Deprecated", str(counts.get("deprecated", 0)), "var(--ink-dim)"),
+        ("all", "Total", str(total), "var(--ink)"),
+        ("draft", "Draft", str(counts.get("draft", 0)), "var(--warning)"),
+        ("refined", "Refined", str(counts.get("refined", 0)), "var(--info)"),
+        ("verified", "Verified", str(counts.get("verified", 0)), "var(--success)"),
+        ("canonized", "Canonized", str(counts.get("canonized", 0)), "var(--primary)"),
+        ("deprecated", "Deprecated", str(counts.get("deprecated", 0)), "var(--ink-dim)"),
     ]
+    trash_count = counts.get("deprecated", 0)
     stats_html = ""
-    for label, num, color in stat_cards:
-        stats_html += (
-            f'<div class="dash-card">'
-            f'<div class="num" style="color:{color}">{num}</div>'
-            f'<div class="label">{_html.escape(label)}</div>'
-            f'</div>'
-        )
-
-    # -- Stage filter tabs --
-    stage_tabs = [
-        ("all", "All", total),
-        ("draft", "Draft", counts.get("draft", 0)),
-        ("refined", "Refined", counts.get("refined", 0)),
-        ("verified", "Verified", counts.get("verified", 0)),
-        ("canonized", "Canonized", counts.get("canonized", 0)),
-        ("deprecated", "Deprecated", counts.get("deprecated", 0)),
-    ]
-    tab_html = ""
-    for key, label, count in stage_tabs:
-        active_cls = " active" if key == active_stage else ""
+    for key, label, num, color in stat_cards:
+        active_cls = " dash-card-active" if key == active_stage else ""
         href = f"/knowledge?stage={key}" if key != "all" else "/knowledge"
         if active_category:
             href += f"&category={active_category}"
         if active_domain:
             href += f"&domain={active_domain}"
-        tab_html += (
-            f'<a href="{href}" class="{active_cls.lstrip()}">'
-            f'{_html.escape(label)} <span class="tab-count">{count}</span></a>'
+        stats_html += (
+            f'<a href="{href}" class="dash-card{active_cls}">'
+            f'<div class="num" style="color:{color}">{num}</div>'
+            f'<div class="label">{_html.escape(label)}</div>'
+            f'</a>'
         )
 
     # -- Category options for filter --
@@ -1697,8 +1682,7 @@ def knowledge_tree_page(
     body = f"""{_nav(active="knowledge")}
 <h1 style="padding:16px 16px 0;font-size:1.2rem;font-weight:700;letter-spacing:-.02em">🌳 Knowledge Tree</h1>
 <div class="dash-grid">{stats_html}</div>
-<div class="tabs">{tab_html}</div>
-<div style="padding:0 16px 8px;display:flex;gap:8px;flex-wrap:wrap">
+<div style="padding:0 16px 8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
   <form method="get" action="/knowledge" style="display:flex;gap:8px;flex-wrap:wrap;flex:1" id="kn-filter-form">
     <input type="hidden" name="stage" value="{_html.escape(active_stage)}">
     <select name="category" class="kn-filter-select" onchange="this.form.submit()">{cat_options}</select>
@@ -1710,10 +1694,15 @@ def knowledge_tree_page(
   <button class="kn-action-btn" onclick="showAddModal()">+ Add Knowledge</button>
   <button class="kn-action-btn secondary" onclick="exportKnowledge()">⬇ Export MD</button>
   <button class="kn-action-btn secondary" onclick="retrospect()">🔄 Retrospect</button>
+  {f'<button class="kn-action-btn danger" onclick="emptyTrash()">🗑 Empty Trash ({trash_count})</button>' if trash_count > 0 else ''}
 </div>
 <div id="kn-card-grid">{cards_html}</div>
 
 <style>
+.dash-card-active{{border-color:var(--primary)!important;background:var(--primary-muted)!important}}
+.dash-card-active .label{{color:var(--primary)!important;font-weight:600}}
+.kn-action-btn.danger{{background:var(--danger-muted);color:var(--danger);border-color:var(--danger)}}
+.kn-action-btn.danger:hover{{background:rgba(248,113,113,.25)}}
 .kn-filter-select{{
   background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);
   color:var(--ink);font-size:.84rem;padding:8px 12px;min-height:40px;outline:none;
@@ -1857,6 +1846,21 @@ function retrospect() {{
     .then(function(d) {{ showToast(d.message || 'Retrospect complete', 'approve'); }})
     .catch(function(e) {{ showToast('Error: ' + e.message, 'reject'); }});
 }}
+function emptyTrash() {{
+  var overlay = document.getElementById('confirm-overlay');
+  var modal = document.getElementById('confirm-modal');
+  var title = document.getElementById('confirm-title');
+  var btn = document.getElementById('confirm-action-btn');
+  title.textContent = 'Permanently delete all deprecated nodes?';
+  btn.onclick = function() {{
+    overlay.style.display = 'none';
+    fetch('/api/knowledge/trash/empty', {{method:'DELETE',headers:{{'Content-Type':'application/json'}}}})
+      .then(function(r){{ return r.json(); }})
+      .then(function(d){{ showToast('Deleted ' + (d.deleted||0) + ' nodes', 'approve'); setTimeout(function(){{ location.reload(); }},800); }})
+      .catch(function(e){{ showToast('Error: ' + e.message, 'reject'); }});
+  }};
+  overlay.style.display = 'flex';
+}}
 function showToast(msg, type) {{
   var t = document.createElement('div');
   t.className = 'toast toast-' + (type||'approve');
@@ -1875,7 +1879,7 @@ function showToast(msg, type) {{
 # ---------------------------------------------------------------------------
 
 _KN_ACTION_JS = """\
-function knAct(url, actionName, successMsg, body) {
+function knAct(url, actionName, successMsg, body, method) {
   var overlay = document.getElementById('confirm-overlay');
   var modal = document.getElementById('confirm-modal');
   var modalTitle = document.getElementById('confirm-title');
@@ -1883,7 +1887,7 @@ function knAct(url, actionName, successMsg, body) {
   modalTitle.textContent = actionName + '?';
   modalBtn.onclick = function() {
     overlay.style.display = 'none';
-    var opts = {method:'POST',headers:{'Content-Type':'application/json'}};
+    var opts = {method: method || 'POST', headers:{'Content-Type':'application/json'}};
     if (body) opts.body = JSON.stringify(body);
     fetch(url, opts)
       .then(function(r){ return r.json(); })
@@ -1906,6 +1910,9 @@ function knPromote(url, nextStage) {
 }
 function knMerge(url, actionName) {
   knAct(url, actionName || 'Merge nodes', 'Nodes merged');
+}
+function knDelete(url) {
+  knAct(url, 'Permanently delete this node', 'Node deleted', null, 'DELETE');
 }
 function hideConfirm() {
   document.getElementById('confirm-overlay').style.display = 'none';
@@ -2130,6 +2137,11 @@ def knowledge_detail_page(
         btns += (
             f'<button class="btn btn-reject" onclick="knDeprecate(&apos;/api/knowledge/{_html.escape(nid)}/stage&apos;)">'
             f'🗑 Deprecate <kbd>D</kbd></button>'
+        )
+    else:
+        btns += (
+            f'<button class="btn btn-reject" style="background:var(--danger-muted);color:var(--danger)" onclick="knDelete(&apos;/api/knowledge/{_html.escape(nid)}&apos;)">'
+            f'🗑 Delete Permanently</button>'
         )
     # Merge buttons for contradicted nodes
     if contradict_list:

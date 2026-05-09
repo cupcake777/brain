@@ -465,6 +465,18 @@ class HermesRepository:
                 tuple(values),
             )
 
+    def delete_knowledge_node(self, node_id: str) -> bool:
+        """Delete a knowledge node. Returns True if deleted."""
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "DELETE FROM knowledge_nodes WHERE id = ?", (node_id,)
+            )
+            # Also delete thought chains
+            connection.execute(
+                "DELETE FROM thought_chains WHERE node_id = ?", (node_id,)
+            )
+            return cursor.rowcount > 0
+
     def list_knowledge_nodes(
         self,
         *,

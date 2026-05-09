@@ -470,6 +470,27 @@ def create_app(
         path = exporter.build_knowledge_export()
         return {"path": str(path), "size_bytes": path.stat().st_size}
 
+    @app.delete("/api/knowledge/{node_id}")
+    async def knowledge_delete_node(node_id: str) -> dict:
+        """Permanently delete a knowledge node (trash empty action)."""
+        node = repo.get_knowledge_node(node_id)
+        if node is None:
+            raise HTTPException(status_code=404, detail="node not found")
+        if node.stage != "deprecated":
+            raise HTTPException(status_code=400, detail="only deprecated nodes can be deleted — deprecate first")
+        repo.delete_knowledge_node(node_id)
+        return {"deleted": node_id}
+
+    @app.delete("/api/knowledge/trash/empty")
+    async def knowledge_empty_trash() -> dict:
+        """Permanently delete all deprecated nodes."""
+        deprecated = repo.list_knowledge_nodes(stage="deprecated", limit=10000)
+        count = 0
+        for n in deprecated:
+            repo.delete_knowledge_node(n.id)
+            count += 1
+        return {"deleted": count}
+
     # ------------------------------------------------------------------
     # HTML pages – exports list
     # ------------------------------------------------------------------
