@@ -48,7 +48,7 @@ async def require_bearer(
 # Paths that never require authentication.
 # Note: /exports/projects/ and /exports/global/ are public for file downloads,
 # but /exports/ (the list page) requires auth.
-_PUBLIC_PREFIXES = ("/health", "/exports/projects/", "/exports/global/", "/login", "/favicon")
+_PUBLIC_PREFIXES = ("/health", "/api/dashboard/health", "/api/dashboard/resources", "/exports/projects/", "/exports/global/", "/login", "/favicon")
 _PUBLIC_EXACT = frozenset({"/health", "/login", "/logout"})
 
 

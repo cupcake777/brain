@@ -1,9 +1,92 @@
 """HTML templates for Hermes review UI – dependency-free, mobile-first, dark theme."""
 
 from __future__ import annotations
+import json as _json
 import os
 
 import html as _html
+
+# Input shape → Chinese tags (v3 has no tags; derive from input_shape)
+_SHAPE_TAGS = {
+    "point_table": ["散点", "差异表达"],
+    "ordered_position_table": ["散点", "GWAS/QTL"],
+    "matrix": ["热图", "聚类"],
+    "pairwise_matrix": ["热图", "相关性"],
+    "grouped_values": ["分布", "箱线"],
+    "grouped_summary": ["柱状图", "分组比较"],
+    "estimate_interval": ["临床", "森林图"],
+    "ranked_term_table": ["散点", "富集"],
+    "bipartite_links": ["散点", "富集"],
+    "set_membership": ["集合图", "交集"],
+    "embedding_table": ["散点", "降维"],
+    "edge_table": ["网络/关系图", "互作"],
+    "flow_table": ["网络/关系图", "冲积"],
+    "classifier_curve": ["线图/曲线", "检验"],
+    "time_to_event": ["线图/曲线", "生存"],
+    "sparse_event_matrix": ["热图", "突变"],
+    "positioned_events": ["散点", "位点标注"],
+    "composition_table": ["面积图", "组成"],
+    "ordered_composition_table": ["面积图", "组成"],
+    "numeric_vector": ["分布", "直方图"],
+}
+
+# Chart id → Chinese description (v3 has no description; provide from title)
+_ID_DESC = {
+    "volcano": "展示基因差异表达的fold change与显著性，标注关键基因",
+    "manhattan": "GWAS/QTL全局显著性概览，突出峰值位点",
+    "heatmap_clustered": "行列双向聚类的热图，展示表达模式",
+    "correlation_heatmap": "相关性矩阵热图，展示变量间关联强度",
+    "box_violin": "展示组间数值分布差异",
+    "raincloud": "云雨图：密度+箱线+散点，全面展示分布",
+    "ridgeline": "山峦图：多组分布对比，适合时间序列或分组比较",
+    "grouped_bar": "分组柱状图：多组定量比较",
+    "enrichment_bubble": "展示GO/KEGG富集分析结果",
+    "enrichment_circos": "圈图展示富集分析结果与基因关联",
+    "forest_plot": "森林图：估计值与置信区间的可视化比较",
+    "lollipop": "棒棒糖图：基因/位点标注的排名展示",
+    "pca_plot": "PCA降维散点图：样本分组与聚类",
+    "umap_plot": "UMAP降维散点图：细胞/样本嵌入可视化",
+    "roc_curve": "ROC曲线：分类器性能评估",
+    "km_survival": "Kaplan-Meier生存曲线",
+    "sankey": "桑基图：流量/分类转化可视化",
+    "network_graph": "网络图：节点与边的互作关系可视化",
+    "upset_plot": "UpSet图：集合交集的定量可视化",
+    "oncoplot": "Oncoplot：突变矩阵热图",
+    "scatter": "散点图：两变量关联与分组对比，支持回归线",
+    "stacked_area": "堆叠面积图：组成比例随时间/阶段的变化",
+}
+
+
+def _normalize_catalog(raw: dict) -> dict:
+    """Normalize v3 catalog format (templates/id/demo_png) to v2 (charts/name/demo).
+
+    The gallery UI reads ``charts[].name``, ``charts[].demo``, ``charts[].tags``,
+    and ``charts[].description``.  The new v3 catalog uses ``templates[].id``,
+    ``templates[].demo_png``, ``templates[].input_shape``, etc.  Tags and
+    descriptions are derived from input_shape and id when absent.
+    """
+    if "charts" in raw:
+        return raw
+    charts = []
+    for tpl in raw.get("templates", []):
+        _id = tpl.get("id", "")
+        _shape = tpl.get("input_shape", "")
+        charts.append({
+            "name": _id,
+            "title": tpl.get("title", ""),
+            "description": tpl.get("description", _ID_DESC.get(_id, "")),
+            "tier": tpl.get("tier", "P2"),
+            "status": tpl.get("status", "planned"),
+            "data_type": _shape,
+            "required_fields": tpl.get("required_fields", []),
+            "optional_fields": tpl.get("optional_fields", []),
+            "visual_encodings": tpl.get("visual_encodings", {}),
+            "reusable_for": tpl.get("reusable_for", []),
+            "tags": tpl.get("tags", _SHAPE_TAGS.get(_shape, [])),
+            "template": tpl.get("template", ""),
+            "demo": tpl.get("demo_png", tpl.get("demo", "")),
+        })
+    return {"charts": charts}
 
 # ---------------------------------------------------------------------------
 # Shared CSS – shadcn-inspired OKLCH design system
@@ -47,9 +130,34 @@ _DARK_CSS = """\
   /* Transition */
   --ease-out:cubic-bezier(.16,1,.3,1);
   --duration:150ms;
+  /* Sidebar */
+  --sidebar-w:224px;
+  --sidebar-w-collapsed:48px;
+  --sidebar-bg:oklch(.14 .01 270);
+  --sidebar-fg:var(--ink);
+  --sidebar-muted:var(--ink-muted);
+  --sidebar-primary:var(--primary);
+  --sidebar-accent:oklch(.18 .02 275);
+  --sidebar-border:var(--border);
+  /* Header */
+  --header-h:56px;
+}
+html[data-theme="light"]{
+  --bg:oklch(.97 .005 270);
+  --surface:oklch(.94 .005 270);
+  --card:oklch(1 .003 275);
+  --card-hover:oklch(.98 .006 275);
+  --border:oklch(0 0 0 / 12%);
+  --border-hover:oklch(0 0 0 / 20%);
+  --border-focus:#7c3aed;
+  --ink:#1a1a2e;
+  --ink-muted:#5c6078;
+  --ink-dim:#8b90a5;
+  --sidebar-bg:oklch(.96 .005 270);
+  --sidebar-accent:oklch(.93 .01 275);
 }
 html{font-family:var(--font);background:var(--surface);color:var(--ink);line-height:1.6;-webkit-text-size-adjust:100%;font-synthesis-weight:none;text-rendering:optimizeLegibility}
-body{min-height:100vh}
+body{min-height:100vh;display:flex;min-height:100dvh}
 a{color:var(--primary);text-decoration:none;transition:color var(--duration)}
 a:hover{color:var(--ink)}
 ::selection{background:var(--primary);color:var(--bg)}
@@ -57,14 +165,30 @@ a:hover{color:var(--ink)}
 ::-webkit-scrollbar-track{background:var(--surface)}
 ::-webkit-scrollbar-thumb{background:var(--card);border-radius:3px}
 ::-webkit-scrollbar-thumb:hover{background:var(--ink-muted)}
+
+/* ---- Animations ---- */
 @keyframes fadeIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
 @keyframes slideInRight{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
 @keyframes slideUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 @keyframes pageEnter{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 @keyframes staggerFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes sidebarSlideIn{from{transform:translateX(-100%)}to{transform:translateX(0)}}
+@keyframes dotPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.6);opacity:.4}}
+@keyframes toastSlideUp{from{opacity:0;transform:translateX(-50%) translateY(20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
 body{animation:pageEnter .35s var(--ease-out)}
-.topnav{animation:slideUp .25s var(--ease-out)}
+/* Sidebar nav micro-interaction */
+.sidebar-nav-item:hover{background:var(--sidebar-accent);color:var(--sidebar-fg);transform:translateX(2px)}
+.sidebar-nav-item:active{transform:translateX(0) scale(.98)}
+/* Button micro-interactions */
+.pf-btn:active,.settings-btn:active{transform:translateY(0) scale(.97)}
+.svc-card:active{transform:translateY(0) scale(.995)}
+.dash-quick-tile:active{transform:scale(.97);box-shadow:none}
+/* Health dot animation */
+.svc-health-dot.checking{animation:pulse 1.5s infinite}
+.svc-health-dot.alive{animation:dotPulse 2s ease-out 1}
+/* Toast animation */
+.pf-toast{animation:toastSlideUp .3s var(--ease-out)}
 .tabs{animation:staggerFade .3s var(--ease-out) .05s both}
 .search-bar{animation:staggerFade .3s var(--ease-out) .1s both}
 .card-grid{animation:staggerFade .3s var(--ease-out) .1s both}
@@ -75,35 +199,168 @@ body{animation:pageEnter .35s var(--ease-out)}
 .section:nth-child(2){animation-delay:.06s}.section:nth-child(3){animation-delay:.12s}.section:nth-child(4){animation-delay:.18s}.section:nth-child(5){animation-delay:.24s}
 .dash-card{animation:staggerFade .25s var(--ease-out) both}
 .dash-card:nth-child(1){animation-delay:.06s}.dash-card:nth-child(2){animation-delay:.1s}.dash-card:nth-child(3){animation-delay:.14s}.dash-card:nth-child(4){animation-delay:.18s}.dash-card:nth-child(5){animation-delay:.22s}.dash-card:nth-child(6){animation-delay:.26s}
-.sec-col{animation:staggerFade .3s var(--ease-out) both}
-.sec-col:nth-child(2){animation-delay:.08s}
-.sec-card{animation:staggerFade .25s var(--ease-out) both}
 .kn-domain-group{animation:staggerFade .25s var(--ease-out) both}
 .action-bar{animation:slideUp .3s var(--ease-out) .15s both}
 
-/* ---- Top nav ---- */
-.topnav{display:flex;align-items:center;justify-content:space-between;padding:0 var(--sp-lg);background:var(--surface);border-bottom:1px solid var(--border);min-height:56px;position:sticky;top:0;z-index:50;backdrop-filter:blur(8px)}
-.topnav .brand{font-weight:700;font-size:1.15rem;color:var(--primary);white-space:nowrap;letter-spacing:-.01em;background:linear-gradient(135deg,var(--primary),var(--info));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.topnav .links-desktop{display:none;gap:4px}
-.topnav .links-desktop a{color:var(--ink-muted);font-size:.88rem;padding:8px 14px;min-height:44px;display:flex;align-items:center;white-space:nowrap;border-radius:var(--r-md);transition:background var(--duration),color var(--duration)}
-.topnav .links-desktop a.active{color:var(--ink);background:var(--primary-muted);font-weight:500}
-.topnav .links-desktop a:hover{color:var(--ink);background:var(--border-hover)}
-.hamburger{display:flex;flex-direction:column;gap:5px;padding:12px 4px;cursor:pointer;background:none;border:none;min-width:44px;min-height:44px;align-items:center;justify-content:center;border-radius:var(--r-md);transition:background var(--duration)}
-.hamburger:hover{background:var(--border-hover)}
-.hamburger span{display:block;width:20px;height:2px;background:var(--ink);border-radius:2px;transition:transform .2s,opacity .2s}
-.hamburger.open span:nth-child(1){transform:translateY(7px) rotate(45deg)}
-.hamburger.open span:nth-child(2){opacity:0}
-.hamburger.open span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
-.mobile-menu{display:none;position:fixed;top:56px;left:0;right:0;bottom:0;background:var(--surface);z-index:40;padding:var(--sp-md);flex-direction:column;gap:0;border-top:1px solid var(--border)}
-.mobile-menu.open{display:flex}
-.mobile-menu a{display:flex;align-items:center;gap:10px;padding:14px 12px;font-size:.95rem;color:var(--ink-muted);min-height:48px;border-radius:var(--r-md);text-decoration:none;transition:background var(--duration),color var(--duration)}
-.mobile-menu a.active{color:var(--ink);background:var(--primary-muted);font-weight:500}
-.mobile-menu a:hover{color:var(--ink);background:var(--border-hover)}
-.mobile-menu a svg{width:20px;height:20px;flex-shrink:0}
+/* ---- Sidebar ---- */
+.sidebar{
+  position:fixed;top:0;left:0;bottom:0;
+  width:var(--sidebar-w);
+  background:var(--sidebar-bg);
+  border-right:1px solid var(--sidebar-border);
+  display:flex;flex-direction:column;
+  z-index:60;
+  transition:width .25s var(--ease-out),transform .25s var(--ease-out);
+  overflow:hidden;
+}
+.sidebar.collapsed{width:var(--sidebar-w-collapsed)}
+/* Brand header inside sidebar */
+.sidebar-brand{
+  display:flex;align-items:center;gap:var(--sp-sm);
+  height:var(--header-h);padding:0 var(--sp-md);
+  border-bottom:1px solid var(--sidebar-border);
+  flex-shrink:0;white-space:nowrap;overflow:hidden;
+}
+.sidebar-brand .brand-logo{
+  width:28px;height:28px;border-radius:var(--r-sm);
+  background:linear-gradient(135deg,var(--primary),var(--info));
+  display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:.8rem;color:var(--bg);flex-shrink:0;
+}
+.sidebar-brand .brand-name{
+  font-size:1.05rem;font-weight:700;color:var(--sidebar-fg);
+  transition:opacity .2s;letter-spacing:-.01em;
+}
+.sidebar.collapsed .brand-name{opacity:0;width:0;overflow:hidden}
+/* Sidebar toggle button */
+.sidebar-toggle{
+  background:none;border:none;color:var(--ink-muted);
+  cursor:pointer;padding:6px;border-radius:var(--r-sm);
+  display:flex;align-items:center;justify-content:center;
+  transition:color var(--duration),background var(--duration);
+  flex-shrink:0;
+}
+.sidebar-toggle:hover{color:var(--ink);background:var(--sidebar-accent)}
+.sidebar-toggle svg{width:20px;height:20px}
+/* Nav groups */
+.sidebar-nav{flex:1;overflow-y:auto;overflow-x:hidden;padding:var(--sp-sm) 0}
+.sidebar-nav-group{margin-bottom:var(--sp-sm)}
+.sidebar-nav-label{
+  padding:var(--sp-xs) var(--sp-md);font-size:.65rem;font-weight:600;
+  text-transform:uppercase;letter-spacing:.08em;color:var(--ink-dim);
+  white-space:nowrap;overflow:hidden;transition:opacity .2s;
+}
+.sidebar.collapsed .sidebar-nav-label{opacity:0;height:0;padding:0;margin:0;overflow:hidden}
+.sidebar-nav-item{
+  display:flex;align-items:center;gap:var(--sp-sm);
+  padding:8px var(--sp-md);margin:1px var(--sp-xs);
+  border-radius:var(--r-sm);color:var(--sidebar-muted);
+  text-decoration:none;font-size:.84rem;font-weight:500;
+  transition:all var(--duration) var(--ease-out);
+  white-space:nowrap;overflow:hidden;min-height:36px;
+  position:relative;
+}
+.sidebar-nav-item svg{width:18px;height:18px;flex-shrink:0}
+.sidebar-nav-item span{transition:opacity .2s;overflow:hidden;text-overflow:ellipsis}
+.sidebar.collapsed .sidebar-nav-item span{opacity:0;width:0}
+.sidebar.collapsed .sidebar-nav-item{justify-content:center;padding:8px 0;margin:1px var(--sp-xs)}
+.sidebar-nav-item.active{
+  background:var(--primary-muted);color:var(--primary);
+  font-weight:600;
+}
+.sidebar-nav-item.active::before{
+  content:'';position:absolute;left:0;top:6px;bottom:6px;
+  width:3px;border-radius:0 3px 3px 0;background:var(--primary);
+}
+/* User block at bottom */
+.sidebar-user{
+  border-top:1px solid var(--sidebar-border);
+  padding:var(--sp-sm) var(--sp-md);display:flex;align-items:center;
+  gap:var(--sp-sm);flex-shrink:0;overflow:hidden;
+}
+.sidebar-user-avatar{
+  width:32px;height:32px;border-radius:50%;
+  background:var(--sidebar-accent);display:flex;align-items:center;
+  justify-content:center;flex-shrink:0;overflow:hidden;
+}
+.sidebar-user-avatar svg{width:16px;height:16px;color:var(--ink-muted)}
+.sidebar-user-avatar img{width:100%;height:100%;object-fit:cover}
+.sidebar-user-name{
+  font-size:.82rem;font-weight:500;color:var(--sidebar-fg);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  transition:opacity .2s;
+}
+.sidebar.collapsed .sidebar-user-name{opacity:0;width:0}
+.sidebar-user-link{display:flex;align-items:center;gap:10px;padding:var(--sp-sm) var(--sp-md);color:var(--ink);text-decoration:none;border-radius:var(--r-md);margin:var(--sp-xs) var(--sp-sm);transition:background .2s}
+.sidebar-user-link:hover{background:var(--sidebar-accent)}
 
-@media(min-width:720px){
-  .topnav .links-desktop{display:flex}
-  .hamburger{display:none}
+/* ---- Top Header Bar ---- */
+.top-header{
+  position:fixed;top:0;right:0;height:var(--header-h);
+  display:flex;align-items:center;gap:var(--sp-sm);
+  padding:0 var(--sp-lg);z-index:55;
+  background:oklch(.14 .01 270 / 80%);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--border);
+  transition:left .25s var(--ease-out);
+  left:var(--sidebar-w);
+}
+.top-header .header-left{display:flex;align-items:center;gap:var(--sp-sm);flex:1}
+.top-header .header-right{display:flex;align-items:center;gap:var(--sp-sm)}
+/* Mobile hamburger button - visible only on mobile */
+.header-mobile-toggle{
+  display:none;background:none;border:none;color:var(--ink-muted);
+  cursor:pointer;padding:6px;border-radius:var(--r-sm);
+  align-items:center;justify-content:center;
+  transition:color var(--duration),background var(--duration);
+}
+.header-mobile-toggle:hover{color:var(--ink);background:var(--card-hover)}
+.header-mobile-toggle svg{width:22px;height:22px}
+/* Header action buttons */
+.header-btn{
+  background:none;border:1px solid var(--border);color:var(--ink-muted);
+  cursor:pointer;padding:6px;border-radius:var(--r-sm);
+  display:flex;align-items:center;justify-content:center;
+  transition:all var(--duration);min-width:32px;min-height:32px;
+}
+.header-btn:hover{color:var(--ink);border-color:var(--border-hover);background:var(--card-hover)}
+.header-btn svg{width:18px;height:18px}
+
+/* ---- Main content area ---- */
+.main-wrap{
+  flex:1;display:flex;flex-direction:column;
+  margin-left:var(--sidebar-w);
+  padding-top:var(--header-h);
+  min-height:100vh;min-height:100dvh;
+  transition:margin-left .25s var(--ease-out);
+  overflow-x:hidden;
+}
+.sidebar.collapsed ~ .main-wrap{margin-left:var(--sidebar-w-collapsed)}
+.sidebar.collapsed ~ .top-header{left:var(--sidebar-w-collapsed)}
+.sidebar-toggle svg{transition:transform .25s var(--ease-out)}
+.sidebar.collapsed .sidebar-toggle svg{transform:rotate(180deg)}
+
+/* ---- Mobile sidebar overlay ---- */
+.sidebar-overlay{
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.55);backdrop-filter:blur(4px);
+  z-index:59;
+}
+
+/* ---- Responsive: mobile ---- */
+@media(max-width:767px){
+  .sidebar{transform:translateX(-100%);width:var(--sidebar-w)}
+  .sidebar.collapsed{width:var(--sidebar-w)}
+  .sidebar.mobile-open{transform:translateX(0)}
+  .sidebar-overlay.open{display:block}
+  .main-wrap{margin-left:0 !important}
+  .top-header{left:0}
+  .header-mobile-toggle{display:flex}
+  .sidebar.collapsed ~ .main-wrap{margin-left:0}
+}
+/* Desktop: hide mobile toggle */
+@media(min-width:768px){
+  .header-mobile-toggle{display:none !important}
 }
 
 /* ---- Filter tabs ---- */
@@ -113,7 +370,7 @@ body{animation:pageEnter .35s var(--ease-out)}
   display:inline-flex;align-items:center;gap:6px;
   padding:8px 16px;border:1px solid var(--border);border-radius:var(--r-pill);
   background:transparent;color:var(--ink-muted);font-size:.84rem;font-weight:500;cursor:pointer;
-  min-height:40px;white-space:nowrap;transition:all var(--duration)
+  min-height:44px;white-space:nowrap;transition:all var(--duration)
 }
 .tabs a.active,.tabs button.active{background:var(--primary-muted);color:var(--ink);border-color:var(--primary);box-shadow:0 0 0 1px var(--primary)}
 .tabs a:hover,.tabs button:hover{background:var(--border-hover);color:var(--ink)}
@@ -124,7 +381,7 @@ body{animation:pageEnter .35s var(--ease-out)}
 @media(min-width:720px){.card-grid{grid-template-columns:repeat(auto-fill,minmax(380px,1fr))}}
 
 .card{display:block;background:var(--card);border-radius:var(--r-lg);padding:var(--sp-md);border:1px solid var(--border);text-decoration:none;color:var(--ink);min-height:44px;transition:all var(--duration) var(--ease-out);box-shadow:var(--shadow-xs)}
-.card:hover{border-color:var(--primary);background:var(--card-hover);text-decoration:none;transform:translateY(-2px);box-shadow:var(--shadow-md),0 0 0 1px var(--primary)}
+.card:hover{border-color:var(--primary);background:var(--card-hover);text-decoration:none;transform:translateY(-2px) scale(1.02);box-shadow:var(--shadow-lg),0 0 0 1px var(--primary)}
 .card-top{display:flex;align-items:center;gap:var(--sp-sm);flex-wrap:wrap;margin-bottom:var(--sp-sm)}
 .card-preview{font-size:.9rem;color:var(--ink);overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;max-width:100%;line-height:1.5}
 .card-meta{display:flex;gap:var(--sp-sm);margin-top:var(--sp-sm);font-size:.78rem;color:var(--ink-muted)}
@@ -263,21 +520,183 @@ kbd{font-family:var(--font-mono);font-size:.68rem;background:var(--surface);bord
 .search-bar input{flex:1;padding:10px 14px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);color:var(--ink);font-size:.88rem;outline:none;transition:border-color var(--duration),box-shadow var(--duration);min-height:44px}
 .search-bar input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(167,139,250,.25),0 0 0 1px var(--primary)}
 .search-bar input::placeholder{color:var(--ink-dim)}
+
+/* ---- Dashboard Hero ---- */
+.dash-hero{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--sp-md);padding:var(--sp-lg) var(--sp-lg) 0}
+@media(max-width:720px){.dash-hero{grid-template-columns:repeat(2,1fr);gap:var(--sp-sm);padding:var(--sp-md) var(--sp-md) 0}.dash-health-strip{padding:0 var(--sp-md);gap:var(--sp-sm)}.dash-health-item{padding:4px 10px;font-size:.72rem}}
+.dash-metric{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--sp-lg) var(--sp-md);display:flex;flex-direction:column;gap:2px;transition:border-color var(--duration)}
+.dash-metric:hover{border-color:var(--border-hover)}
+.dash-metric .dash-num{font-size:1.75rem;font-weight:700;line-height:1.1;letter-spacing:-.02em}
+.dash-metric .dash-label{font-size:.72rem;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;font-weight:500}
+.dash-metric .dash-sub{font-size:.72rem;color:var(--ink-dim);margin-top:2px}
+.dash-metricAccent{border-left:3px solid var(--primary)}
+.dash-metricSuccess .dash-num{color:var(--success)}
+.dash-metricPrimary .dash-num{color:var(--primary)}
+.dash-metricWarning .dash-num{color:var(--warning)}
+.dash-metricDanger .dash-num{color:var(--danger)}
+/* ---- API section (full-width) ---- */
+.dash-api-section{margin:var(--sp-lg) var(--sp-lg) 0;padding:var(--sp-lg);background:var(--card);border:1px solid var(--border);border-radius:var(--r-xl);animation:staggerFade .3s var(--ease-out) .04s both}
+@media(max-width:720px){.dash-api-section{margin:var(--sp-md);padding:var(--sp-md)}}
+.dash-api-header{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-sm);margin-bottom:var(--sp-md)}
+.dash-api-header h2{font-size:.95rem;font-weight:600;color:var(--ink);margin:0;display:flex;align-items:center;gap:var(--sp-sm)}
+.dash-api-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--sp-md)}
+@media(max-width:720px){.dash-api-grid{grid-template-columns:repeat(2,1fr)}}
+.dash-api-card{text-align:center;padding:var(--sp-sm) var(--sp-md)}
+.dash-api-card .dash-num{font-size:1.35rem}
+.dash-api-card .dash-label{font-size:.7rem}
+.dash-trend-wrap{margin-top:var(--sp-md)}
+.dash-trend-label{font-size:.7rem;color:var(--ink-dim);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em}
+.dash-trend-chart-box{height:140px;position:relative}
+/* ---- Service health strip ---- */
+.dash-health-strip{display:flex;gap:var(--sp-md);padding:0 var(--sp-lg);flex-wrap:wrap}
+.dash-health-item{display:flex;align-items:center;gap:6px;padding:6px 14px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-pill);font-size:.78rem;color:var(--ink-muted);transition:border-color var(--duration),background var(--duration)}
+.dash-health-item:hover{border-color:var(--border-hover);background:var(--card-hover)}
+.dash-health-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.dash-health-dot.alive{background:var(--success);box-shadow:0 0 6px rgba(52,211,153,.5)}
+.dash-health-dot.dead{background:var(--danger);box-shadow:0 0 6px rgba(248,113,113,.4)}
+.dash-health-dot.checking{background:var(--warning);animation:pulse 1.5s infinite}
+.dash-health-name{font-weight:500;color:var(--ink)}
+.dash-health-lat{font-family:var(--font-mono);font-size:.68rem;color:var(--ink-dim)}
+/* ---- Uptime Kuma embed ---- */
+.dash-uptime-section{margin:var(--sp-md) var(--sp-lg) 0;animation:staggerFade .3s var(--ease-out) .12s both}
+.dash-uptime-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;transition:border-color var(--duration)}
+.dash-uptime-card:hover{border-color:var(--border-hover)}
+.dash-uptime-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border)}
+.dash-uptime-header h3{margin:0;font-size:.88rem;font-weight:600;color:var(--ink)}
+.dash-uptime-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-sm);padding:var(--sp-md)}
+.dash-uptime-item{display:flex;align-items:center;gap:var(--sp-md);padding:var(--sp-md) var(--sp-lg);background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);text-decoration:none;color:var(--ink);transition:border-color .2s,background .2s}
+.dash-uptime-item:hover{border-color:var(--primary);background:rgba(167,139,250,.06)}
+.dash-uptime-icon{font-size:1.5rem;flex-shrink:0}
+.dash-uptime-info{flex:1;min-width:0}
+.dash-uptime-name{font-size:.84rem;font-weight:600;color:var(--ink)}
+.dash-uptime-desc{font-size:.72rem;color:var(--ink-muted);margin-top:2px}
+.dash-uptime-arrow{font-size:1.1rem;color:var(--ink-muted);flex-shrink:0;transition:transform .2s}
+.dash-uptime-item:hover .dash-uptime-arrow{transform:translateX(3px);color:var(--primary)}
+.dash-uptime-link{font-size:.76rem;color:var(--primary);text-decoration:none;font-weight:500;transition:color .2s}
+.dash-uptime-link:hover{color:var(--primary-hover,var(--primary))}
+.dash-uptime-note{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:10px 14px;margin-top:var(--sp-sm);font-size:.78rem;color:var(--ink-muted);display:flex;align-items:center;gap:var(--sp-sm)}
+.dash-uptime-note .note-icon{font-size:1rem;flex-shrink:0}
+.dash-uptime-note strong{color:var(--ink);font-weight:600}
+@media(max-width:720px){.dash-uptime-section{margin:var(--sp-md)}.dash-uptime-grid{grid-template-columns:1fr;padding:var(--sp-sm)}}
+/* ---- Resource gauges ---- */
+.dash-resource-section{margin:var(--sp-md) var(--sp-lg) 0;display:grid;grid-template-columns:repeat(4,1fr);gap:var(--sp-md);animation:staggerFade .3s var(--ease-out) .06s both}
+@media(max-width:720px){.dash-resource-section{grid-template-columns:repeat(2,1fr);margin:var(--sp-md);gap:var(--sp-sm)}}
+.dash-res-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--sp-md);display:flex;flex-direction:column;gap:4px;transition:border-color var(--duration)}
+.dash-res-card:hover{border-color:var(--border-hover)}
+.dash-res-label{font-size:.7rem;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;font-weight:500}
+.dash-res-value{font-size:1.3rem;font-weight:700;line-height:1.1}
+.dash-res-bar{height:4px;border-radius:2px;background:var(--surface);overflow:hidden;margin-top:2px}
+.dash-res-fill{height:100%;border-radius:2px;transition:width .6s var(--ease-out)}
+.dash-res-sub{font-size:.68rem;color:var(--ink-dim);font-family:var(--font-mono)}
+/* ---- Account health donut ---- */
+.dash-donut-wrap{display:flex;align-items:center;gap:var(--sp-lg);margin-top:var(--sp-md)}
+.dash-donut-canvas-wrap{width:100px;height:100px;flex-shrink:0}
+.dash-donut-legend{display:flex;flex-direction:column;gap:6px}
+.dash-donut-legend-item{display:flex;align-items:center;gap:8px;font-size:.82rem}
+.dash-donut-legend-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+.dash-donut-legend-value{font-weight:600;font-family:var(--font-mono)}
+/* ---- VPS section ---- */
+.sec-header{display:flex;align-items:center;gap:var(--sp-sm);padding:var(--sp-md) var(--sp-lg) var(--sp-sm);border-bottom:1px solid var(--border)}
+.sec-header h1{font-size:1rem;margin:0;font-weight:600;color:var(--ink);flex:1;letter-spacing:-.01em}
+.sec-refresh{font-size:.72rem;color:var(--success);display:inline-flex;align-items:center;gap:4px;font-weight:500}
+.sec-refresh::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--success);box-shadow:0 0 6px rgba(52,211,153,.5);animation:pulse 2s infinite}
+.sec-pause-btn{background:none;border:1px solid var(--border);border-radius:var(--r-sm);color:var(--ink-muted);padding:4px 10px;cursor:pointer;font-size:.78rem;transition:all var(--duration);min-height:28px;min-width:28px;display:inline-flex;align-items:center;justify-content:center}
+.sec-pause-btn:hover{border-color:var(--primary);color:var(--primary)}
+.sec-kanban{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-lg);padding:var(--sp-md) var(--sp-lg) var(--sp-lg)}
+@media(max-width:720px){.sec-kanban{grid-template-columns:1fr;padding:var(--sp-md)}}
+.sec-col{min-width:0;animation:staggerFade .35s var(--ease-out) both}
+.sec-col:nth-child(2){animation-delay:.08s}
+.sec-col-header{display:flex;align-items:center;gap:var(--sp-sm);padding:var(--sp-sm) 0;margin-bottom:var(--sp-sm);border-bottom:1px solid var(--border)}
+.sec-col-header h3{font-size:.85rem;margin:0;color:var(--ink-muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;flex:1}
+.sec-section{margin-bottom:var(--sp-md);animation:staggerFade .3s var(--ease-out) both}
+.sec-section:nth-child(2){animation-delay:.04s}
+.sec-section:nth-child(3){animation-delay:.08s}
+.sec-section:nth-child(4){animation-delay:.12s}
+.sec-section-title{font-size:.7rem;font-weight:600;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.08em;padding:0 0 var(--sp-xs);margin:0 0 var(--sp-xs)}
+.sec-card{background:var(--card);border-radius:var(--r-lg);padding:14px 16px;margin-bottom:var(--sp-sm);border:1px solid var(--border);transition:border-color var(--duration)}
+.sec-card:hover{border-color:var(--border-hover)}
+.sec-overview{border-left:3px solid var(--primary)}
+.sec-empty{color:var(--ink-dim);font-size:.82rem;font-style:italic;padding:var(--sp-sm) 0;display:block;text-align:center}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;flex-shrink:0}
+.dot-green{background:var(--success)}
+.dot-red{background:var(--danger)}
+.dot-amber{background:var(--warning)}
+.sec-badge{font-size:.68rem;padding:2px 8px;border-radius:var(--r-pill);background:var(--card-hover);color:var(--ink-muted);margin-left:6px;font-weight:500;letter-spacing:.02em;white-space:nowrap}
+.sec-badge-red{background:var(--danger-muted);color:var(--danger);font-weight:600}
+.sec-badge-green{background:var(--success-muted);color:var(--success);font-weight:600}
+.sec-stat-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;font-size:.86rem;border-bottom:1px solid var(--border)}
+.sec-stat-row:last-child{border-bottom:none}
+.sec-stat-row .stat-label{color:var(--ink-muted);font-size:.82rem}
+.sec-stat-row .stat-value{font-weight:600;color:var(--ink)}
+.sec-bar-row{display:flex;align-items:center;gap:var(--sp-sm);padding:4px 0;font-size:.82rem}
+.sec-ip{min-width:130px;color:var(--ink-dim);font-family:var(--font-mono);font-size:.76rem;overflow:hidden;text-overflow:ellipsis}
+.sec-bar-bg{flex:1;height:6px;background:var(--border-hover);border-radius:3px;overflow:hidden}
+.sec-bar-fill{height:100%;border-radius:3px;transition:width .6s var(--ease-out);min-width:2px}
+.sec-cnt{min-width:40px;text-align:right;color:var(--ink-dim);font-size:.76rem;font-family:var(--font-mono)}
+.sec-ufw-row{display:flex;align-items:center;gap:var(--sp-sm);padding:6px 2px;font-size:.82rem;border-bottom:1px solid var(--border);transition:background var(--duration)}
+.sec-ufw-row:hover{background:var(--card-hover);border-radius:var(--r-sm)}
+.sec-ufw-row:last-child{border-bottom:none}
+.sec-ufw-action{min-width:48px;font-weight:700;font-size:.74rem;letter-spacing:.02em;border-radius:var(--r-pill);padding:1px 6px;text-align:center;display:inline-block}
+.sec-ufw-action.allow{background:var(--success-muted);color:var(--success)}
+.sec-ufw-action.deny{background:var(--danger-muted);color:var(--danger)}
+.sec-ufw-action.other{background:var(--card-hover);color:var(--ink-dim)}
+.sec-ufw-to{min-width:90px;font-family:var(--font-mono);font-size:.76rem;color:var(--ink);font-weight:500}
+.sec-ufw-comment{color:var(--ink-dim);font-size:.74rem;font-style:italic}
+.sec-inbound-card{background:var(--card);border-radius:var(--r-lg);padding:14px 16px;margin-bottom:var(--sp-sm);border:1px solid var(--border);transition:border-color var(--duration)}
+.sec-inbound-card:hover{border-color:var(--border-hover)}
+.sec-inbound-header{display:flex;align-items:center;gap:var(--sp-sm);flex-wrap:wrap}
+.sec-inbound-name{font-weight:600;font-size:.88rem;color:var(--ink)}
+.sec-inbound-meta{font-size:.74rem;color:var(--ink-dim);font-family:var(--font-mono)}
+.sec-inbound-traffic{font-size:.76rem;margin-left:auto;font-weight:500;color:var(--ink-muted);font-family:var(--font-mono)}
+.sec-inbound-clients{margin-top:var(--sp-sm);padding-left:16px;border-left:2px solid var(--border)}
+.sec-client-row{display:flex;align-items:center;gap:var(--sp-sm);padding:5px 0;font-size:.82rem;border-bottom:1px solid var(--border)}
+.sec-client-row:last-child{border-bottom:none}
+.sec-client-name{min-width:120px;color:var(--ink);font-weight:500}
+.sec-client-traffic{color:var(--ink-dim);font-size:.76rem;font-family:var(--font-mono)}
+.sec-sysctl-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:var(--sp-xs)}
+@media(max-width:480px){.sec-sysctl-grid{grid-template-columns:1fr 1fr}}
+.sec-sysctl-item{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--surface);border-radius:var(--r-md);font-size:.82rem;border:1px solid transparent;transition:border-color var(--duration)}
+.sec-sysctl-item:hover{border-color:var(--border)}
+.sec-sysctl-label{color:var(--ink-muted);font-size:.76rem}
+.sec-sysctl-value{font-weight:600;font-size:.9rem}
+.sec-api-status{display:flex;align-items:center;gap:var(--sp-xs);font-size:.78rem;margin-top:var(--sp-sm)}
+.sec-api-status .dot{margin-right:0}
 """
 
 # ---------------------------------------------------------------------------
 # Shared page shell
 # ---------------------------------------------------------------------------
 
-def _page(title: str, body: str, *, extra_js: str = "") -> str:
-    """Return a full HTML document with the shared dark theme."""
-    return f"""<!DOCTYPE html>
+def _page(title: str, body: str, *, extra_js: str = "", nav_active: str = "home", show_nav: bool = True) -> str:
+    """Return a full HTML document with sidebar + top header layout."""
+    if show_nav:
+        nav_html = _nav(active=nav_active)
+        return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{_html.escape(title)}</title>
 <style>{_DARK_CSS}</style>
+<script>(function(){{var t=localStorage.getItem('hermes_theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}})();document.addEventListener('DOMContentLoaded',function(){{var n=localStorage.getItem('hermes_display_name');if(n){{var su=document.getElementById('sidebar-username');if(su)su.textContent=n;}}var a=localStorage.getItem('hermes_avatar_url');if(a){{var sa=document.getElementById('sidebar-avatar');if(sa)sa.innerHTML='<img src=\"'+a+'\" style=\"width:100%;height:100%;object-fit:cover;border-radius:50%\" onerror=\"this.parentElement.textContent=\\'👤\\'\">';}}}});</script>
+</head>
+<body>
+{nav_html}
+<div class="main-wrap">
+{body}
+</div>
+{f'<script>{extra_js}</script>' if extra_js else ''}
+</body>
+</html>"""
+    else:
+        return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{_html.escape(title)}</title>
+<style>{_DARK_CSS}</style>
+<script>(function(){{var t=localStorage.getItem('hermes_theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}})();document.addEventListener('DOMContentLoaded',function(){{var n=localStorage.getItem('hermes_display_name');if(n){{var su=document.getElementById('sidebar-username');if(su)su.textContent=n;}}var a=localStorage.getItem('hermes_avatar_url');if(a){{var sa=document.getElementById('sidebar-avatar');if(sa)sa.innerHTML='<img src=\"'+a+'\" style=\"width:100%;height:100%;object-fit:cover;border-radius:50%\" onerror=\"this.parentElement.textContent=\\'👤\\'\">';}}}});</script>
 </head>
 <body>
 {body}
@@ -302,30 +721,106 @@ _ICON_KNOWLEDGE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" st
 
 _ICON_SETTINGS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>'
 
-def _nav(*, active: str = "knowledge") -> str:
-    links = [
-        ("knowledge", "Knowledge", "/knowledge", _ICON_KNOWLEDGE),
-        ("gallery", "Gallery", "/gallery", _ICON_GALLERY),
-        ("security", "Security", "/security", _ICON_SECURITY),
-        ("settings", "Settings", "/settings", _ICON_SETTINGS),
-    ]
-    desktop_items = []
-    mobile_items = []
-    for key, label, href, icon in links:
-        cls = " active" if key == active else ""
-        desktop_items.append(f'<a href="{href}" class="{cls.lstrip()}">{_html.escape(label)}</a>')
-        mobile_items.append(f'<a href="{href}" class="{cls.lstrip()}">{icon} <span>{_html.escape(label)}</span></a>')
+_ICON_HOME = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>'
 
-    return f"""<nav class="topnav">
-  <a href="/knowledge" class="brand">🧠 Hermes</a>
-  <span class="links-desktop">{''.join(desktop_items)}</span>
-  <button class="hamburger" onclick="document.getElementById('mm').classList.toggle('open');this.classList.toggle('open')" aria-label="Menu">
-    <span></span><span></span><span></span>
-  </button>
-</nav>
-<div class="mobile-menu" id="mm">
-  {''.join(mobile_items)}
-</div>"""
+_ICON_SERVICES = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="9" height="9" rx="2"/><rect x="13" y="2" width="9" height="9" rx="2"/><rect x="2" y="13" width="9" height="9" rx="2"/><rect x="13" y="13" width="9" height="9" rx="2"/></svg>'
+
+_ICON_USER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
+
+_ICON_EXTERNAL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>'
+
+def _nav(*, active: str = "home") -> str:
+    """Sidebar navigation + top header bar with toggle."""
+    # Icon for sidebar collapse/expand (hamburger / menu)
+    icon_menu = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>'
+    icon_chevron = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>'
+
+    nav_items = [
+        ("home", "首页", "/", _ICON_HOME),
+        ("knowledge", "知识", "/knowledge", _ICON_KNOWLEDGE),
+        ("gallery", "绘图", "/gallery", _ICON_GALLERY),
+        ("services", "服务", "/services", _ICON_SERVICES),
+    ]
+    nav_items_html = []
+    for key, label, href, icon in nav_items:
+        cls = "sidebar-nav-item active" if key == active else "sidebar-nav-item"
+        nav_items_html.append(
+            f'<a href="{href}" class="{cls}">{icon}<span>{_html.escape(label)}</span></a>'
+        )
+
+    profile_cls = "sidebar-nav-item active" if active == "profile" else "sidebar-nav-item"
+
+    sidebar = f"""<aside class="sidebar" id="brainSidebar">
+  <div class="sidebar-brand">
+    <div class="brand-logo">B</div>
+    <span class="brand-name">Brain</span>
+    <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar">
+      {icon_chevron}
+    </button>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="sidebar-nav-group">
+      <div class="sidebar-nav-label">导航</div>
+      {''.join(nav_items_html)}
+      <a href="/profile" class="{profile_cls}">{_ICON_USER}<span>我的</span></a>
+    </div>
+  </nav>
+  <a href="/profile" class="sidebar-user-link">
+    <div class="sidebar-user-avatar" id="sidebar-avatar">{_ICON_USER}</div>
+    <span class="sidebar-user-name" id="sidebar-username">用户</span>
+  </a>
+</aside>"""
+
+    top_header = f"""<header class="top-header" id="topHeader">
+  <div class="header-left">
+    <button class="header-mobile-toggle" id="mobileMenuToggle" title="Menu">
+      {icon_menu}
+    </button>
+  </div>
+  <div class="header-right">
+    <a href="/profile" class="header-btn" title="Profile">{_ICON_USER}</a>
+  </div>
+</header>"""
+
+    overlay = '<div class="sidebar-overlay" id="sidebarOverlay"></div>'
+
+    toggle_js = """(function(){
+  var sb=document.getElementById('brainSidebar');
+  var toggle=document.getElementById('sidebarToggle');
+  var mobile=document.getElementById('mobileMenuToggle');
+  var overlay=document.getElementById('sidebarOverlay');
+  if(!sb||!toggle)return;
+  toggle.addEventListener('click',function(){
+    if(window.innerWidth<768){
+      sb.classList.remove('mobile-open');
+      overlay.classList.remove('open');
+    } else {
+      sb.classList.toggle('collapsed');
+    }
+  });
+  if(mobile){
+    mobile.addEventListener('click',function(){
+      sb.classList.toggle('mobile-open');
+      overlay.classList.toggle('open');
+    });
+  }
+  if(overlay){
+    overlay.addEventListener('click',function(){
+      sb.classList.remove('mobile-open');
+      overlay.classList.remove('open');
+    });
+  }
+  /* Restore user prefs from localStorage */
+  var _dn=localStorage.getItem('hermes_display_name');
+  if(_dn){var _su=document.getElementById('sidebar-username');if(_su)_su.textContent=_dn;}
+  var _au=localStorage.getItem('hermes_avatar_url');
+  if(_au){var _sa=document.getElementById('sidebar-avatar');if(_sa)_sa.innerHTML='<img src="'+_au+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentElement.innerHTML=\'👤\'">';}
+})();"""
+
+    return f"""{sidebar}
+{top_header}
+{overlay}
+<script>{toggle_js}</script>"""
 
 
 # ---------------------------------------------------------------------------
@@ -444,7 +939,7 @@ def review_queue_page(
     # The heading must contain "Pending proposals" for the test
     heading = "待审提案" if active_state == "pending" else f"{active_state.replace('_', ' ').title()} proposals"
 
-    body = f"""{_nav(active="queue")}
+    body = f"""
 <h1 style="padding:16px 16px 0;font-size:1.2rem">{_html.escape(heading)}</h1>
 <div class="tabs">{tab_html}</div>
 <div class="search-bar"><input type="text" id="search-input" placeholder="Search proposals…" oninput="filterCards()"></div>
@@ -459,7 +954,7 @@ function filterCards(){{
 }}
 </script>
 """
-    return _page("Hermes Review Queue", body)
+    return _page("Hermes Review Queue", body, nav_active="home")
 
 
 # ---------------------------------------------------------------------------
@@ -586,7 +1081,7 @@ def review_detail_page(*, proposal: dict) -> str:
     if not btns and is_rejected:
         btns = '<div class="empty" style="flex:1">This proposal was rejected.</div>'
 
-    body = f"""{_nav(active="queue")}
+    body = f"""
 <div class="detail-header">
   <a href="/review" class="back-link">← Review</a>
   <span class="detail-title">{_html.escape(pid[:12])}…</span>
@@ -603,7 +1098,7 @@ def review_detail_page(*, proposal: dict) -> str:
 <div class="detail-body">{sections_html}</div>
 <div class="action-bar">{btns}</div>
 <div class="confirm-overlay" id="confirm-overlay" onclick="if(event.target===this)hideConfirm()">
-  <div class="confirm-modal">
+  <div class="confirm-modal" id="confirm-modal">
     <h3 id="confirm-title"></h3>
     <div class="confirm-actions">
       <button class="btn-yes" id="confirm-action-btn">Confirm</button>
@@ -612,7 +1107,7 @@ def review_detail_page(*, proposal: dict) -> str:
   </div>
 </div>
 """
-    return _page(f"Proposal {pid[:12]}", body, extra_js=_ACTION_JS)
+    return _page(f"Proposal {pid[:12]}", body, extra_js=_ACTION_JS, nav_active="home")
 
 
 # ---------------------------------------------------------------------------
@@ -672,7 +1167,256 @@ def login_page(*, error: str = "") -> str:
 .login-hint code{background:var(--surface);padding:2px 8px;border-radius:var(--r-sm);border:1px solid var(--border);font-size:.72rem;font-family:var(--font-mono)}
 </style>
 """
-    return _page("Hermes Login", login_css + body)
+    return _page("Hermes Login", login_css + body, show_nav=False)
+
+
+# ---------------------------------------------------------------------------
+# Color Palettes Data & Builder (embedded in Gallery)
+# ---------------------------------------------------------------------------
+
+_PAL_QUAL = {
+    "okabe_ito": ("Okabe-Ito", "Okabe & Ito (2008) — CVD gold standard", True,
+        [("#E69F00","Orange"), ("#56B4E9","Sky Blue"), ("#009E73","Bluish Green"), ("#F0E442","Yellow"), ("#0072B2","Blue"), ("#D55E00","Vermillion"), ("#CC79A7","Red. Purple"), ("#000000","Black")]),
+    "tol_bright": ("Paul Tol Bright", "Paul Tol (2021) — srON, 7 colors", True,
+        [("#4477AA","Blue"), ("#EE6677","Red"), ("#228833","Green"), ("#CCBB44","Yellow"), ("#66CCEE","Cyan"), ("#AA3377","Purple"), ("#BBBBBB","Grey")]),
+    "tol_vibrant": ("Paul Tol Vibrant", "Tol (2021) — TensorBoard-style", True,
+        [("#0077BB","Blue"), ("#33BBEE","Cyan"), ("#009988","Teal"), ("#EE7733","Orange"), ("#CC3311","Red"), ("#EE3377","Magenta"), ("#BBBBBB","Grey")]),
+    "tol_muted": ("Paul Tol Muted", "Tol (2021) — 9 colors + bad-data grey", True,
+        [("#332288","Indigo"), ("#88CCEE","Cyan"), ("#44AA99","Teal"), ("#117733","Green"), ("#999933","Olive"), ("#DDCC77","Sand"), ("#CC6677","Rose"), ("#882255","Wine"), ("#AA4499","Purple")]),
+    "npg": ("NPG (Nature Rev. Cancer)", "Nature Publishing Group, via ggsci", False,
+        [("#E64B35","Red"), ("#4DBBD5","Cyan Blue"), ("#00A087","Green"), ("#3C5488","Navy"), ("#F39B7F","Salmon"), ("#8491B8","Slate"), ("#91D1C2","Mint"), ("#DC0000","Crimson"), ("#7E6148","Brown"), ("#B09C85","Tan")]),
+    "nejm": ("NEJM", "New England J. Medicine, via ggsci", True,
+        [("#BC3C29","Dark Red"), ("#0072B5","Blue"), ("#E18727","Orange"), ("#20854E","Green"), ("#7876B1","Purple"), ("#6F99AD","Steel"), ("#FFDC91","Gold"), ("#EE4C97","Pink")]),
+    "lancet": ("Lancet", "The Lancet, via ggsci", True,
+        [("#00468B","Blue"), ("#ED0000","Red"), ("#42B540","Green"), ("#0099B5","Teal"), ("#925E9F","Purple"), ("#FDAF91","Peach"), ("#AD002A","Dark Red"), ("#ADB6B6","Grey")]),
+    "jama": ("JAMA", "J. American Medical Association", True,
+        [("#374E55","Charcoal"), ("#DF8D5B","Orange"), ("#003B5C","Navy"), ("#B6370E","Rust"), ("#56B3E0","Sky"), ("#00A087","Teal")]),
+    "jco": ("JCO", "J. Clinical Oncology, via ggsci", True,
+        [("#0073A8","Blue"), ("#E08B28","Amber"), ("#A0244D","Magenta"), ("#56B3E0","Lt. Blue"), ("#3C5488","Navy"), ("#91D1C2","Mint"), ("#DC0000","Red"), ("#7E6148","Brown")]),
+    "aaas": ("AAAS (Science)", "American Assoc. Advancement Science", False,
+        [("#3B4BA0","Indigo"), ("#EB0E2F","Red"), ("#7B95D1","Periwinkle"), ("#EF7C5E","Salmon"), ("#68AABA","Teal"), ("#C598C5","Lavender")]),
+}
+
+_PAL_GENO = {
+    "volcano": ("Volcano Plot", "DE up/down/NS + Okabe-Ito", True,
+        [("#D55E00","Up-regulated"), ("#0072B2","Down-regulated"), ("#BBBBBB","Not significant"), ("#000000","Threshold")]),
+    "apa_pattern": ("APA Usage Pattern", "Alt. polyadenylation convention", True,
+        [("#E64B35","Proximal"), ("#4DBBD5","Distal"), ("#8491B8","No change")]),
+    "survival": ("KM Survival Curves", "High-contrast risk groups", True,
+        [("#D55E00","High risk"), ("#0072B2","Low risk"), ("#BBBBBB","Censored")]),
+    "gwas": ("GWAS Manhattan", "Chromosome alternating standard", False,
+        [("#3366CC","Even chr"), ("#CC3333","Odd chr"), ("#D55E00","Genome-wide"), ("#0072B2","Suggestive")]),
+    "fluorophore": ("Fluorophore CVD-Safe", "Microscopy channels from Okabe-Ito", True,
+        [("#0072B2","Ch1 Blue"), ("#E69F00","Ch2 Orange"), ("#D55E00","Ch3 Vermillion"), ("#CC79A7","Ch4 Magenta"), ("#F0E442","Ch5 Yellow")]),
+    "dna_bases": ("DNA Bases CVD-Safe", "Sequence visualization", True,
+        [("#009E73","A (Green)"), ("#0072B2","C (Blue)"), ("#E69F00","G (Orange)"), ("#D55E00","T (Vermillion)")]),
+}
+
+_PAL_CMAP = [
+    ("viridis", "Viridis", "Blue→Green→Yellow, most versatile", "#440154,#31688e,#35b779,#fde725"),
+    ("magma", "Magma", "Black→Purple→Orange→White", "#000004,#51127c,#f98e09,#fcfdbf"),
+    ("inferno", "Inferno", "Black→Purple→Red→Yellow", "#000004,#56106e,#bb3754,#fcffa4"),
+    ("plasma", "Plasma", "Purple→Pink→Orange→Yellow", "#0d0887,#7e03a8,#cc4778,#f0f921"),
+    ("cividis", "Cividis", "Blue→Yellow, CVD-optimized", "#00224e,#6b8cc4,#feb9ff"),
+    ("batlow", "Batlow (Crameri)", "Gold-blue, perceptually uniform", "#1d0c30,#5a235a,#a6606b,#f5b7b1,#faf7f7"),
+    ("roma", "Roma (Crameri)", "Diverging: warm→white→cool", "#762a83,#c4a66c,#f5f0e5,#88c4ac,#1a6a54"),
+    ("vik", "Vik (Crameri)", "Diverging: cool→white→warm", "#1a6a54,#88c4ac,#f5f0e5,#c4a66c,#762a83"),
+    ("tol_sunset", "Tol Sunset", "Diverging: blue→yellow→red", "#364B9A,#6AA2AE,#E2E7B8,#F5A962,#A50026"),
+    ("tol_burd", "Tol BuRd", "Diverging: blue→white→red", "#2166AC,#67A9CF,#F7F7F7,#EF8A62,#B2182B"),
+    ("rdylbu", "RdYlBu", "Diverging: red→yellow→blue", "#A50026,#F46D43,#FFFFBF,#74ADD1,#313695"),
+]
+
+
+def _build_palettes_section() -> str:
+    """Build the Color Palettes section HTML for embedding in Gallery."""
+    # Qualitative palette cards
+    _q = ""
+    for _pid, (_name, _src, _cvd, _colors) in _PAL_QUAL.items():
+        _cvd_tag = '<span class="cvd-yes">✓ CVD</span>' if _cvd else '<span class="cvd-no">✗ CVD</span>'
+        _sw = "".join(f'<div class="pal-swatch" style="background:{c}" title="{l}: {c}" data-hex="{c}" onclick="event.stopPropagation();copyHex(this)"><span class="pal-hex">{c}</span></div>' for c, l in _colors)
+        _q += f'<div class="palette-card" data-cvd="{str(_cvd).lower()}" data-pid="{_pid}" onclick="openPaletteDetail(this.dataset.pid)"><div class="pal-head"><span class="pal-name">{_name}</span>{_cvd_tag}</div><div class="pal-src">{_src}</div><div class="pal-swatches">{_sw}</div><div class="pal-footer"><code class="pal-copy" data-pid="{_pid}" onclick="event.stopPropagation();copyPalette(this)">{len(_colors)} colors — click to copy</code></div></div>\n'
+
+    # Genomics palette cards
+    _g = ""
+    for _pid, (_name, _src, _cvd, _colors) in _PAL_GENO.items():
+        _cvd_tag = '<span class="cvd-yes">✓ CVD</span>' if _cvd else '<span class="cvd-no">✗ CVD</span>'
+        _sw = "".join(f'<div class="pal-swatch" style="background:{c}" title="{l}: {c}" data-hex="{c}" onclick="event.stopPropagation();copyHex(this)"><span class="pal-hex">{c}</span></div>' for c, l in _colors)
+        _g += f'<div class="palette-card" data-cvd="{str(_cvd).lower()}" data-pid="{_pid}" onclick="openPaletteDetail(this.dataset.pid)"><div class="pal-head"><span class="pal-name">{_name}</span>{_cvd_tag}</div><div class="pal-src">{_src}</div><div class="pal-swatches">{_sw}</div><div class="pal-footer"><code class="pal-copy" data-pid="{_pid}" onclick="event.stopPropagation();copyPalette(this)">{len(_colors)} colors — click to copy</code></div></div>\n'
+
+    # Sequential/diverging cmap table
+    _t = ""
+    for _cid, _label, _desc, _stops in _PAL_CMAP:
+        _grad = f"background:linear-gradient(90deg,{_stops})"
+        _t += f'<tr><td><code>{_cid}</code></td><td>{_label}</td><td>{_desc}</td><td><span class="cvd-yes" style="font-size:.6rem">✓</span></td><td><div class="cmap-bar" style="{_grad}"></div></td></tr>\n'
+
+    # Build palette JS data for copy functionality
+    _pal_data_parts = []
+    for _pid, (_name, _src, _cvd, _colors) in _PAL_QUAL.items():
+        _hex_list = "[" + ",".join(f'"{c}"' for c, l in _colors) + "]"
+        _pal_data_parts.append(f'"{_pid}":{_hex_list}')
+    for _pid, (_name, _src, _cvd, _colors) in _PAL_GENO.items():
+        _hex_list = "[" + ",".join(f'"{c}"' for c, l in _colors) + "]"
+        _pal_data_parts.append(f'"{_pid}":{_hex_list}')
+    _pal_js = "{" + ",".join(_pal_data_parts) + "}"
+
+    # Build richer detail data for modal (name, src, cvd, colors with labels)
+    _pal_detail_parts = []
+    for _pid, (_name, _src, _cvd, _colors) in _PAL_QUAL.items():
+        _cl = "[" + ",".join(f'{{"hex":"{c}","label":"{l}"}}' for c, l in _colors) + "]"
+        _cvd_s = "true" if _cvd else "false"
+        _pal_detail_parts.append(f'"{_pid}":{{"name":"{_name}","src":"{_src}","cvd":{_cvd_s},"colors":{_cl}}}')
+    for _pid, (_name, _src, _cvd, _colors) in _PAL_GENO.items():
+        _cl = "[" + ",".join(f'{{"hex":"{c}","label":"{l}"}}' for c, l in _colors) + "]"
+        _cvd_s = "true" if _cvd else "false"
+        _pal_detail_parts.append(f'"{_pid}":{{"name":"{_name}","src":"{_src}","cvd":{_cvd_s},"colors":{_cl}}}')
+    _pal_detail_js = "{" + ",".join(_pal_detail_parts) + "}"
+
+    return f'''
+<div class="palette-accordion" id="palettes">
+  <button class="pal-toggle" onclick="togglePalettes()" id="pal-toggle-btn">
+    <span>🎨 Color Palettes</span>
+    <span class="pal-toggle-meta">27 palettes · CVD-safe options · Click to copy hex</span>
+    <span class="pal-arrow" id="pal-arrow">▾</span>
+  </button>
+  <div class="pal-body" id="pal-body">
+    <div class="palette-filters">
+      <button class="pal-filter-btn active" data-pfilter="all">All</button>
+      <button class="pal-filter-btn" data-pfilter="true">CVD-safe only</button>
+    </div>
+
+    <h3 style="color:var(--ink);font-size:.95rem;margin:0 0 8px;padding:0;">Qualitative Palettes</h3>
+    <p style="color:var(--ink-muted);font-size:.78rem;margin:0 0 14px;">Categorical / group comparisons — bar charts, line plots, scatter</p>
+    <div class="palette-grid">{_q}</div>
+
+    <h3 style="color:var(--ink);font-size:.95rem;margin:0 0 8px;padding:0;">Genomics & Bioinformatics</h3>
+    <p style="color:var(--ink-muted);font-size:.78rem;margin:0 0 14px;">Specialized schemes for common genomic visualizations</p>
+    <div class="palette-grid">{_g}</div>
+
+    <h3 style="color:var(--ink);font-size:.95rem;margin:0 0 8px;padding:0;">Sequential & Diverging Colormaps</h3>
+    <p style="color:var(--ink-muted);font-size:.78rem;margin:0 0 14px;">Continuous data — heatmaps, density. Use via <code>cmap='viridis'</code> in matplotlib.</p>
+    <div style="overflow-x:auto;margin-bottom:28px;">
+    <table class="palette-cmap">
+    <thead><tr><th>Name</th><th>Label</th><th>Description</th><th>CVD</th><th>Preview</th></tr></thead>
+    <tbody>{_t}</tbody>
+    </table>
+    </div>
+
+    <div class="palette-submit" id="custom-palette-form">
+      <h4>🎨 Submit a Custom Palette</h4>
+      <div><label for="ps-name">Palette Name</label><input type="text" id="ps-name" placeholder="My Awesome Palette"></div>
+      <div><label for="ps-source">Source (optional)</label><input type="text" id="ps-source" placeholder="e.g. Nature Methods 2023"></div>
+      <div><label>Colors (hex, 5-10)</label>
+        <div class="ps-colors" id="ps-colors">
+          <input type="text" class="ps-color-input" placeholder="#1B9E77" maxlength="7">
+          <input type="text" class="ps-color-input" placeholder="#D95F02" maxlength="7">
+          <input type="text" class="ps-color-input" placeholder="#7570B3" maxlength="7">
+          <input type="text" class="ps-color-input" placeholder="#E7298A" maxlength="7">
+          <input type="text" class="ps-color-input" placeholder="#66A61E" maxlength="7">
+        </div>
+      </div>
+      <div><label for="ps-desc">Description</label><textarea id="ps-desc" rows="2" placeholder="What is this palette good for?"></textarea></div>
+      <button class="ps-go" onclick="submitCustomPalette()">Submit Palette</button>
+    </div>
+  </div>
+</div>
+
+<div class="palette-detail-overlay" id="palette-detail-overlay" onclick="closePaletteDetail(event)">
+  <div class="palette-detail-box" onclick="event.stopPropagation()">
+    <button class="pd-close" onclick="closePaletteDetail(event)">&times;</button>
+    <h3 id="pd-name"></h3>
+    <div class="pd-src" id="pd-src"></div>
+    <div id="pd-cvd-badge"></div>
+    <div class="pd-swatches" id="pd-swatches"></div>
+    <button class="pd-copy-all" onclick="copyAllPaletteColors()">📋 Copy all colors</button>
+    <div class="pd-code" id="pd-code"></div>
+  </div>
+</div>
+
+<script>
+function togglePalettes() {{
+  var body = document.getElementById('pal-body');
+  var arrow = document.getElementById('pal-arrow');
+  var btn = document.getElementById('pal-toggle-btn');
+  if(body.style.maxHeight && body.style.maxHeight !== '0px') {{
+    body.style.maxHeight = '0px';
+    body.style.overflow = 'hidden';
+    arrow.textContent = '▾';
+    btn.classList.remove('open');
+  }} else {{
+    body.style.maxHeight = body.scrollHeight + 'px';
+    body.style.overflow = 'visible';
+    arrow.textContent = '▴';
+    btn.classList.add('open');
+  }}
+}}
+// Palette filter
+document.querySelectorAll('.pal-filter-btn').forEach(function(btn){{
+  btn.addEventListener('click', function(){{
+    document.querySelectorAll('.pal-filter-btn').forEach(function(b){{ b.classList.remove('active'); }});
+    btn.classList.add('active');
+    var cvd = btn.dataset.pfilter;
+    document.querySelectorAll('.palette-card').forEach(function(c){{
+      if(cvd === 'all') c.style.display = '';
+      else c.style.display = (c.dataset.cvd === cvd) ? '' : 'none';
+    }});
+  }});
+}});
+function copyHex(el) {{
+  var hex = el.dataset.hex || (el.querySelector('.pal-hex') || {{}}).textContent;
+  if(hex) navigator.clipboard.writeText(hex).then(function(){{ showToast('Copied ' + hex); }}).catch(function(){{ showToast('Copy failed', 'reject'); }});
+}}
+var PAL_DATA = {_pal_js};
+var PAL_DETAIL = {_pal_detail_js};
+var _curPalColors = [];
+function copyPalette(el) {{
+  var pid = el.dataset.pid;
+  var c = PAL_DATA[pid];
+  if(c) navigator.clipboard.writeText(c.join(', ')).then(function(){{ showToast('Copied ' + c.length + ' colors'); }}).catch(function(){{ showToast('Copy failed', 'reject'); }});
+}}
+function openPaletteDetail(pid) {{
+  var d = PAL_DETAIL[pid];
+  if(!d) return;
+  document.getElementById('pd-name').textContent = d.name;
+  document.getElementById('pd-src').textContent = d.src;
+  var cvdBadge = d.cvd ? '<span class="cvd-yes">✓ CVD-safe</span>' : '<span class="cvd-no">✗ Not CVD-safe</span>';
+  document.getElementById('pd-cvd-badge').innerHTML = cvdBadge;
+  var swHtml = '';
+  _curPalColors = [];
+  d.colors.forEach(function(c) {{
+    _curPalColors.push(c.hex);
+    swHtml += '<div class="pd-swatch" style="background:' + c.hex + '" onclick="navigator.clipboard.writeText(\\''+c.hex+'\\');showToast(\\''+c.hex+' copied\\')"><span class="pd-hex-label">' + c.hex + '</span></div>';
+  }});
+  document.getElementById('pd-swatches').innerHTML = swHtml;
+  var codeHtml = '<strong>Python:</strong><br><code>from brain.plotting.colors import get_palette\\npal = get_palette(&quot;' + pid + '&quot;)</code><br><br><strong>R:</strong><br><code>pal <- get_pal(&quot;' + pid + '&quot;)</code>';
+  document.getElementById('pd-code').innerHTML = codeHtml;
+  document.getElementById('palette-detail-overlay').classList.add('show');
+}}
+function closePaletteDetail(e) {{
+  document.getElementById('palette-detail-overlay').classList.remove('show');
+}}
+function copyAllPaletteColors() {{
+  if(_curPalColors.length) navigator.clipboard.writeText(_curPalColors.join(', ')).then(function(){{ showToast('Copied ' + _curPalColors.length + ' colors'); }}).catch(function(){{ showToast('Copy failed', 'reject'); }});
+}}
+function submitCustomPalette() {{
+  var name = document.getElementById('ps-name').value.trim();
+  if(!name) {{ showToast('Please enter a palette name', 'reject'); return; }}
+  var inputs = document.querySelectorAll('#ps-colors .ps-color-input');
+  var colors = [];
+  inputs.forEach(function(inp) {{ var v = inp.value.trim(); if(v && /^#[0-9A-Fa-f]{{3,8}}$/.test(v)) colors.push(v); }});
+  if(colors.length < 3) {{ showToast('Enter at least 3 valid hex colors', 'reject'); return; }}
+  var source = document.getElementById('ps-source').value.trim();
+  var desc = document.getElementById('ps-desc').value.trim();
+  fetch('/api/gallery/palette_submit', {{
+    method: 'POST',
+    headers: {{'Content-Type': 'application/json'}},
+    body: JSON.stringify({{name: name, colors: colors, description: desc, source: source}})
+  }}).then(function(r) {{ return r.json(); }}).then(function(d) {{
+    if(d.ok) showToast('Palette submitted! Thank you.');
+    else showToast('Error: ' + (d.error||'Unknown'), 'reject');
+  }}).catch(function() {{ showToast('Network error', 'reject'); }});
+}}
+</script>
+'''
 
 
 def gallery_page() -> str:
@@ -683,7 +1427,7 @@ def gallery_page() -> str:
 
     try:
         with open(_catalog_path) as _f:
-            _catalog = yaml.safe_load(_f)
+            _catalog = _normalize_catalog(yaml.safe_load(_f) or {})
     except Exception:
         _catalog = {"charts": []}
 
@@ -699,6 +1443,27 @@ def gallery_page() -> str:
         if _c.get("interactive"):
             if _os.path.exists(_os.path.join(_plotting_dir, _c["interactive"])):
                 _interactive_files[_n] = _c["interactive"]
+
+    # Load feedback log and compute approved charts (latest action = 'approve')
+    _approved_charts = set()
+    _feedback_path = _os.path.join(_plotting_dir, "gallery_feedback.jsonl")
+    _latest_action: dict[str, str] = {}
+    try:
+        with open(_feedback_path) as _ff:
+            for _line in _ff:
+                _line = _line.strip()
+                if not _line:
+                    continue
+                try:
+                    _entry = _json.loads(_line)
+                    _latest_action[_entry["chart"]] = _entry["action"]
+                except Exception:
+                    pass
+    except FileNotFoundError:
+        pass
+    for _chart_name, _act in _latest_action.items():
+        if _act == "approve":
+            _approved_charts.add(_chart_name)
 
     # Category groups for cleaner filter UI (map tags → broad chart-type categories)
     _CATEGORY_GROUPS = {
@@ -742,6 +1507,7 @@ def gallery_page() -> str:
         tpl_path = c.get("template", "")
         has_template = (
             _os.path.exists(_os.path.join(_plotting_dir, "templates", f"{name}.py"))
+            or _os.path.exists(_os.path.join(_plotting_dir, "templates", f"{name}.R"))
             or (tpl_path and _os.path.exists(_os.path.join(_plotting_dir, tpl_path)))
         )
         img_file = _demo_files.get(name)
@@ -752,7 +1518,8 @@ def gallery_page() -> str:
         for t in tags:
             categories.add(_CATEGORY_GROUPS.get(t, "其他"))
 
-        card_class = "has-demo" if img_file else "no-demo"
+        card_class = ("has-demo has-approved" if img_file and name in _approved_charts
+                      else "has-demo" if img_file else "no-demo")
         status_icon = "✅" if status == "done" else "📋"
         badges_html = f'<div class="badge-row"><span class="tier-badge tier-{tier}">{tier}</span><span class="status-icon">{status_icon}</span></div>'
         if interactive_file:
@@ -760,35 +1527,45 @@ def gallery_page() -> str:
 
         if img_file:
             img_url = f"/gallery/static/{img_file}"
-            preview = f'<div class="card-img">{badges_html}<img src="{img_url}" onclick="openModal(this)" loading="lazy"></div>'
+            preview = f'<div class="card-img">{badges_html}<img src="{img_url}" loading="lazy"></div>'
         else:
-            preview = f'<div class="card-img" style="color:var(--ink-dim);font-size:13px;display:flex;align-items:center;justify-content:center;">{badges_html}<span class="planned-placeholder">📋 Planned</span></div>'
+            preview = f'<div class="card-img" style="color:var(--ink-dim);font-size:13px;display:flex;align-items:center;justify-content:center;">{badges_html}<span class="planned-placeholder">Planned</span></div>'
 
         tags_html = "".join(f'<span class="tag">{_html.escape(t)}</span>' for t in tags[:3])
+        # Add input_shape as a distinguishing tag
+        data_type = c.get("data_type") or c.get("input_shape", "")
+        if data_type:
+            tags_html = f'<span class="tag tag-shape">{_html.escape(data_type)}</span>' + tags_html
 
         safe_name = _html.escape(name)
-        interactive_btn = (
-            f'<button class="btn-act btn-interactive" onclick="openInteractive(\'{safe_name}\')">↗ Interactive</button>'
-            if interactive_file else ""
-        )
-        actions = (
-            f'<div class="card-actions">'
-            f'<button class="btn-act btn-ok" onclick="feedback(\'{safe_name}\',\'approve\')">✓ Approve</button>'
-            f'<button class="btn-act btn-edit" onclick="feedback(\'{safe_name}\',\'suggest\')">✎ Suggest</button>'
-            f'<button class="btn-act btn-no" onclick="feedback(\'{safe_name}\',\'reject\')">✕ Reject</button>'
-            f'{interactive_btn}'
-            f'</div>' if img_file else ""
-        )
+        # Build footer pills: Done/Planned + template language + Interactive
+        pills = []
+        if status == "done":
+            pills.append('<span class="pill pill-done">Done</span>')
+        else:
+            pills.append('<span class="pill pill-planned">Planned</span>')
+        if has_template:
+            ext = tpl_path.rsplit(".", 1)[-1].lower() if tpl_path else ""
+            if ext == "py" or _os.path.exists(_os.path.join(_plotting_dir, "templates", f"{name}.py")):
+                pills.append('<span class="pill pill-template">Python</span>')
+            if ext == "r" or _os.path.exists(_os.path.join(_plotting_dir, "templates", f"{name}.R")):
+                pills.append('<span class="pill pill-template">R</span>')
+            if ext not in ("py", "r") and not _os.path.exists(_os.path.join(_plotting_dir, "templates", f"{name}.py")) and not _os.path.exists(_os.path.join(_plotting_dir, "templates", f"{name}.R")):
+                pills.append('<span class="pill pill-template">Template</span>')
+        if interactive_file:
+            pills.append('<span class="pill pill-interactive">Interactive</span>')
+        footer_html = f'<div class="card-footer">{"".join(pills)}</div>'
 
         data_attrs = f'data-tags="{" ".join(tags)}" data-category="{" ".join(categories)}" data-tier="{tier}" data-status="{status}"'
         chart_cards += (
-            f'<div class="gallery-card {card_class}" {data_attrs}>'
+            f'<a href="/gallery/{safe_name}" class="gallery-card-link" {data_attrs}>'
+            f'<div class="gallery-card {card_class}">'
             f'{preview}'
             f'<div class="card-info"><h3>{_html.escape(title)}</h3>'
-            f'<div class="desc">{_html.escape(desc[:100])}</div>'
+            f'<div class="desc">{_html.escape(desc[:120])}</div>'
             f'<div class="tags">{tags_html}</div></div>'
-            f'{actions}'
-            f'</div>'
+            f'{footer_html}'
+            f'</div></a>'
         )
 
     # Filter by broad categories instead of raw tags
@@ -815,9 +1592,30 @@ def gallery_page() -> str:
 <style>
 /* ── Gallery Layout ── */
 .gallery-container { max-width: 1280px; margin: 0 auto; padding: var(--sp-lg) var(--sp-md); }
-.gallery-header { text-align: center; margin-bottom: 28px; }
-.gallery-header h1 { color: var(--ink); font-size: 28px; font-weight: 700; letter-spacing: -0.5px; margin: 0 0 6px; }
+.gallery-header { text-align: center; margin-bottom: 20px; }
+.gallery-header h1 { color: var(--ink); font-size: 28px; font-weight: 700; letter-spacing: -0.5px; margin: 0 0 4px; }
 .gallery-header p { color: var(--ink-dim); font-size: 13px; margin: 0; }
+
+/* ── Stats Summary ── */
+.gallery-stats { display: flex; gap: 16px; justify-content: center; margin-bottom: 18px; }
+.stat-item { display: flex; flex-direction: column; align-items: center; padding: 8px 18px; background: var(--card); border: 1px solid var(--border-hover); border-radius: var(--r-md); min-width: 72px; }
+.stat-item .stat-num { font-size: 22px; font-weight: 700; color: var(--ink); line-height: 1.1; }
+.stat-item .stat-label { font-size: 10px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+.stat-done .stat-num { color: var(--success); }
+.stat-p0 .stat-num { color: var(--danger); }
+.stat-p1 .stat-num { color: var(--primary); }
+.stat-p2 .stat-num { color: var(--ink-dim); }
+
+/* ── Toolbar (search + submit) ── */
+.gallery-toolbar { display: flex; gap: 12px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+.search-wrap { position: relative; flex: 1; min-width: 200px; max-width: 400px; }
+.search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--ink-dim); font-size: 14px; pointer-events: none; }
+#gallery-search { width: 100%; padding: 7px 32px 7px 30px; border: 1px solid var(--border-hover); border-radius: var(--r-pill); background: var(--card); color: var(--ink); font-size: 13px; transition: all var(--duration) var(--ease-out); }
+#gallery-search:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-muted); }
+.search-clear { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: var(--ink-dim); cursor: pointer; font-size: 12px; display: none; padding: 2px 4px; border-radius: 3px; }
+.search-clear:hover { color: var(--ink); }
+.toolbar-actions { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.card-count { font-size: 12px; color: var(--ink-dim); white-space: nowrap; }
 
 /* ── Filter Bar ── */
 .filter-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; align-items: center; }
@@ -832,18 +1630,20 @@ def gallery_page() -> str:
 .tier-P2.active { background: var(--ink-dim); border-color: var(--ink-dim); color: var(--ink); }
 
 /* ── Card Grid ── */
-.gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--sp-md); margin-top: var(--sp-md); }
-.gallery-card { background: var(--card); border: 1px solid var(--border-hover); border-radius: var(--r-md); overflow: hidden; transition: all var(--duration) var(--ease-out); position: relative; }
-.gallery-card:hover { border-color: var(--primary); transform: translateY(-3px); box-shadow: var(--shadow-lg); }
+.gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--sp-md); margin-top: var(--sp-md); }
+.gallery-card-link { text-decoration: none; color: inherit; display: block; }
+.gallery-card { background: var(--card); border: 1px solid var(--border-hover); border-radius: var(--r-md); overflow: hidden; transition: all 0.25s cubic-bezier(.4,0,.2,1); position: relative; }
+.gallery-card:hover { border-color: var(--primary); transform: translateY(-4px); box-shadow: var(--shadow-lg); }
 .gallery-card.has-demo { border-left: 3px solid var(--success); }
-.gallery-card.no-demo { border-left: 3px solid var(--ink-dim); opacity: 0.6; }
-.gallery-card.no-demo:hover { opacity: 0.85; }
+.gallery-card.no-demo { border-left: 3px solid var(--border-hover); opacity: 0.85; }
+.gallery-card.no-demo:hover { opacity: 1; }
 
 /* ── Card Image ── */
-.card-img { background: var(--bg); min-height: 180px; display: flex; align-items: center; justify-content: center; padding: 10px; cursor: pointer; border-bottom: 1px solid var(--border); position: relative; }
-.card-img img { max-width: 100%; max-height: 200px; object-fit: contain; transition: transform 0.2s; }
-.gallery-card:hover .card-img img { transform: scale(1.02); }
-.card-img .planned-placeholder { color: var(--ink-dim); font-size: 13px; text-align: center; }
+.card-img { background: var(--bg); min-height: 160px; display: flex; align-items: center; justify-content: center; padding: 8px; cursor: pointer; border-bottom: 1px solid var(--border); position: relative; overflow: hidden; }
+.card-img img { max-width: 100%; max-height: 180px; object-fit: contain; transition: transform 0.3s ease; }
+.gallery-card:hover .card-img img { transform: scale(1.04); }
+.card-img .planned-placeholder { color: var(--ink-dim); font-size: 12px; text-align: center; padding: 16px; line-height: 1.4; }
+.planned-placeholder::before { content: '📋'; display: block; font-size: 28px; margin-bottom: 6px; opacity: 0.5; }
 
 /* ── Tier & Status Badges ── */
 .badge-row { position: absolute; top: 8px; left: 8px; display: flex; gap: 4px; align-items: center; z-index: 2; }
@@ -855,11 +1655,13 @@ def gallery_page() -> str:
 .interactive-indicator { font-size: 10px; color: var(--info); }
 
 /* ── Card Info ── */
-.card-info { padding: 12px 14px 8px; }
-.card-info h3 { font-size: 14px; color: var(--ink); margin: 0 0 4px; font-weight: 600; }
-.card-info .desc { font-size: 12px; color: var(--ink-muted); margin-bottom: 8px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card-info { padding: 10px 14px 6px; }
+.card-info h3 { font-size: 14px; color: var(--ink); margin: 0 0 3px; font-weight: 600; }
+.card-info h3 a:hover { color: var(--primary); }
+.card-info .desc { font-size: 12px; color: var(--ink-muted); margin-bottom: 6px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .card-info .tags { display: flex; gap: 4px; flex-wrap: wrap; }
 .card-info .tag { font-size: 10px; background: var(--surface); border: 1px solid var(--border-hover); color: var(--ink-muted); padding: 1px 7px; border-radius: 10px; }
+.card-info .tag.tag-shape { background: var(--primary-muted); border-color: var(--primary); color: var(--primary); font-weight: 600; }
 
 /* ── Action Buttons ── */
 .btn-act { border: 1px solid var(--border-hover); border-radius: 4px; padding: 3px 10px; font-size: 11px; cursor: pointer; transition: all var(--duration) var(--ease-out); background: transparent; color: var(--ink-muted); }
@@ -868,6 +1670,14 @@ def gallery_page() -> str:
 .btn-no:hover { background: var(--danger-muted); border-color: var(--danger); color: var(--danger); }
 .btn-interactive { border-color: var(--primary); color: var(--primary); }
 .btn-interactive:hover { background: var(--primary-muted); }
+
+/* ── Card footer: tier + status pills ── */
+.card-footer { display: flex; gap: 6px; padding: 6px 14px 10px; align-items: center; flex-wrap: wrap; }
+.card-footer .pill { font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+.pill-done { background: var(--success-muted); color: var(--success); }
+.pill-planned { background: var(--surface); color: var(--ink-dim); border: 1px solid var(--border-hover); }
+.pill-interactive { background: var(--info-muted); color: var(--info); }
+.pill-template { background: var(--primary-muted); color: var(--primary); }
 
 /* ── Suggest Input ── */
 .suggest-input { margin: 4px 14px 10px; }
@@ -890,18 +1700,17 @@ def gallery_page() -> str:
 .iframe-modal iframe { flex: 1; border: none; width: 100%; }
 
 /* ── Toast ── */
-.toast { position: fixed; bottom: 24px; right: 24px; padding: 10px 20px; border-radius: var(--r-md); color: var(--bg); font-size: 13px; font-weight: 500; z-index: 2000; opacity: 0; transition: opacity 0.3s; pointer-events: none; box-shadow: var(--shadow-md); }
+.toast { position: fixed; bottom: 24px; right: 24px; padding: 10px 20px; border-radius: var(--r-md); color: var(--bg); font-size: 13px; font-weight: 500; z-index: 2000; opacity: 0; transition: opacity 0.3s; pointer-events: none; box-shadow: var(--shadow-md); background: var(--ink); }
 .toast.show { opacity: 1; }
 .toast.approve { background: var(--success); }
 .toast.suggest { background: var(--primary); }
 .toast.reject { background: var(--danger); }
 
 /* ── Submit Figure ── */
-.submit-bar { margin-bottom: 16px; text-align: center; }
+.submit-form { display: none; margin-top: 10px; margin-bottom: 12px; }
+.submit-form.open { display: block; }
 .submit-toggle-btn { background: var(--card); border: 1px solid var(--border-hover); color: var(--ink-muted); padding: 6px 16px; border-radius: var(--r-pill); cursor: pointer; font-size: 12px; transition: all var(--duration) var(--ease-out); }
 .submit-toggle-btn:hover { background: var(--card-hover); border-color: var(--primary); color: var(--primary); }
-.submit-form { display: none; margin-top: 10px; }
-.submit-form.open { display: block; }
 .submit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-width: 600px; margin: 0 auto; }
 .submit-grid label, .submit-notes-row label { color: var(--ink-muted); font-size: 11px; display: block; margin-bottom: 2px; }
 .submit-grid input[type="text"], .submit-grid input[type="file"] { width: 100%; padding: 6px 8px; border: 1px solid var(--border-hover); border-radius: 4px; background: var(--bg); color: var(--ink); font-size: 12px; box-sizing: border-box; }
@@ -911,20 +1720,103 @@ def gallery_page() -> str:
 .submit-actions { max-width: 600px; margin: 6px auto 0; text-align: right; }
 .submit-go { padding: 6px 16px; border-radius: 4px; background: var(--primary); color: var(--bg); border: none; font-size: 12px; cursor: pointer; }
 
-/* ── Card Actions: hover-reveal ── */
-.card-actions { display: flex; gap: 5px; padding: 0 14px; max-height: 0; overflow: hidden; border-top: 0 solid var(--border); transition: max-height 0.2s ease, padding 0.2s ease, border-width 0.2s ease; }
-.gallery-card:hover .card-actions { max-height: 36px; padding: 6px 14px 10px; border-top-width: 1px; }
+/* ── Approved State ── */
+.has-approved { border-left-color: var(--success) !important; }
+.approved-badge { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: var(--success); color: white; font-size: 11px; font-weight: 700; margin-right: 4px; }
+
+/* ── Color Palettes Module (Accordion) ── */
+.palette-accordion { margin: 0 0 8px; border-radius: var(--r-lg); border: 1px solid var(--border); background: var(--surface); overflow: visible; }
+.pal-toggle { width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px 18px; border: none; background: none; cursor: pointer; color: var(--ink); font-size: .95rem; font-weight: 600; transition: background var(--duration); border-radius: var(--r-lg); }
+.pal-toggle:hover { background: var(--card); }
+.pal-toggle.open { border-radius: var(--r-lg) var(--r-lg) 0 0; }
+.pal-toggle-meta { font-size: .75rem; font-weight: 400; color: var(--ink-muted); flex: 1; }
+.pal-arrow { font-size: .8rem; color: var(--ink-muted); transition: transform var(--duration); }
+.pal-body { max-height: 0px; overflow: hidden; transition: max-height .35s ease, padding .35s ease; padding: 0 18px; }
+.palette-accordion:has(.pal-body[style*="max-height"]:not([style*="0px"])) .pal-body { padding: 8px 18px 18px; }
+.palette-filters { display: flex; gap: 8px; justify-content: center; margin-bottom: 20px; }
+.pal-filter-btn { padding: 5px 14px; border-radius: var(--r-md); border: 1px solid var(--border); background: var(--surface); color: var(--ink-muted); cursor: pointer; font-size: .8rem; transition: all var(--duration); }
+.pal-filter-btn:hover { border-color: var(--primary); color: var(--primary); }
+.pal-filter-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.palette-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; margin-bottom: 28px; }
+.palette-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--r-md); padding: 14px; transition: border-color var(--duration), box-shadow var(--duration); cursor: pointer; }
+.palette-card:hover { border-color: var(--primary); box-shadow: 0 4px 16px rgba(167,139,250,.1); }
+.pal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.pal-name { font-size: .95rem; font-weight: 600; color: var(--ink); }
+.cvd-yes { background: #009E7322; color: #00A087; border: 1px solid #009E7344; font-size: .68rem; padding: 2px 7px; border-radius: 10px; }
+.cvd-no { background: #DC000022; color: #DC0000; border: 1px solid #DC000044; font-size: .68rem; padding: 2px 7px; border-radius: 10px; }
+.pal-src { font-size: .7rem; color: var(--ink-dim); margin-bottom: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pal-swatches { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
+.pal-swatch { width: 34px; height: 34px; border-radius: 5px; cursor: pointer; position: relative; transition: transform var(--duration); border: 1px solid rgba(255,255,255,.08); display: flex; align-items: flex-end; justify-content: center; }
+.pal-swatch:hover { transform: scale(1.18); z-index: 1; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
+.pal-hex { font-size: .5rem; color: #000; background: rgba(255,255,255,.88); padding: 1px 3px; border-radius: 2px; opacity: 0; transition: opacity var(--duration); margin-bottom: 2px; font-family: var(--font-mono); }
+.pal-swatch:hover .pal-hex { opacity: 1; }
+.pal-footer { border-top: 1px solid var(--border); padding-top: 6px; }
+.pal-copy { font-size: .7rem; cursor: pointer; color: var(--primary); padding: 2px 6px; border-radius: 4px; transition: background var(--duration), color var(--duration); }
+.pal-copy:hover { background: var(--primary); color: #fff; }
+.palette-cmap { width: 100%; border-collapse: collapse; font-size: .82rem; margin-bottom: 28px; }
+.palette-cmap th { text-align: left; padding: 6px 8px; border-bottom: 2px solid var(--border); color: var(--ink-muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .5px; }
+.palette-cmap td { padding: 6px 8px; border-bottom: 1px solid var(--border); color: var(--ink); }
+.cmap-bar { height: 22px; border-radius: 4px; min-width: 120px; }
+/* ── Palette Detail Modal ── */
+.palette-detail-overlay { display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,.55); backdrop-filter:blur(4px); justify-content:center; align-items:center; }
+.palette-detail-overlay.show { display:flex; }
+.palette-detail-box { background:var(--card); border:1px solid var(--border); border-radius:var(--r-lg); padding:28px 32px; max-width:560px; width:92vw; max-height:88vh; overflow-y:auto; position:relative; box-shadow:0 20px 60px rgba(0,0,0,.35); }
+.palette-detail-box .pd-close { position:absolute; top:10px; right:14px; font-size:1.4rem; cursor:pointer; color:var(--ink-muted); background:none; border:none; }
+.palette-detail-box .pd-close:hover { color:var(--ink); }
+.palette-detail-box h3 { color:var(--ink); font-size:1.1rem; font-weight:700; margin:0 0 2px; }
+.pd-src { color:var(--ink-dim); font-size:.75rem; margin-bottom:10px; }
+.pd-swatches { display:flex; flex-wrap:wrap; gap:6px; margin:14px 0; }
+.pd-swatch { width:64px; height:64px; border-radius:var(--r-md); border:1px solid var(--border); display:flex; align-items:flex-end; justify-content:center; cursor:pointer; transition:transform var(--duration); }
+.pd-swatch:hover { transform:scale(1.12); }
+.pd-swatch .pd-hex-label { font-size:.6rem; color:#000; background:rgba(255,255,255,.88); padding:1px 4px; border-radius:2px; margin-bottom:3px; font-family:var(--font-mono); }
+.pd-copy-all { background:var(--primary); color:#fff; border:none; padding:7px 18px; border-radius:var(--r-md); cursor:pointer; font-size:.82rem; transition:opacity var(--duration); }
+.pd-copy-all:hover { opacity:.85; }
+.pd-code { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-md); padding:10px 14px; margin-top:14px; font-family:var(--font-mono); font-size:.78rem; color:var(--ink); white-space:pre-wrap; }
+.pd-code code { font-size:.78rem; }
+/* ── Custom Palette Submit ── */
+.palette-submit { background:var(--card); border:1px solid var(--border); border-radius:var(--r-md); padding:20px 24px; margin:28px 0; }
+.palette-submit h4 { color:var(--ink); font-size:.95rem; font-weight:600; margin:0 0 14px; }
+.palette-submit label { color:var(--ink-muted); font-size:.78rem; display:block; margin-bottom:4px; }
+.palette-submit input[type="text"], .palette-submit textarea { width:100%; background:var(--surface); border:1px solid var(--border); border-radius:var(--r-sm); padding:8px 10px; color:var(--ink); font-size:.82rem; margin-bottom:12px; box-sizing:border-box; }
+.palette-submit input[type="text"]:focus, .palette-submit textarea:focus { border-color:var(--primary); outline:none; }
+.ps-colors { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+.ps-color-input { width:72px; }
+.palette-submit .ps-go { background:var(--primary); color:#fff; border:none; padding:8px 20px; border-radius:var(--r-md); cursor:pointer; font-size:.82rem; }
 </style>
 '''
 
+    # Stats summary
+    _total = len(list(_catalog.get("charts", [])))
+    _done = sum(1 for c in _catalog.get("charts", []) if c.get("status") == "done")
+    _p0 = sum(1 for c in _catalog.get("charts", []) if c.get("tier") == "P0")
+    _p1 = sum(1 for c in _catalog.get("charts", []) if c.get("tier") == "P1")
+    _p2 = sum(1 for c in _catalog.get("charts", []) if c.get("tier") == "P2")
+    stats_html = (
+        '<div class="gallery-stats">'
+        f'<div class="stat-item"><span class="stat-num">{_total}</span><span class="stat-label">Total</span></div>'
+        f'<div class="stat-item stat-done"><span class="stat-num">{_done}</span><span class="stat-label">Done</span></div>'
+        f'<div class="stat-item stat-p0"><span class="stat-num">{_p0}</span><span class="stat-label">P0</span></div>'
+        f'<div class="stat-item stat-p1"><span class="stat-num">{_p1}</span><span class="stat-label">P1</span></div>'
+        f'<div class="stat-item stat-p2"><span class="stat-num">{_p2}</span><span class="stat-label">P2</span></div>'
+        '</div>'
+    )
+
     body = (
         gallery_css +
-        f'{_nav(active="gallery")}'
         '<div class="gallery-container">'
         '<div class="gallery-header"><h1>Sci-Fig Gallery</h1>'
-        '<p>View charts, submit figures for analysis</p></div>'
-        '<div class="submit-bar">'
-        '<button class="submit-toggle-btn" onclick="toggleSubmitForm()">📎 Submit Figure</button>'
+        '<p>Scientific figure template library — view, approve, and contribute</p></div>'
+        + stats_html +
+        '<div class="gallery-toolbar">'
+        '<div class="search-wrap">'
+        '<span class="search-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>'
+        '<input type="text" id="gallery-search" placeholder="Search charts..." autocomplete="off">'
+        '<span class="search-clear" id="search-clear" onclick="clearSearch()">✕</span>'
+        '</div>'
+        '<div class="toolbar-actions">'
+        f'<span class="card-count" id="card-count">Showing {_total} of {_total}</span>'
+        '<button class="submit-toggle-btn" onclick="toggleSubmitForm()">+ Submit</button>'
+        '</div></div>'
         '<div class="submit-form" id="submit-form">'
         '<div class="submit-grid">'
         '<div><label>Image URL</label><input type="text" id="submit-url" placeholder="https://..."></div>'
@@ -933,10 +1825,11 @@ def gallery_page() -> str:
         '<div class="submit-notes-row"><label>Notes</label>'
         '<textarea id="submit-notes" rows="2" placeholder="Figure type, paper source, what you like..."></textarea></div>'
         '<div class="submit-actions"><button class="submit-go" onclick="submitFigure()">Submit</button></div>'
-        '</div></div>'
+        '</div>'
         '<div class="filter-bar">' + filter_btns + '</div>'
-        '<div class="gallery-grid">' + chart_cards + '</div>'
-        '<div class="modal-overlay" id="modal" onclick="closeModal()"><span class="close">&times;</span>'
+        + _build_palettes_section()
+        + '<div class="gallery-grid">' + chart_cards + '</div>'
+        + '<div class="modal-overlay" id="modal" onclick="closeModal()"><span class="close">&times;</span>'
         '<img id="modal-img" src=""></div>'
         '<div class="iframe-modal" id="iframe-modal">'
         '<div class="iframe-header"><h3 id="iframe-title">Interactive Chart</h3><span class="iframe-close" onclick="closeInteractive()">&times;</span></div>'
@@ -971,12 +1864,12 @@ function closeInteractive() {
 function showToast(msg, type) {
   var t = document.getElementById('toast');
   t.textContent = msg;
-  t.className = 'toast ' + type + ' show';
+  t.className = 'toast' + (type ? ' ' + type : '') + ' show';
   setTimeout(function(){ t.classList.remove('show'); }, 2500);
 }
-function feedback(chart, action) {
+function feedback(chart, action, ev) {
   if (action === 'suggest') {
-    var card = event.target.closest('.gallery-card');
+    var card = (ev || event).target.closest('.gallery-card');
     var existing = card.querySelector('.suggest-input');
     if (existing) { existing.remove(); return; }
     var div = document.createElement('div');
@@ -1064,7 +1957,31 @@ function submitFigure() {
     showToast('Error: ' + e.message, 'reject');
   });
 }
+// Search functionality
+var searchInput = document.getElementById('gallery-search');
+var searchClear = document.getElementById('search-clear');
+if (searchInput) {
+  searchInput.addEventListener('input', function() {
+    var q = this.value.trim().toLowerCase();
+    if (searchClear) searchClear.style.display = q ? 'block' : 'none';
+    applyFilters();
+  });
+}
+function clearSearch() {
+  if (searchInput) { searchInput.value = ''; }
+  if (searchClear) searchClear.style.display = 'none';
+  applyFilters();
+}
+
+function updateCardCount() {
+  var total = document.querySelectorAll('.gallery-card-link').length;
+  var visible = document.querySelectorAll('.gallery-card-link:not([style*="display: none"])').length;
+  var el = document.getElementById('card-count');
+  if (el) el.textContent = 'Showing ' + visible + ' of ' + total;
+}
+
 // Restore saved filter from localStorage
+var currentFilter = 'all';
 (function() {
   var saved = localStorage.getItem('gallery_filter');
   if (saved) {
@@ -1072,7 +1989,7 @@ function submitFigure() {
     var btn = document.querySelector('.filter-btn[data-filter="' + saved + '"]');
     if (btn) {
       btn.classList.add('active');
-      filterCards(saved);
+      currentFilter = saved;
     }
   }
 })();
@@ -1080,33 +1997,1506 @@ document.querySelectorAll('.filter-btn').forEach(function(btn){
   btn.addEventListener('click', function() {
     document.querySelectorAll('.filter-btn').forEach(function(b){ b.classList.remove('active'); });
     this.classList.add('active');
-    var f = this.dataset.filter;
-    localStorage.setItem('gallery_filter', f);
-    filterCards(f);
+    currentFilter = this.dataset.filter;
+    localStorage.setItem('gallery_filter', currentFilter);
+    applyFilters();
   });
 });
-function filterCards(f) {
-  document.querySelectorAll('.gallery-card').forEach(function(c){
-    if (f === 'all') {
-      c.style.display = '';
-    } else if (f.startsWith('tier-')) {
-      var tier = f.substring(5);
-      c.style.display = (c.dataset.tier === tier) ? '' : 'none';
-    } else if (f.startsWith('cat-')) {
-      var cat = f.substring(4);
-      c.style.display = (c.dataset.category && c.dataset.category.indexOf(cat) >= 0) ? '' : 'none';
-    } else {
-      c.style.display = (c.dataset.tags && c.dataset.tags.indexOf(f) >= 0) ? '' : 'none';
+
+function applyFilters() {
+  var q = searchInput ? searchInput.value.trim().toLowerCase() : '';
+  var f = currentFilter;
+  document.querySelectorAll('.gallery-card-link').forEach(function(link){
+    var matchFilter = false;
+    var matchSearch = true;
+    // Filter
+    if (f === 'all') { matchFilter = true; }
+    else if (f.startsWith('tier-')) { matchFilter = (link.dataset.tier === f.substring(5)); }
+    else if (f.startsWith('cat-')) { matchFilter = (link.dataset.category && link.dataset.category.indexOf(f.substring(4)) >= 0); }
+    else { matchFilter = (link.dataset.tags && link.dataset.tags.indexOf(f) >= 0); }
+    // Search
+    if (q) {
+      var card = link.querySelector('.gallery-card') || link;
+      var title = (card.querySelector('h3') || {}).textContent || '';
+      var desc = (card.querySelector('.desc') || {}).textContent || '';
+      var tags = link.dataset.tags || '';
+      matchSearch = (title.toLowerCase().indexOf(q) >= 0 || desc.toLowerCase().indexOf(q) >= 0 || tags.toLowerCase().indexOf(q) >= 0);
     }
+    link.style.display = (matchFilter && matchSearch) ? '' : 'none';
   });
+  updateCardCount();
 }
+// Apply initial filters
+applyFilters();
 """
 
-    return _page("Sci-Fig Gallery", body, extra_js=gallery_js % _json.dumps(_interactive_files))
+    return _page("Sci-Fig Gallery", body, extra_js=gallery_js % _json.dumps(_interactive_files), nav_active="gallery")
 
 
 # ---------------------------------------------------------------------------
-# Security Monitoring Page
+# Gallery Detail Page
+# ---------------------------------------------------------------------------
+
+def gallery_detail_page(name: str) -> str:
+    """Render a full detail page for a single chart in the gallery."""
+    import yaml, json as _json, os as _os
+
+    _plotting_dir = os.environ.get("BRAIN_PLOTTING_DIR", "")
+    _catalog_path = _os.path.join(_plotting_dir, "catalog.yaml")
+
+    # 1. Load catalog
+    try:
+        with open(_catalog_path) as _f:
+            _catalog = _normalize_catalog(yaml.safe_load(_f) or {})
+    except Exception:
+        _catalog = {"charts": []}
+
+    # Find chart entry by name
+    chart = None
+    for c in _catalog.get("charts", []):
+        if c.get("name") == name:
+            chart = c
+            break
+
+    if chart is None:
+        return _page("Not Found",
+                     '<div style="max-width:600px;margin:80px auto;text-align:center;color:var(--ink-muted);">'
+                     '<h2 style="color:var(--ink);margin-bottom:8px;">Chart Not Found</h2>'
+                     '<p>No chart with name "' + _html.escape(name) + '" exists in the catalog.</p>'
+                     '<a href="/gallery" style="margin-top:16px;display:inline-block;">← Back to Gallery</a></div>', nav_active="gallery")
+
+    title = chart.get("title", name)
+    desc = chart.get("description", "")
+    tags = chart.get("tags", [])
+    tier = chart.get("tier", "P2")
+    status = chart.get("status", "planned")
+    data_type = chart.get("data_type", "")
+    # Columns: chart-level 'columns' + data_types schema
+    chart_cols = chart.get("columns", [])
+    data_types_info = _catalog.get("data_types", {}).get(data_type, {})
+    req_cols = data_types_info.get("required_columns", chart_cols)
+    opt_cols = data_types_info.get("optional_columns", [])
+    recommended_for = chart.get("recommended_for", [])
+    references = chart.get("references", [])
+    demo_file = chart.get("demo", "")
+
+    # 2. Read feedback history
+    _feedback_path = _os.path.join(_plotting_dir, "gallery_feedback.jsonl")
+    feedback_entries = []
+    is_approved = False
+    try:
+        with open(_feedback_path) as _f:
+            for line in _f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = _json.loads(line)
+                    if entry.get("chart") == name:
+                        feedback_entries.append(entry)
+                        if entry.get("action") == "approve":
+                            is_approved = True
+                except Exception:
+                    pass
+    except FileNotFoundError:
+        pass
+
+    # 3. Scan templates/ directory for .py and .R files matching chart name
+    _templates_dir = _os.path.join(_plotting_dir, "templates")
+    template_files = []
+    for ext in (".py", ".R"):
+        fname = f"{name}{ext}"
+        fpath = _os.path.join(_templates_dir, fname)
+        if _os.path.isfile(fpath):
+            fsize = _os.path.getsize(fpath)
+            lang = "Python" if ext == ".py" else "R"
+            template_files.append({"filename": fname, "size": fsize, "lang": lang})
+
+    # Also check the explicit template path from catalog
+    tpl_path = chart.get("template", "")
+    if tpl_path:
+        full_tpl = _os.path.join(_plotting_dir, tpl_path)
+        tpl_fname = _os.path.basename(tpl_path)
+        if _os.path.isfile(full_tpl) and not any(t["filename"] == tpl_fname for t in template_files):
+            fsize = _os.path.getsize(full_tpl)
+            ext = _os.path.splitext(tpl_fname)[1].lower()
+            lang = "Python" if ext == ".py" else "R"
+            template_files.append({"filename": tpl_fname, "size": fsize, "lang": lang})
+
+    # ── Build HTML ──
+
+    # Header: back link, title, tier badge, status badge
+    status_icon = "✅" if status == "done" else "📋"
+    status_label = "Done" if status == "done" else "Planned"
+    status_color = "var(--success)" if status == "done" else "var(--ink-dim)"
+    approved_badge = (
+        '<span style="display:inline-block;padding:2px 10px;border-radius:var(--r-pill);'
+        'font-size:11px;font-weight:600;background:var(--success-muted);color:var(--success);'
+        'margin-left:8px;">✓ Approved</span>'
+        if is_approved else ""
+    )
+
+    header_html = (
+        '<div style="max-width:900px;margin:0 auto;padding:var(--sp-lg) var(--sp-md);">'
+        '<a href="/gallery" style="color:var(--primary);font-size:13px;display:inline-block;margin-bottom:16px;">'
+        '← Back to Gallery</a>'
+        '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
+        f'<h1 style="font-size:24px;font-weight:700;color:var(--ink);margin:0;">{_html.escape(title)}</h1>'
+        f'<span style="display:inline-block;padding:2px 8px;border-radius:3px;font-size:10px;'
+        f'font-weight:700;letter-spacing:0.5px;background:{"var(--danger)" if tier == "P0" else "var(--primary)" if tier == "P1" else "var(--ink-dim)"};'
+        f'color:{"var(--bg)" if tier != "P2" else "var(--ink-muted)"};">{tier}</span>'
+        f'<span style="display:inline-block;padding:2px 8px;border-radius:var(--r-pill);font-size:11px;'
+        f'background:{"var(--success-muted)" if status == "done" else "var(--card)"};'
+        f'color:{status_color};">{status_icon} {status_label}</span>'
+        f'{approved_badge}'
+        '</div></div>'
+    )
+
+    # Image section — left column in two-column layout
+    if demo_file and _os.path.isfile(_os.path.join(_plotting_dir, demo_file)):
+        img_url = f"/gallery/static/{demo_file}"
+        image_html = (
+            '<div style="cursor:pointer;border-radius:var(--r-md);overflow:hidden;border:1px solid var(--border-hover);background:var(--bg);" '
+            'onclick="document.getElementById(\'detail-modal\').classList.add(\'show\');'
+            'document.getElementById(\'detail-modal-img\').src=this.querySelector(\'img\').src;">'
+            f'<img src="{img_url}" style="width:100%;display:block;">'
+            '</div>'
+        )
+    else:
+        image_html = (
+            '<div style="padding:48px 0;text-align:center;background:var(--card);border-radius:var(--r-md);border:1px dashed var(--border-hover);">'
+            '<span style="color:var(--ink-dim);font-size:14px;">📋 No demo yet</span></div>'
+        )
+
+    # Metadata card
+    meta_parts = []
+    if desc:
+        meta_parts.append(f'<div style="margin-bottom:12px;"><span style="color:var(--ink-muted);font-size:12px;font-weight:600;">Description</span>'
+                          f'<p style="color:var(--ink);font-size:14px;margin-top:4px;line-height:1.6;">{_html.escape(desc)}</p></div>')
+    if data_type:
+        meta_parts.append(f'<div style="margin-bottom:12px;"><span style="color:var(--ink-muted);font-size:12px;font-weight:600;">Data Type</span>'
+                          f'<p style="color:var(--ink);font-size:13px;margin-top:4px;">{_html.escape(str(data_type))}</p></div>')
+    if req_cols:
+        cols_html = "".join(f'<span style="display:inline-block;padding:2px 8px;margin:2px;background:var(--primary-muted);color:var(--primary);border-radius:var(--r-pill);font-size:11px;">{_html.escape(str(c))}</span>' for c in req_cols)
+        meta_parts.append(f'<div style="margin-bottom:12px;"><span style="color:var(--ink-muted);font-size:12px;font-weight:600;">Required Columns</span>'
+                          f'<div style="margin-top:4px;">{cols_html}</div></div>')
+    if opt_cols:
+        cols_html = "".join(f'<span style="display:inline-block;padding:2px 8px;margin:2px;background:var(--surface);color:var(--ink-muted);border-radius:var(--r-pill);font-size:11px;border:1px solid var(--border-hover);">{_html.escape(str(c))}</span>' for c in opt_cols)
+        meta_parts.append(f'<div style="margin-bottom:12px;"><span style="color:var(--ink-muted);font-size:12px;font-weight:600;">Optional Columns</span>'
+                          f'<div style="margin-top:4px;">{cols_html}</div></div>')
+    if tags:
+        tags_html = "".join(f'<span style="display:inline-block;padding:2px 8px;margin:2px;background:var(--surface);border:1px solid var(--border-hover);color:var(--ink-muted);border-radius:var(--r-pill);font-size:11px;">{_html.escape(t)}</span>' for t in tags)
+        meta_parts.append(f'<div style="margin-bottom:12px;"><span style="color:var(--ink-muted);font-size:12px;font-weight:600;">Tags</span>'
+                          f'<div style="margin-top:4px;">{tags_html}</div></div>')
+    if recommended_for:
+        rec_html = "".join(f'<li style="color:var(--ink);font-size:13px;margin:2px 0;">{_html.escape(str(r))}</li>' for r in recommended_for)
+        meta_parts.append(f'<div style="margin-bottom:12px;"><span style="color:var(--ink-muted);font-size:12px;font-weight:600;">Recommended For</span>'
+                          f'<ul style="margin:4px 0 0 16px;">{rec_html}</ul></div>')
+    if references:
+        ref_html = "".join(f'<li style="color:var(--ink);font-size:13px;margin:2px 0;">{_html.escape(str(r))}</li>' for r in references)
+        meta_parts.append(f'<div style="margin-bottom:12px;"><span style="color:var(--ink-muted);font-size:12px;font-weight:600;">References</span>'
+                          f'<ul style="margin:4px 0 0 16px;">{ref_html}</ul></div>')
+
+    metadata_html = (
+        '<div style="background:var(--card);border:1px solid var(--border-hover);border-radius:var(--r-md);'
+        'padding:var(--sp-md);">'
+        '<h2 style="font-size:15px;font-weight:600;color:var(--ink);margin-bottom:12px;">Details</h2>'
+        + "".join(meta_parts) +
+        '</div>'
+    )
+
+    # Templates section
+    if template_files:
+        tpl_rows = ""
+        for idx, tf in enumerate(template_files):
+            fsize_str = f'{tf["size"]:,} B' if tf["size"] < 1024 else f'{tf["size"] / 1024:.1f} KB'
+            lang_color = "var(--success)" if tf["lang"] == "Python" else "var(--info)"
+            lang_bg = "var(--success-muted)" if tf["lang"] == "Python" else "var(--info-muted)"
+            safe_id = f"tpl-code-{idx}"
+            tpl_rows += (
+                f'<div style="border-bottom:1px solid var(--border);">'
+                f'<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;">'
+                f'<a href="/gallery/static/templates/{_html.escape(tf["filename"])}" '
+                f'style="color:var(--primary);font-size:13px;font-weight:500;flex:1;'
+                f'font-family:var(--font-mono);">{_html.escape(tf["filename"])}</a>'
+                f'<span style="font-size:11px;color:var(--ink-dim);">{fsize_str}</span>'
+                f'<span style="display:inline-block;padding:2px 8px;border-radius:var(--r-pill);'
+                f'font-size:10px;font-weight:600;background:{lang_bg};color:{lang_color};">'
+                f'{tf["lang"]}</span>'
+                f'<button id="{safe_id}-btn" onclick="toggleCodePreview(\'{safe_id}\',\'{_html.escape(tf["filename"])}\')" '
+                f'style="padding:2px 10px;border-radius:4px;border:1px solid var(--border-hover);'
+                f'background:var(--card);color:var(--ink-muted);font-size:11px;cursor:pointer;'
+                f'transition:all var(--duration) var(--ease-out);">▸ Code</button>'
+                f'</div>'
+                f'<div id="{safe_id}" style="display:none;border-top:1px solid var(--border);'
+                f'background:var(--bg);max-height:320px;overflow:auto;">'
+                f'<pre style="margin:0;padding:12px 14px;font-size:12px;line-height:1.5;'
+                f'font-family:var(--font-mono);color:var(--ink);white-space:pre-wrap;overflow-x:auto;" '
+                f'id="{safe_id}-pre">Loading...</pre>'
+                f'</div></div>'
+            )
+        templates_html = (
+            '<div style="background:var(--card);border:1px solid var(--border-hover);border-radius:var(--r-md);'
+            'overflow:hidden;">'
+            '<div style="padding:var(--sp-sm) var(--sp-md);border-bottom:1px solid var(--border-hover);">'
+            '<h2 style="font-size:15px;font-weight:600;color:var(--ink);margin:0;">Template Files</h2></div>'
+            + tpl_rows +
+            '</div>'
+        )
+    else:
+        templates_html = (
+            '<div style="background:var(--card);border:1px solid var(--border-hover);border-radius:var(--r-md);'
+            'padding:var(--sp-lg);text-align:center;">'
+            '<h2 style="font-size:16px;font-weight:600;color:var(--ink);margin-bottom:8px;">Template Files</h2>'
+            '<span style="color:var(--ink-dim);font-size:13px;">No template files found yet.</span></div>'
+        )
+
+    # Upload section
+    upload_html = (
+        '<div style="background:var(--card);border:1px solid var(--border-hover);border-radius:var(--r-md);'
+        'padding:var(--sp-md);">'
+        '<h2 style="font-size:15px;font-weight:600;color:var(--ink);margin-bottom:10px;">Upload Template</h2>'
+        f'<form id="upload-form" enctype="multipart/form-data" '
+        f'style="display:flex;flex-direction:column;gap:10px;">'
+        f'<input type="hidden" name="chart_name" value="{_html.escape(name)}">'
+        '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
+        '<input type="file" name="file" accept=".py,.R,.zip" '
+        'style="padding:6px;border:1px solid var(--border-hover);border-radius:4px;'
+        'background:var(--bg);color:var(--ink);font-size:12px;flex:1;min-width:200px;">'
+        '<input type="text" name="description" placeholder="Description (optional)" '
+        'style="flex:2;min-width:200px;padding:6px 10px;border:1px solid var(--border-hover);'
+        'border-radius:4px;background:var(--bg);color:var(--ink);font-size:12px;">'
+        '</div>'
+        '<div style="text-align:right;">'
+        '<button type="submit" style="padding:6px 20px;border-radius:4px;background:var(--primary);'
+        'color:var(--bg);border:none;font-size:12px;cursor:pointer;font-weight:500;">Upload</button>'
+        '</div></form></div>'
+    )
+
+    # Feedback section grouped by action type
+    fb_by_action = {"approve": [], "suggest": [], "reject": []}
+    for fb in feedback_entries:
+        act = fb.get("action", "suggest")
+        if act not in fb_by_action:
+            fb_by_action[act] = []
+        fb_by_action[act].append(fb)
+
+    fb_sections = ""
+    action_labels = {"approve": ("Approvals", "var(--success)", "var(--success-muted)"),
+                     "suggest": ("Suggestions", "var(--primary)", "var(--primary-muted)"),
+                     "reject": ("Rejections", "var(--danger)", "var(--danger-muted)")}
+    for act_key in ("approve", "suggest", "reject"):
+        entries = fb_by_action.get(act_key, [])
+        if not entries:
+            continue
+        label, color, bg = action_labels[act_key]
+        fb_rows = ""
+        for fb in entries:
+            ts = fb.get("timestamp", fb.get("ts", ""))
+            sug = fb.get("suggestion", "")
+            fb_rows += (
+                f'<div style="padding:8px 14px;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:flex-start;">'
+                f'<span style="color:var(--ink-dim);font-size:11px;white-space:nowrap;min-width:140px;">{_html.escape(str(ts))}</span>'
+                f'<span style="color:var(--ink);font-size:13px;flex:1;">{_html.escape(str(sug)) if sug else "—"}</span>'
+                f'</div>'
+            )
+        fb_sections += (
+            f'<div style="background:var(--card);border:1px solid var(--border-hover);border-radius:var(--r-md);'
+            f'margin-bottom:12px;overflow:hidden;">'
+            f'<div style="padding:10px 14px;border-bottom:1px solid var(--border-hover);display:flex;align-items:center;gap:8px;">'
+            f'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:{color};"></span>'
+            f'<span style="font-size:13px;font-weight:600;color:{color};">{label}</span>'
+            f'<span style="font-size:11px;color:var(--ink-dim);margin-left:auto;">{len(entries)}</span>'
+            f'</div>'
+            f'{fb_rows}'
+            f'</div>'
+        )
+
+    if not fb_sections:
+        fb_sections = (
+            '<div style="color:var(--ink-dim);font-size:13px;text-align:center;padding:20px 0;">'
+            'No feedback recorded yet.</div>'
+        )
+
+    feedback_html = (
+        '<div style="margin-bottom:var(--sp-md);">'
+        '<h2 style="font-size:15px;font-weight:600;color:var(--ink);margin-bottom:10px;">Feedback History</h2>'
+        + fb_sections +
+        '</div>'
+    )
+
+    # Actions: Approve (if not approved), Suggest, Reject
+    safe_name_js = name.replace("\\", "\\\\").replace("'", "\\'")
+    approve_btn = (
+        f'<button onclick="detailFeedback(\'approve\')" '
+        f'style="padding:8px 20px;border-radius:4px;background:var(--success);color:var(--bg);'
+        f'border:none;font-size:13px;cursor:pointer;font-weight:600;">✓ Approve</button>'
+        if not is_approved else
+        '<span style="display:inline-flex;align-items:center;gap:6px;padding:6px 16px;border-radius:4px;'
+        'background:var(--success-muted);color:var(--success);font-size:13px;font-weight:600;'
+        'border:1px solid var(--success);">✓ Approved</span>'
+    )
+
+    actions_html = (
+        '<div style="background:var(--card);border:1px solid var(--border-hover);border-radius:var(--r-md);'
+        'padding:var(--sp-md);">'
+        '<h2 style="font-size:15px;font-weight:600;color:var(--ink);margin-bottom:10px;">Actions</h2>'
+        '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">'
+        f'{approve_btn}'
+        '<button onclick="openSuggestBox()" '
+        'style="padding:8px 20px;border-radius:4px;background:var(--primary-muted);color:var(--primary);'
+        'border:1px solid var(--primary);font-size:13px;cursor:pointer;font-weight:600;">✎ Suggest</button>'
+        '<button onclick="detailFeedback(\'reject\')" '
+        'style="padding:8px 20px;border-radius:4px;background:var(--danger-muted);color:var(--danger);'
+        'border:1px solid var(--danger);font-size:13px;cursor:pointer;font-weight:600;">✕ Reject</button>'
+        '</div>'
+        '<div id="suggest-box" style="display:none;margin-top:12px;">'
+        '<textarea id="suggest-text" placeholder="Enter your suggestion..." '
+        'style="width:100%;padding:8px;border-radius:4px;border:1px solid var(--border-hover);'
+        'background:var(--bg);color:var(--ink);font-size:13px;min-height:80px;resize:vertical;'
+        'box-sizing:border-box;"></textarea>'
+        '<div style="text-align:right;margin-top:6px;">'
+        '<button onclick="submitDetailSuggest()" '
+        'style="padding:6px 16px;border-radius:4px;background:var(--primary);color:var(--bg);'
+        'border:none;font-size:12px;cursor:pointer;">Submit Suggestion</button></div></div>'
+        '</div>'
+    )
+
+    # Toast notification
+    toast_html = '<div id="detail-toast" style="position:fixed;bottom:24px;right:24px;padding:10px 20px;border-radius:var(--r-md);color:var(--bg);font-size:13px;font-weight:500;z-index:2000;opacity:0;transition:opacity 0.3s;pointer-events:none;box-shadow:var(--shadow-md);"></div>'
+
+    # Modal overlay for image zoom
+    modal_html = (
+        '<div id="detail-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;'
+        'background:rgba(0,0,0,0.9);z-index:1000;justify-content:center;align-items:center;cursor:pointer;" '
+        'onclick="this.classList.remove(\'show\');this.style.display=\'none\';">'
+        '<span style="position:absolute;top:16px;right:24px;color:var(--ink);font-size:32px;cursor:pointer;opacity:0.7;">&times;</span>'
+        '<img id="detail-modal-img" style="max-width:92vw;max-height:88vh;object-fit:contain;background:var(--card);'
+        'border-radius:var(--r-md);box-shadow:var(--shadow-xl);">'
+        '</div>'
+    )
+
+    # Detail page CSS (minimal - most styling is inline)
+    detail_css = '<style>#detail-modal.show{display:flex!important}@media(max-width:640px){.detail-meta-grid,.detail-action-grid{grid-template-columns:1fr!important}}</style>'
+
+    # Assemble body — image full width on top, then Details | Template Files side by side
+    _image_row = (
+        '<div style="margin-bottom:var(--sp-md);">' + image_html + '</div>'
+    )
+    _meta_row = (
+        '<div class="detail-meta-grid" style="display:grid;grid-template-columns:3fr 2fr;gap:var(--sp-md);margin-bottom:var(--sp-md);">'
+        + metadata_html
+        + templates_html
+        + '</div>'
+    )
+
+    # Full-width sections below the two-column area
+    # Row 1: Actions (left) | Upload (right), Row 2: Feedback (full width)
+    _bottom_grid = (
+        '<div class="detail-action-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-md);margin-bottom:var(--sp-md);">'
+        + actions_html
+        + upload_html
+        + '</div>'
+        + feedback_html
+    )
+
+    body = (
+        detail_css +
+        header_html +
+        '<div style="max-width:960px;margin:0 auto;padding:0 var(--sp-md) var(--sp-xl);">' +
+        _image_row +
+        _meta_row +
+        _bottom_grid +
+        '</div>' +
+        modal_html +
+        toast_html
+    )
+
+    # JavaScript for the detail page
+    detail_js = r"""
+function showToast(msg, type) {
+  var t = document.getElementById('detail-toast');
+  t.textContent = msg;
+  t.style.background = type === 'approve' ? 'var(--success)' : type === 'reject' ? 'var(--danger)' : 'var(--primary)';
+  t.style.opacity = '1';
+  setTimeout(function(){ t.style.opacity = '0'; }, 2500);
+}
+
+function detailFeedback(action) {
+  if (action === 'suggest') { openSuggestBox(); return; }
+  fetch('/api/gallery/feedback', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({chart: CHART_NAME, action: action, suggestion: ''}),
+    credentials: 'same-origin'
+  }).then(function(r) {
+    if (r.ok) { showToast(CHART_NAME + (action === 'approve' ? ' ✓ Approved' : ' ✕ Rejected'), action); setTimeout(function(){ location.reload(); }, 1200); }
+    else { showToast('Error: ' + r.status, 'reject'); }
+  }).catch(function() {
+    showToast(CHART_NAME + (action === 'approve' ? ' ✓ Approved' : ' ✕ Rejected'), action);
+    setTimeout(function(){ location.reload(); }, 1200);
+  });
+}
+
+function openSuggestBox() {
+  var box = document.getElementById('suggest-box');
+  box.style.display = box.style.display === 'none' ? 'block' : 'none';
+  if (box.style.display === 'block') document.getElementById('suggest-text').focus();
+}
+
+function submitDetailSuggest() {
+  var text = document.getElementById('suggest-text').value.trim();
+  if (!text) { showToast('Enter a suggestion first', 'reject'); return; }
+  fetch('/api/gallery/feedback', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({chart: CHART_NAME, action: 'suggest', suggestion: text}),
+    credentials: 'same-origin'
+  }).then(function(r) {
+    if (r.ok) { showToast(CHART_NAME + ' ✓ Suggestion saved', 'suggest'); setTimeout(function(){ location.reload(); }, 1200); }
+    else { showToast('Error: ' + r.status, 'reject'); }
+  }).catch(function() {
+    showToast(CHART_NAME + ' ✓ Suggestion noted', 'suggest');
+    setTimeout(function(){ location.reload(); }, 1200);
+  });
+}
+
+// Upload form handler
+document.getElementById('upload-form').addEventListener('submit', function(e) {
+  e.preventDefault();
+  var formData = new FormData(this);
+  fetch('/api/gallery/upload_script', {
+    method: 'POST',
+    body: formData
+  }).then(function(r) {
+    if (r.ok) { showToast('Template uploaded ✓', 'approve'); setTimeout(function(){ location.reload(); }, 1200); }
+    else { showToast('Upload failed: ' + r.status, 'reject'); }
+  }).catch(function(err) {
+    showToast('Upload error: ' + err.message, 'reject');
+  });
+});
+
+// Modal close on escape
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    var m = document.getElementById('detail-modal');
+    if (m) { m.classList.remove('show'); m.style.display = 'none'; }
+  }
+});
+
+// Code preview toggle for template files
+function toggleCodePreview(id, filename) {
+  var el = document.getElementById(id);
+  var btn = document.getElementById(id + '-btn');
+  if (!el) return;
+  if (el.style.display === 'none') {
+    // Show — load code if not yet loaded
+    var pre = document.getElementById(id + '-pre');
+    if (pre && pre.textContent === 'Loading...') {
+      fetch('/api/gallery/template/' + filename)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.ok) { pre.textContent = data.content; }
+          else { pre.textContent = 'Error: ' + (data.error || 'Failed to load'); }
+        })
+        .catch(function() { pre.textContent = 'Network error'; });
+    }
+    el.style.display = 'block';
+    if (btn) { btn.textContent = '▾ Code'; btn.style.borderColor = 'var(--primary)'; btn.style.color = 'var(--primary)'; }
+  } else {
+    el.style.display = 'none';
+    if (btn) { btn.textContent = '▸ Code'; btn.style.borderColor = 'var(--border-hover)'; btn.style.color = 'var(--ink-muted)'; }
+  }
+}
+"""
+    safe_name_json = _json.dumps(name)
+    detail_js = f"var CHART_NAME = {safe_name_json};\n" + detail_js
+
+    return _page(f"{title} — Gallery Detail", body, extra_js=detail_js, nav_active="gallery")
+
+
+# ---------------------------------------------------------------------------
+# Dashboard Page (unified: security + sub2api stats)
+# ---------------------------------------------------------------------------
+
+def _format_tokens(n: int) -> str:
+    """Format token count: <1k as-is, 1k-999k as 'X.Xk', ≥1M as 'X.XM'."""
+    if n < 1000:
+        return str(n)
+    if n < 1_000_000:
+        return f"{n / 1000:.1f}k"
+    return f"{n / 1_000_000:.1f}M"
+
+
+def _format_cost(c: float) -> str:
+    """Format cost: <0.01 → '$0.00', <100 → '$X.XX', else '$XXX'."""
+    if c < 0.01:
+        return "$0.00"
+    if c < 100:
+        return f"${c:.2f}"
+    return f"${c:.0f}"
+
+
+def home_page(*, node_counts: dict[str, int], chart_count: int, health_summary: dict, recent_nodes: list | None = None) -> str:
+    """Render the home/landing page as a Notion-style personal dashboard."""
+    total_nodes = sum(node_counts.values())
+    canonized = node_counts.get("canonized", 0)
+    draft = node_counts.get("draft", 0)
+    refined = node_counts.get("refined", 0)
+    verified = node_counts.get("verified", 0)
+    deprecated = node_counts.get("deprecated", 0)
+
+    # Stage badge colors
+    stage_colors = {
+        "draft": "#eab308",
+        "refined": "#3b82f6",
+        "verified": "#22c55e",
+        "canonized": "#a78bfa",
+        "deprecated": "#6b7280",
+    }
+    stage_labels = {
+        "draft": "草稿",
+        "refined": "精炼",
+        "verified": "验证",
+        "canonized": "正典",
+        "deprecated": "废弃",
+    }
+
+    # Build recent activity rows
+    recent_items = ""
+    if recent_nodes:
+        for node in recent_nodes[:8]:
+            stage = node.get("stage", "draft")
+            color = stage_colors.get(stage, "#6b7280")
+            label = stage_labels.get(stage, stage)
+            summary = (node.get("summary") or "无摘要")
+            if len(summary) > 60:
+                summary = summary[:57] + "..."
+            created = node.get("created_at", "")
+            nid = node.get("id", "")
+            recent_items += f'''<tr class="dash-activity-row">
+  <td><span class="dash-stage-badge" style="background:{color}20;color:{color};border:1px solid {color}40">{_html.escape(label)}</span></td>
+  <td class="dash-activity-summary">{_html.escape(summary)}</td>
+  <td class="dash-activity-time" data-ts="{_html.escape(str(created))}">{_html.escape(str(created)[:10])}</td>
+</tr>
+'''
+    else:
+        recent_items = '<tr><td colspan="3" class="dash-activity-empty">暂无最近活动</td></tr>'
+
+    body = f"""
+
+<div class="dash-wrap">
+
+  <!-- Greeting -->
+  <section class="dash-greeting" id="dash-greeting">
+    <h1 id="dash-greeting-text">你好，探索者</h1>
+    <p class="dash-greeting-date" id="dash-greeting-date"></p>
+  </section>
+
+  <!-- Stat Cards — AxonHub style with icon watermarks -->
+  <section class="dash-stat-grid">
+    <div class="dash-stat-card" data-accent="primary">
+      <div class="dash-stat-watermark">{_ICON_KNOWLEDGE}</div>
+      <div class="dash-stat-value">{total_nodes}</div>
+      <div class="dash-stat-label">总节点</div>
+    </div>
+    <div class="dash-stat-card" data-accent="success">
+      <div class="dash-stat-watermark">{_ICON_STATUS}</div>
+      <div class="dash-stat-value" style="color:var(--primary)">{canonized}</div>
+      <div class="dash-stat-label">正典</div>
+    </div>
+    <div class="dash-stat-card" data-accent="info">
+      <div class="dash-stat-watermark">{_ICON_GALLERY}</div>
+      <div class="dash-stat-value" style="color:var(--info)">{refined}</div>
+      <div class="dash-stat-label">精炼</div>
+    </div>
+    <div class="dash-stat-card" data-accent="warning">
+      <div class="dash-stat-watermark">{_ICON_QUEUE}</div>
+      <div class="dash-stat-value" style="color:var(--warning)">{draft}</div>
+      <div class="dash-stat-label">草稿</div>
+    </div>
+  </section>
+
+  <!-- Recent Activity — table style -->
+  <section class="dash-section">
+    <div class="dash-section-header">
+      <h2 class="dash-section-title">📋 最近更新</h2>
+      <a href="/knowledge" class="dash-section-link">查看全部 →</a>
+    </div>
+    <div class="dash-table-wrap">
+      <table class="dash-activity-table">
+        <thead>
+          <tr><th>状态</th><th>摘要</th><th>时间</th></tr>
+        </thead>
+        <tbody>
+          {recent_items}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Quick Access — horizontal icon cards -->
+  <section class="dash-section">
+    <div class="dash-section-header">
+      <h2 class="dash-section-title">⚡ 快捷入口</h2>
+    </div>
+    <div class="dash-quick-row">
+      <a href="/knowledge" class="dash-quick-tile">
+        <div class="dash-quick-tile-icon" style="background:var(--primary-muted);color:var(--primary)">{_ICON_KNOWLEDGE}</div>
+        <span>知识树</span>
+      </a>
+      <a href="/gallery" class="dash-quick-tile">
+        <div class="dash-quick-tile-icon" style="background:var(--success-muted);color:var(--success)">{_ICON_GALLERY}</div>
+        <span>绘图库</span>
+      </a>
+      <a href="/dashboard" class="dash-quick-tile">
+        <div class="dash-quick-tile-icon" style="background:var(--info-muted);color:var(--info)">{_ICON_SHIELD}</div>
+        <span>监控台</span>
+      </a>
+      <a href="/services" class="dash-quick-tile">
+        <div class="dash-quick-tile-icon" style="background:rgba(251,191,36,.12);color:#fbbf24">{_ICON_SERVICES}</div>
+        <span>服务</span>
+      </a>
+    </div>
+  </section>
+
+  <!-- System Health Footer -->
+  <footer class="dash-health-bar">
+    <div class="dash-health-indicator">
+      <span class="dash-health-dot" style="background:var(--success);box-shadow:0 0 8px rgba(52,211,153,.5)"></span>
+      <span>Brain 正常运行</span>
+    </div>
+    <div class="dash-health-indicator">
+      <span class="dash-health-dot" style="background:var(--success);box-shadow:0 0 8px rgba(52,211,153,.5)"></span>
+      <span>API Gateway 在线</span>
+    </div>
+  </footer>
+
+</div>
+
+<style>
+/* ---- AxonHub-style Dashboard ---- */
+.dash-wrap {{
+  max-width: 860px;
+  margin: 0 auto;
+  padding: var(--sp-lg) var(--sp-lg) var(--sp-xl);
+  animation: pageEnter .4s var(--ease-out);
+}}
+
+/* Greeting */
+.dash-greeting {{
+  padding: var(--sp-xl) 0 var(--sp-lg);
+}}
+.dash-greeting h1 {{
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--ink);
+  letter-spacing: -0.5px;
+  margin: 0 0 4px;
+}}
+.dash-greeting-date {{
+  font-size: 14px;
+  color: var(--ink-muted);
+  margin: 0;
+}}
+
+/* Stat Cards — AxonHub watermark style */
+.dash-stat-grid {{
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--sp-md);
+  margin-bottom: var(--sp-lg);
+  animation: staggerFade .3s var(--ease-out) .06s both;
+}}
+@media (max-width: 720px) {{
+  .dash-stat-grid {{ grid-template-columns: repeat(2, 1fr); gap: var(--sp-sm); }}
+}}
+.dash-stat-card {{
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--sp-lg) var(--sp-md);
+  position: relative;
+  overflow: hidden;
+  transition: all var(--duration) var(--ease-out);
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}}
+.dash-stat-card:hover {{
+  border-color: var(--border-hover);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md), 0 0 0 1px var(--border-hover);
+}}
+.dash-stat-card[data-accent="primary"] {{ border-left: 3px solid var(--primary); }}
+.dash-stat-card[data-accent="success"] {{ border-left: 3px solid var(--primary); }}
+.dash-stat-card[data-accent="info"] {{ border-left: 3px solid var(--info); }}
+.dash-stat-card[data-accent="warning"] {{ border-left: 3px solid var(--warning); }}
+.dash-stat-watermark {{
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0.06;
+  pointer-events: none;
+}}
+.dash-stat-watermark svg {{ width: 56px; height: 56px; }}
+.dash-stat-value {{
+  font-size: 2.2rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--ink);
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}}
+.dash-stat-label {{
+  font-size: .72rem;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-weight: 600;
+  margin-top: 6px;
+}}
+
+/* Section headers */
+.dash-section {{
+  margin-bottom: var(--sp-lg);
+  animation: staggerFade .3s var(--ease-out) .12s both;
+}}
+.dash-section-header {{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--sp-sm);
+}}
+.dash-section-title {{
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0;
+  letter-spacing: -0.01em;
+}}
+.dash-section-link {{
+  font-size: .82rem;
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color var(--duration);
+}}
+.dash-section-link:hover {{ color: var(--ink); }}
+
+/* Activity Table — AxonHub style */
+.dash-table-wrap {{
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}}
+.dash-activity-table {{
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .88rem;
+}}
+.dash-activity-table thead {{
+  background: var(--surface);
+}}
+.dash-activity-table th {{
+  padding: 10px 14px;
+  text-align: left;
+  color: var(--ink-muted);
+  font-size: .72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  border-bottom: 1px solid var(--border);
+}}
+.dash-activity-table td {{
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}}
+.dash-activity-table tbody tr:last-child td {{
+  border-bottom: none;
+}}
+.dash-activity-table tbody tr {{
+  transition: background var(--duration);
+}}
+.dash-activity-table tbody tr:hover {{
+  background: var(--card-hover);
+}}
+.dash-stage-badge {{
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: var(--r-pill);
+  white-space: nowrap;
+  display: inline-block;
+}}
+.dash-activity-summary {{
+  color: var(--ink);
+  max-width: 380px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}}
+.dash-activity-time {{
+  font-size: .78rem;
+  color: var(--ink-dim);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}}
+.dash-activity-empty {{
+  text-align: center;
+  color: var(--ink-dim);
+  padding: var(--sp-lg);
+  font-size: .9rem;
+}}
+
+/* Quick Access — horizontal tile row */
+.dash-quick-row {{
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--sp-sm);
+}}
+@media (max-width: 720px) {{
+  .dash-quick-row {{ grid-template-columns: 1fr 1fr; }}
+}}
+.dash-quick-tile {{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  text-decoration: none;
+  color: var(--ink);
+  font-size: .88rem;
+  font-weight: 600;
+  transition: all .2s var(--ease-out);
+  text-align: center;
+}}
+.dash-quick-tile:hover {{
+  border-color: var(--primary);
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: var(--shadow-md), 0 0 0 1px var(--primary);
+  color: var(--ink);
+  text-decoration: none;
+}}
+.dash-quick-tile-icon {{
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-md);
+}}
+.dash-quick-tile-icon svg {{ width: 22px; height: 22px; }}
+
+/* Health bar footer */
+.dash-health-bar {{
+  display: flex;
+  gap: var(--sp-xl);
+  padding: var(--sp-md) 0;
+  border-top: 1px solid var(--border);
+  margin-top: var(--sp-md);
+  animation: staggerFade .3s var(--ease-out) .2s both;
+}}
+.dash-health-indicator {{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: .82rem;
+  color: var(--ink-muted);
+  font-weight: 500;
+}}
+.dash-health-dot {{
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}}
+
+/* Responsive */
+@media (max-width: 640px) {{
+  .dash-greeting h1 {{ font-size: 22px; }}
+  .dash-stat-value {{ font-size: 1.6rem; }}
+  .dash-stat-card {{ padding: var(--sp-md); min-height: 80px; }}
+  .dash-activity-table {{ font-size: .82rem; }}
+  .dash-activity-summary {{ max-width: 200px; }}
+}}
+</style>
+"""
+    return _page("Hermes Brain", body, nav_active="home", extra_js=r"""
+(function(){
+  /* Greeting: time-of-day + display_name from localStorage */
+  var h = new Date().getHours();
+  var greet = h < 12 ? '早上好' : h < 18 ? '下午好' : '晚上好';
+  var name = localStorage.getItem('hermes_display_name') || '探索者';
+  var el = document.getElementById('dash-greeting-text');
+  if(el) el.textContent = greet + '，' + name;
+  /* Date subtitle */
+  var days = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
+  var months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  var now = new Date();
+  var dateStr = days[now.getDay()] + '，' + months[now.getMonth()] + now.getDate() + '日';
+  var dateEl = document.getElementById('dash-greeting-date');
+  if(dateEl) dateEl.textContent = dateStr;
+  /* Relative time for activity rows */
+  document.querySelectorAll('.dash-activity-time[data-ts]').forEach(function(el){
+    var ts = el.getAttribute('data-ts');
+    if(!ts) return;
+    var d = new Date(ts);
+    if(isNaN(d.getTime())) return;
+    var diff = (Date.now() - d.getTime()) / 1000;
+    var r;
+    if(diff < 60) r = '刚刚';
+    else if(diff < 3600) r = Math.floor(diff/60) + '分钟前';
+    else if(diff < 86400) r = Math.floor(diff/3600) + '小时前';
+    else if(diff < 604800) r = Math.floor(diff/86400) + '天前';
+    else r = (d.getMonth()+1) + '/' + d.getDate();
+    el.textContent = r;
+  });
+})();
+""")
+
+
+def dashboard_page(
+    *,
+    do_status: dict,
+    proxy_status: dict,
+    proxy_traffic: list[dict],
+    sub2api: dict,
+) -> str:
+    """Render unified dashboard: health overview cards + security kanban + sub2api stats."""
+    st = sub2api.get("stats") or {}
+    trend = sub2api.get("trend") or []
+    do = do_status
+    pr = proxy_status
+
+    # --- Sub2API stat cards ---
+    today_tokens = int(st.get("today_tokens", 0))
+    today_requests = int(st.get("today_requests", 0))
+    today_cost = float(st.get("today_actual_cost", 0))
+    total_cost = float(st.get("total_actual_cost", 0))
+    normal_accts = int(st.get("normal_accounts", 0))
+    error_accts = int(st.get("error_accounts", 0))
+    ratelimit_accts = int(st.get("ratelimit_accounts", 0))
+    total_accts = int(st.get("total_accounts", 0))
+    active_keys = int(st.get("active_api_keys", 0))
+
+    # Account health badge
+    if error_accts == 0 and ratelimit_accts == 0:
+        acct_status = ("✅ Healthy", "var(--success)")
+    elif error_accts > 0:
+        acct_status = (f"⚠️ {error_accts} errors", "var(--danger)")
+    else:
+        acct_status = (f"🔶 {ratelimit_accts} limited", "var(--warning)")
+
+    # --- Security data ---
+    f2b_banned = do.get("f2b_banned", [])
+    ssh_port = do.get("ssh_port", "22")
+    ufw_rules = do.get("ufw_rules", [])
+    top_attackers = do.get("top_attackers", [])
+    uptime = do.get("uptime", "?")
+    sysctl = do.get("sysctl", {})
+
+    pr_f2b_banned = pr.get("f2b_banned", [])
+    pr_ssh_port = pr.get("ssh_port", "22")
+    pr_ufw_rules = pr.get("ufw_rules", [])
+    pr_uptime = pr.get("uptime", "?")
+    pr_sysctl = pr.get("sysctl", {})
+
+    # Attacker rows
+    attacker_rows = ""
+    max_cnt = max((a.get("count", 0) for a in top_attackers), default=1) or 1
+    for a in top_attackers[:8]:
+        ip = _html.escape(a.get("ip", "?"))
+        cnt = a.get("count", 0)
+        bar_w = min(cnt / max_cnt * 100, 100)
+        bar_color = "var(--success)" if cnt / max_cnt < 0.3 else "var(--warning)" if cnt / max_cnt < 0.7 else "var(--danger)"
+        attacker_rows += f"""<div class="sec-bar-row">
+  <span class="sec-ip">{ip}</span>
+  <div class="sec-bar-bg"><div class="sec-bar-fill" style="width:{bar_w:.0f}%;background:{bar_color}"></div></div>
+  <span class="sec-cnt">{cnt}</span>
+</div>"""
+
+    def _ufw_rows(rules):
+        rows = ""
+        for r in rules:
+            action = _html.escape(r.get("action", "?"))
+            to = _html.escape(r.get("to", "?"))
+            comment = _html.escape(r.get("comment", ""))
+            action_cls = "allow" if action == "ALLOW" else "deny" if action in ("REJECT", "DENY") else "other"
+            rows += f"""<div class="sec-ufw-row">
+  <span class="sec-ufw-action {action_cls}">{action}</span>
+  <span class="sec-ufw-to">{to}</span>
+  <span class="sec-ufw-comment">{comment}</span>
+</div>"""
+        return rows
+
+    do_ufw_rows = _ufw_rows(ufw_rules)
+    pr_ufw_rows = _ufw_rows(pr_ufw_rules)
+
+    # Proxy traffic
+    traffic_rows = ""
+    for t in proxy_traffic:
+        name = _html.escape(t.get("name", "?"))
+        proto = _html.escape(t.get("proto", "?"))
+        port = t.get("port", 0)
+        up_mb = t.get("up", 0) / 1048576
+        down_mb = t.get("down", 0) / 1048576
+        enable = t.get("enable", False)
+        dot_cls = "dot-green" if enable else "dot-red"
+        clients = t.get("clients", [])
+        client_rows = ""
+        for c in clients:
+            c_email = _html.escape(c.get("email", "?"))
+            c_up = c.get("up", 0) / 1048576
+            c_down = c.get("down", 0) / 1048576
+            c_enable = c.get("enable", False)
+            c_dot = "dot-green" if c_enable else "dot-red"
+            client_rows += f"""<div class="sec-client-row">
+    <span class="dot {c_dot}"></span>
+    <span class="sec-client-name">{c_email}</span>
+    <span class="sec-client-traffic">{c_up:.1f}↑ {c_down:.1f}↓ MB</span>
+  </div>"""
+        traffic_rows += f"""<div class="sec-inbound-card">
+  <div class="sec-inbound-header">
+    <span class="dot {dot_cls}"></span>
+    <span class="sec-inbound-name">{name}</span>
+    <span class="sec-inbound-meta">{proto} :{port}</span>
+    <span class="sec-inbound-traffic">{up_mb:.1f}↑ {down_mb:.1f}↓ MB</span>
+  </div>
+  <div class="sec-inbound-clients">{client_rows}</div>
+</div>"""
+
+    f2b_badge = f'<span class="sec-badge sec-badge-red">{len(f2b_banned)} banned</span>'
+    pr_badge = f'<span class="sec-badge sec-badge-red">{len(pr_f2b_banned)} banned</span>'
+
+    def _sysctl_items(sc):
+        syn = sc.get("syncookies", False)
+        redir = not sc.get("accept_redirects", True)
+        fwd = not sc.get("ip_forward", True)
+        return [("Syncookies", "✅" if syn else "❌", syn), ("ICMP Redir", "✅" if redir else "❌", redir), ("IP Forward", "✅" if fwd else "⚠️", fwd)]
+
+    do_sysctl = _sysctl_items(sysctl)
+    pr_sysctl_items = _sysctl_items(pr_sysctl)
+
+    def _sysctl_grid(items):
+        rows = ""
+        for label, icon, ok in items:
+            val_cls = "sec-sysctl-value" + ("" if ok else " style='color:var(--danger)'")
+            rows += f'<div class="sec-sysctl-item"><span class="sec-sysctl-label">{label}</span><span {val_cls}>{icon}</span></div>'
+        return rows
+
+    # --- Build trend chart data (Chart.js area chart) ---
+    trend_data_js = "[]"
+    if trend:
+        import json as _json_mod
+        chart_data = []
+        for d in trend[-7:]:
+            chart_data.append({
+                "date": d.get("date", "?")[5:],
+                "tokens": int(d.get("total_tokens", 0)),
+                "requests": int(d.get("total_requests", 0)),
+                "cost": round(float(d.get("actual_cost", 0)), 2),
+            })
+        trend_data_js = _json_mod.dumps(chart_data)
+    trend_chart = f"""<div class="dash-trend-wrap">
+  <div class="dash-trend-label">7-Day Token & Request Trend</div>
+  <div class="dash-trend-chart-box"><canvas id="dash-trend-chart"></canvas></div>
+</div>"""
+
+    # --- Hero metrics (top strip) ---
+    sub2api_available = st is not None
+    if sub2api_available:
+        hero_cards = f"""<div class="dash-hero">
+  <div class="dash-metric dash-metricPrimary dash-metricAccent">
+    <div class="dash-num">{_format_tokens(today_tokens)}</div>
+    <div class="dash-label">今日 Tokens</div>
+  </div>
+  <div class="dash-metric dash-metricSuccess">
+    <div class="dash-num">{today_requests}</div>
+    <div class="dash-label">今日请求数</div>
+  </div>
+  <div class="dash-metric{' dash-metricWarning' if today_cost > 50 else ''}">
+    <div class="dash-num">{_format_cost(today_cost)}</div>
+    <div class="dash-label">今日费用</div>
+  </div>
+  <div class="dash-metric">
+    <div class="dash-num">{_format_cost(total_cost)}</div>
+    <div class="dash-label">API 累计费用</div>
+  </div>
+</div>"""
+    else:
+        hero_cards = ""
+
+    # --- API Gateway detail section ---
+    if sub2api_available:
+        # Compute health color class
+        if error_accts > 0:
+            health_cls = "dash-metricDanger"
+        elif ratelimit_accts > 0:
+            health_cls = "dash-metricWarning"
+        else:
+            health_cls = "dash-metricSuccess"
+        api_section = f"""<div class="dash-api-section">
+  <div class="dash-api-header">
+    <h2>⚡ API Gateway <span style="font-size:.72rem;color:var(--ink-dim);font-weight:400;margin-left:4px">{normal_accts}/{total_accts} accounts</span></h2>
+    <div class="sec-api-status">
+      <span class="dot {'dot-green' if error_accts == 0 and ratelimit_accts == 0 else 'dot-amber' if ratelimit_accts > 0 else 'dot-red'}"></span>
+      <span style="color:{acct_status[1]}">{acct_status[0].replace('✅ ','').replace('⚠️ ','').replace('🔶 ','')}</span>
+      <span style="color:var(--ink-dim)">·</span>
+      <span style="color:var(--ink-muted)">{active_keys} keys</span>
+    </div>
+  </div>
+  <div class="dash-api-grid">
+    <div class="dash-api-card">
+      <div class="dash-num" style="color:var(--primary)">{_format_tokens(int(st.get('total_tokens', 0)))}</div>
+      <div class="dash-label">累计 Tokens</div>
+    </div>
+    <div class="dash-api-card">
+      <div class="dash-num" style="color:var(--ink)">{int(st.get('total_requests', 0))}</div>
+      <div class="dash-label">累计请求数</div>
+    </div>
+    <div class="dash-api-card">
+      <div class="dash-num" style="color:var(--ink-muted)">{int(st.get('total_users', 0))}</div>
+      <div class="dash-label">用户数</div>
+    </div>
+    <div class="dash-api-card">
+      <div class="dash-num" style="color:var(--ink-dim)">{int(st.get('rpm', 0))}</div>
+      <div class="dash-label">RPM(请求/分)</div>
+    </div>
+  </div>
+  {trend_chart}
+  <div class="dash-donut-wrap">
+    <div class="dash-donut-canvas-wrap"><canvas id="dash-acct-donut" width="100" height="100"></canvas></div>
+    <div class="dash-donut-legend">
+      <div class="dash-donut-legend-item"><span class="dash-donut-legend-dot" style="background:var(--success)"></span><span>Normal</span><span class="dash-donut-legend-value">{normal_accts}</span></div>
+      <div class="dash-donut-legend-item"><span class="dash-donut-legend-dot" style="background:var(--warning)"></span><span>Rate-limited</span><span class="dash-donut-legend-value">{ratelimit_accts}</span></div>
+      <div class="dash-donut-legend-item"><span class="dash-donut-legend-dot" style="background:var(--danger)"></span><span>Errors</span><span class="dash-donut-legend-value">{error_accts}</span></div>
+    </div>
+  </div>
+</div>"""
+    else:
+        api_section = """<div class="dash-api-section">
+  <div class="dash-api-header"><h2>⚡ API Gateway</h2></div>
+  <span class="sec-empty">Sub2API data unavailable</span>
+</div>"""
+
+    body = f"""
+<div class="sec-header">
+  <h1>Dashboard</h1>
+  <span class="sec-refresh" id="refresh-indicator">Live</span>
+  <button class="sec-pause-btn" id="pause-btn" onclick="toggleRefresh()" title="Pause auto-refresh">⏸</button>
+</div>
+
+{hero_cards}
+
+<div class="dash-health-strip" id="health-strip" style="margin-top:var(--sp-md)">
+  <div class="dash-health-item"><span class="dash-health-dot checking"></span><span class="dash-health-name">Hermes Chat</span></div>
+  <div class="dash-health-item"><span class="dash-health-dot checking"></span><span class="dash-health-name">Brain</span></div>
+  <div class="dash-health-item"><span class="dash-health-dot checking"></span><span class="dash-health-name">Grok2API</span></div>
+  <div class="dash-health-item"><span class="dash-health-dot checking"></span><span class="dash-health-name">Sub2API</span></div>
+  <div class="dash-health-item"><span class="dash-health-dot checking"></span><span class="dash-health-name">Uptime Kuma</span></div>
+</div>
+
+<div class="dash-uptime-section">
+  <div class="dash-uptime-card">
+    <div class="dash-uptime-header">
+      <h3>📊 服务监控</h3>
+      <a href="https://status.bioinforms.tech" target="_blank" rel="noopener" class="dash-uptime-link">打开 Uptime Kuma ↗</a>
+    </div>
+    <div class="dash-uptime-grid">
+      <a href="https://status.bioinforms.tech" target="_blank" rel="noopener" class="dash-uptime-item">
+        <div class="dash-uptime-icon">🟢</div>
+        <div class="dash-uptime-info">
+          <div class="dash-uptime-name">Uptime Kuma</div>
+          <div class="dash-uptime-desc">全栈服务状态监控 · 历史可用性数据</div>
+        </div>
+        <div class="dash-uptime-arrow">→</div>
+      </a>
+      <a href="https://brain.bioinfo.pro/health" target="_blank" rel="noopener" class="dash-uptime-item">
+        <div class="dash-uptime-icon">🧠</div>
+        <div class="dash-uptime-info">
+          <div class="dash-uptime-name">Brain Health API</div>
+          <div class="dash-uptime-desc">服务健康检查 JSON 接口</div>
+        </div>
+        <div class="dash-uptime-arrow">→</div>
+      </a>
+    </div>
+  </div>
+  <div class="dash-uptime-note">
+    <span class="note-icon">🔗</span>
+    <span><strong>联合登录</strong> — status.bioinforms.tech 与本系统共享凭据 (用户名: <strong>lyc</strong>)</span>
+  </div>
+</div>
+
+<div class="dash-resource-section" id="resource-section">
+  <div class="dash-res-card">
+    <div class="dash-res-label">CPU</div>
+    <div class="dash-res-value" id="res-cpu">—</div>
+    <div class="dash-res-bar"><div class="dash-res-fill" id="res-cpu-bar" style="width:0;background:var(--primary)"></div></div>
+  </div>
+  <div class="dash-res-card">
+    <div class="dash-res-label">Memory</div>
+    <div class="dash-res-value" id="res-mem">—</div>
+    <div class="dash-res-bar"><div class="dash-res-fill" id="res-mem-bar" style="width:0;background:var(--success)"></div></div>
+    <div class="dash-res-sub" id="res-mem-sub"></div>
+  </div>
+  <div class="dash-res-card">
+    <div class="dash-res-label">Disk</div>
+    <div class="dash-res-value" id="res-disk">—</div>
+    <div class="dash-res-bar"><div class="dash-res-fill" id="res-disk-bar" style="width:0;background:var(--warning)"></div></div>
+    <div class="dash-res-sub" id="res-disk-sub"></div>
+  </div>
+  <div class="dash-res-card">
+    <div class="dash-res-label">Load Avg</div>
+    <div class="dash-res-value" id="res-load">—</div>
+    <div class="dash-res-sub" id="res-load-sub"></div>
+  </div>
+</div>
+
+{api_section}
+
+<div class="sec-kanban">
+
+  <div class="sec-col">
+    <div class="sec-col-header">🏠 DO VPS <span class="sec-badge">:{ssh_port}</span> {f2b_badge}</div>
+    <div class="sec-section">
+      <div class="sec-section-title">Overview</div>
+      <div class="sec-card">
+        <div class="sec-stat-row"><span class="stat-label">Uptime</span><span class="stat-value">{_html.escape(uptime)}</span></div>
+      </div>
+      <div class="sec-sysctl-grid">{_sysctl_grid(do_sysctl)}</div>
+    </div>
+    <div class="sec-section">
+      <div class="sec-section-title">Top Attackers</div>
+      <div class="sec-card">{attacker_rows if attacker_rows else '<span class="sec-empty">No recent attackers</span>'}</div>
+    </div>
+    <div class="sec-section">
+      <div class="sec-section-title">Firewall Rules ({len(ufw_rules)})</div>
+      <div class="sec-card">{do_ufw_rows if do_ufw_rows else '<span class="sec-empty">No rules</span>'}</div>
+    </div>
+  </div>
+
+  <div class="sec-col">
+    <div class="sec-col-header">🌐 Proxy VPS <span class="sec-badge">:{pr_ssh_port}</span> {pr_badge}</div>
+    <div class="sec-section">
+      <div class="sec-section-title">Overview</div>
+      <div class="sec-card">
+        <div class="sec-stat-row"><span class="stat-label">Uptime</span><span class="stat-value">{_html.escape(pr_uptime)}</span></div>
+      </div>
+      <div class="sec-sysctl-grid">{_sysctl_grid(pr_sysctl_items)}</div>
+    </div>
+    <div class="sec-section">
+      <div class="sec-section-title">Proxy Traffic</div>
+      {traffic_rows if traffic_rows else '<div class="sec-card"><span class="sec-empty">No inbound data</span></div>'}
+    </div>
+    <div class="sec-section">
+      <div class="sec-section-title">Firewall Rules ({len(pr_ufw_rules)})</div>
+      <div class="sec-card">{pr_ufw_rows if pr_ufw_rows else '<span class="sec-empty">No rules</span>'}</div>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js" crossorigin="anonymous"></script>
+<script>
+var _secTimer = null;
+var _secPaused = false;
+var _lastDashData = null;
+var _trendChart = null;
+var _acctDonut = null;
+
+// --- Chart.js theme ---
+var _cs = getComputedStyle(document.documentElement);
+var _cPrimary = _cs.getPropertyValue('--primary').trim() || '#a78bfa';
+var _cSuccess = _cs.getPropertyValue('--success').trim() || '#34d399';
+var _cInkMuted = _cs.getPropertyValue('--ink-muted').trim() || '#8b90a5';
+var _cInk = _cs.getPropertyValue('--ink').trim() || '#e2e4ed';
+var _cBg = _cs.getPropertyValue('--bg').trim() || '#1a1a2e';
+Chart.defaults.color = _cInkMuted;
+Chart.defaults.borderColor = 'rgba(255,255,255,.06)';
+Chart.defaults.font.family = '-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif';
+Chart.defaults.font.size = 11;
+
+function _initTrendChart() {{
+  var el = document.getElementById('dash-trend-chart');
+  if (!el) return;
+  var data = {trend_data_js};
+  if (!data || data.length === 0) return;
+  _trendChart = new Chart(el, {{
+    type: 'line',
+    data: {{
+      labels: data.map(function(d){{ return d.date; }}),
+      datasets: [{{
+        label: 'Tokens',
+        data: data.map(function(d){{ return d.tokens; }}),
+        borderColor: _cPrimary,
+        backgroundColor: 'rgba(167,139,250,.12)',
+        fill: true,
+        tension: 0.35,
+        pointRadius: 3,
+        pointHoverRadius: 6,
+        pointBackgroundColor: _cPrimary,
+        borderWidth: 2,
+        yAxisID: 'y'
+      }},{{
+        label: 'Requests',
+        data: data.map(function(d){{ return d.requests; }}),
+        borderColor: _cSuccess,
+        backgroundColor: 'rgba(52,211,153,.08)',
+        fill: true,
+        tension: 0.35,
+        pointRadius: 2,
+        pointHoverRadius: 5,
+        pointBackgroundColor: _cSuccess,
+        borderWidth: 1.5,
+        yAxisID: 'y1'
+      }}]
+    }},
+    options: {{
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {{ mode: 'index', intersect: false }},
+      plugins: {{
+        legend: {{ display: true, position: 'top', labels: {{ boxWidth: 12, padding: 12 }} }},
+        tooltip: {{ backgroundColor: _cBg, titleColor: _cInk, bodyColor: _cInkMuted, borderColor: _cPrimary, borderWidth: 1, padding: 10, cornerRadius: 8 }}
+      }},
+      scales: {{
+        x: {{ grid: {{ display: false }}, ticks: {{ font: {{ size: 10 }} }} }},
+        y: {{ position: 'left', grid: {{ color: 'rgba(255,255,255,.04)' }}, ticks: {{ callback: function(v){{ return v >= 1e6 ? (v/1e6).toFixed(1)+'M' : v >= 1e3 ? (v/1e3).toFixed(0)+'K' : v; }} }} }},
+        y1: {{ position: 'right', grid: {{ display: false }}, ticks: {{ callback: function(v){{ return v >= 1e3 ? (v/1e3).toFixed(0)+'K' : v; }} }} }}
+      }}
+    }}
+  }});
+}}
+
+function _initAcctDonut() {{
+  var el = document.getElementById('dash-acct-donut');
+  if (!el) return;
+  var n = {normal_accts}, r = {ratelimit_accts}, e = {error_accts};
+  if (n+r+e === 0) return;
+  _acctDonut = new Chart(el, {{
+    type: 'doughnut',
+    data: {{
+      labels: ['Normal', 'Rate-limited', 'Errors'],
+      datasets: [{{ data: [n, r, e], backgroundColor: [_cSuccess, _cs.getPropertyValue('--warning').trim() || '#fbbf24', _cs.getPropertyValue('--danger').trim() || '#f87171'], borderWidth: 0, hoverOffset: 4 }}]
+    }},
+    options: {{
+      responsive: false,
+      cutout: '68%',
+      plugins: {{
+        legend: {{ display: false }},
+        tooltip: {{ backgroundColor: _cBg, bodyColor: _cInk, borderColor: _cPrimary, borderWidth: 1, cornerRadius: 8 }}
+      }}
+    }}
+  }});
+}}
+
+function _checkHealth() {{
+  fetch('/api/dashboard/health').then(function(r){{ return r.json(); }}).then(function(data) {{
+    var strip = document.getElementById('health-strip');
+    if (!strip) return;
+    var items = strip.querySelectorAll('.dash-health-item');
+    var services = data.services || [];
+    for (var i = 0; i < items.length; i++) {{
+      var item = items[i];
+      var svc = services.find(function(s){{ return s.name === item.querySelector('.dash-health-name').textContent; }});
+      if (!svc) continue;
+      var dot = item.querySelector('.dash-health-dot');
+      dot.className = 'dash-health-dot ' + (svc.alive ? 'alive' : 'dead');
+      var existLat = item.querySelector('.dash-health-lat');
+      if (existLat) existLat.remove();
+      var lat = document.createElement('span');
+      lat.className = 'dash-health-lat';
+      lat.textContent = svc.alive ? svc.latency_ms + 'ms' : 'DOWN';
+      lat.style.color = svc.alive ? '' : 'var(--danger)';
+      item.appendChild(lat);
+    }}
+  }}).catch(function() {{}});
+}}
+
+function _checkResources() {{
+  fetch('/api/dashboard/resources').then(function(r){{ return r.json(); }}).then(function(d) {{
+    function barColor(pct) {{
+      if (pct > 85) return 'var(--danger)';
+      if (pct > 65) return 'var(--warning)';
+      return null;
+    }}
+    var cpu = d.cpu_percent || 0;
+    var cpuBar = document.getElementById('res-cpu-bar');
+    var cpuVal = document.getElementById('res-cpu');
+    if (cpuBar) {{ cpuBar.style.width = cpu + '%'; if (barColor(cpu)) cpuBar.style.background = barColor(cpu); }}
+    if (cpuVal) cpuVal.textContent = cpu + '%';
+
+    var mem = d.mem_percent || 0;
+    var memBar = document.getElementById('res-mem-bar');
+    var memVal = document.getElementById('res-mem');
+    var memSub = document.getElementById('res-mem-sub');
+    if (memBar) {{ memBar.style.width = mem + '%'; if (barColor(mem)) memBar.style.background = barColor(mem); }}
+    if (memVal) memVal.textContent = mem + '%';
+    if (memSub) memSub.textContent = (d.mem_used_gb || 0) + '/' + (d.mem_total_gb || 0) + ' GB';
+
+    var disk = d.disk_percent || 0;
+    var diskBar = document.getElementById('res-disk-bar');
+    var diskVal = document.getElementById('res-disk');
+    var diskSub = document.getElementById('res-disk-sub');
+    if (diskBar) {{ diskBar.style.width = disk + '%'; if (barColor(disk)) diskBar.style.background = barColor(disk); }}
+    if (diskVal) diskVal.textContent = disk + '%';
+    if (diskSub) diskSub.textContent = (d.disk_used_gb || 0) + '/' + (d.disk_total_gb || 0) + ' GB';
+
+    var loadEl = document.getElementById('res-load');
+    var loadSub = document.getElementById('res-load-sub');
+    if (loadEl) loadEl.textContent = (d.load_1m || 0).toFixed(2);
+    if (loadSub) loadSub.textContent = '5m: ' + (d.load_5m || 0).toFixed(2) + '  15m: ' + (d.load_15m || 0).toFixed(2);
+  }}).catch(function() {{}});
+}}
+
+function toggleRefresh() {{
+  if (_secPaused) {{
+    _secPaused = false;
+    document.getElementById('refresh-indicator').textContent = 'Live';
+    document.getElementById('pause-btn').textContent = '⏸';
+    scheduleRefresh();
+  }} else {{
+    _secPaused = true;
+    document.getElementById('refresh-indicator').textContent = '⏸ Paused';
+    document.getElementById('pause-btn').textContent = '▶';
+    if (_secTimer) clearTimeout(_secTimer);
+  }}
+}}
+function checkRefresh() {{
+  fetch('/api/dashboard/data').then(function(r){{ return r.json(); }}).then(function(data) {{
+    var sig = JSON.stringify(data);
+    if (_lastDashData && _lastDashData !== sig) {{
+      location.reload();
+    }} else {{
+      _lastDashData = sig;
+      scheduleRefresh();
+    }}
+  }}).catch(function() {{ scheduleRefresh(); }});
+}}
+function scheduleRefresh() {{
+  if (!_secPaused) _secTimer = setTimeout(checkRefresh, 30000);
+}}
+// Init charts and health check
+_initTrendChart();
+_initAcctDonut();
+_checkHealth();
+_checkResources();
+checkRefresh();
+</script>"""
+
+    return _page("Dashboard", body, nav_active="home")
+
+
+# ---------------------------------------------------------------------------
+# Security Monitoring Page (redirects to /dashboard)
 # ---------------------------------------------------------------------------
 
 def security_page(
@@ -1119,7 +3509,6 @@ def security_page(
     # DO status
     do = do_status
     f2b_banned = do.get("f2b_banned", [])
-    f2b_total = do.get("f2b_total", 0)
     ssh_port = do.get("ssh_port", "22")
     ufw_rules = do.get("ufw_rules", [])
     top_attackers = do.get("top_attackers", [])
@@ -1129,7 +3518,6 @@ def security_page(
     # Proxy status
     pr = proxy_status
     pr_f2b_banned = pr.get("f2b_banned", [])
-    pr_f2b_total = pr.get("f2b_total", 0)
     pr_ssh_port = pr.get("ssh_port", "22")
     pr_ufw_rules = pr.get("ufw_rules", [])
     pr_uptime = pr.get("uptime", "?")
@@ -1142,7 +3530,7 @@ def security_page(
         ip = _html.escape(a.get("ip", "?"))
         cnt = a.get("count", 0)
         bar_w = min(cnt / max_cnt * 100, 100)
-        bar_color = "var(--success)" if cnt / max_cnt < 0.3 else "var(--orange)" if cnt / max_cnt < 0.7 else "var(--danger)"
+        bar_color = "var(--success)" if cnt / max_cnt < 0.3 else "var(--warning)" if cnt / max_cnt < 0.7 else "var(--danger)"
         attacker_rows += f"""<div class="sec-bar-row">
   <span class="sec-ip">{ip}</span>
   <div class="sec-bar-bg"><div class="sec-bar-fill" style="width:{bar_w:.0f}%;background:{bar_color}"></div></div>
@@ -1156,9 +3544,9 @@ def security_page(
             action = _html.escape(r.get("action", "?"))
             to = _html.escape(r.get("to", "?"))
             comment = _html.escape(r.get("comment", ""))
-            ucolor = "var(--success)" if action == "ALLOW" else "var(--danger)" if action in ("REJECT", "DENY") else "var(--ink-dim)"
+            action_cls = "allow" if action == "ALLOW" else "deny" if action in ("REJECT", "DENY") else "other"
             rows += f"""<div class="sec-ufw-row">
-  <span class="sec-ufw-action" style="color:{ucolor}">{action}</span>
+  <span class="sec-ufw-action {action_cls}">{action}</span>
   <span class="sec-ufw-to">{to}</span>
   <span class="sec-ufw-comment">{comment}</span>
 </div>"""
@@ -1200,55 +3588,76 @@ def security_page(
   <div class="sec-inbound-clients">{client_rows}</div>
 </div>"""
 
-    # Banned IPs
-    f2b_badge = f'<span class="sec-badge sec-badge-red" title="Banned IPs">{len(f2b_banned)}</span>'
-    pr_badge = f'<span class="sec-badge sec-badge-red" title="Banned IPs">{len(pr_f2b_banned)}</span>'
+    # Banned IPs badges
+    f2b_badge = f'<span class="sec-badge sec-badge-red" title="Banned IPs">{len(f2b_banned)} banned</span>'
+    pr_badge = f'<span class="sec-badge sec-badge-red" title="Banned IPs">{len(pr_f2b_banned)} banned</span>'
 
-    # Sysctl badges helper
-    def _sysctl_badges(sc):
-        syn = "✅" if sc.get("syncookies") else "❌"
-        redir = "✅" if not sc.get("accept_redirects") else "❌"
-        fwd = "✅" if not sc.get("ip_forward") else "⚠️"
-        return syn, redir, fwd
+    # Sysctl items for grid layout
+    def _sysctl_items(sc):
+        syn = sc.get("syncookies", False)
+        redir = not sc.get("accept_redirects", True)
+        fwd = not sc.get("ip_forward", True)
+        return [
+            ("Syncookies", "✅" if syn else "❌", syn),
+            ("ICMP Redirects", "✅" if redir else "❌", redir),
+            ("IP Forward", "✅" if fwd else "⚠️", fwd),
+        ]
 
-    do_syn, do_redir, do_fwd = _sysctl_badges(sysctl)
-    pr_syn, pr_redir, pr_fwd = _sysctl_badges(pr_sysctl)
+    do_sysctl = _sysctl_items(sysctl)
+    pr_sysctl = _sysctl_items(pr_sysctl)
 
-    body = f"""{_nav(active="security")}
+    def _sysctl_grid(items):
+        rows = ""
+        for label, icon, ok in items:
+            val_cls = "sec-sysctl-value" + ("" if ok else " style='color:var(--danger)'")
+            rows += f'<div class="sec-sysctl-item"><span class="sec-sysctl-label">{label}</span><span {val_cls}>{icon}</span></div>'
+        return rows
+
+    body = f"""
 <div class="sec-header">
   <h1>🛡️ Security Monitor</h1>
-  <span class="sec-refresh" id="refresh-indicator">⟳ Live</span>
-<button class="sec-refresh-btn" id="pause-btn" onclick="toggleRefresh()" title="Pause auto-refresh">⏸</button>
+  <span class="sec-refresh" id="refresh-indicator">Live</span>
+  <button class="sec-pause-btn" id="pause-btn" onclick="toggleRefresh()" title="Pause auto-refresh">⏸</button>
 </div>
 
 <div class="sec-kanban">
 
   <div class="sec-col">
-    <h3>🏠 DO VPS <span class="sec-badge">SSH:{ssh_port}</span> {f2b_badge}</h3>
-    <div class="sec-card sec-overview">
-      <div class="sec-stat-row"><span>Uptime</span><span>{_html.escape(uptime)}</span></div>
-      <div class="sec-stat-row"><span>Syncookies</span><span>{do_syn}</span></div>
-      <div class="sec-stat-row"><span>ICMP Redirects</span><span>{do_redir}</span></div>
-      <div class="sec-stat-row"><span>IP Forward</span><span>{do_fwd}</span></div>
+    <div class="sec-col-header"><h3>🏠 DO VPS <span class="sec-badge">:{ssh_port}</span> {f2b_badge}</h3></div>
+    <div class="sec-section">
+      <div class="sec-section-title">Overview</div>
+      <div class="sec-card sec-overview">
+        <div class="sec-stat-row"><span class="stat-label">Uptime</span><span class="stat-value">{_html.escape(uptime)}</span></div>
+      </div>
+      <div class="sec-sysctl-grid">{_sysctl_grid(do_sysctl)}</div>
     </div>
-    <h4>Top Attackers</h4>
-    <div class="sec-card">{attacker_rows if attacker_rows else '<span class="sec-empty">No recent attackers</span>'}</div>
-    <h4>Firewall Rules ({len(ufw_rules)})</h4>
-    <div class="sec-card sec-ufw-list">{do_ufw_rows if do_ufw_rows else '<span class="sec-empty">No rules</span>'}</div>
+    <div class="sec-section">
+      <div class="sec-section-title">Top Attackers</div>
+      <div class="sec-card">{attacker_rows if attacker_rows else '<span class="sec-empty">No recent attackers</span>'}</div>
+    </div>
+    <div class="sec-section">
+      <div class="sec-section-title">Firewall Rules ({len(ufw_rules)})</div>
+      <div class="sec-card">{do_ufw_rows if do_ufw_rows else '<span class="sec-empty">No rules</span>'}</div>
+    </div>
   </div>
 
   <div class="sec-col">
-    <h3>🌐 Proxy VPS <span class="sec-badge">SSH:{pr_ssh_port}</span> {pr_badge}</h3>
-    <div class="sec-card sec-overview">
-      <div class="sec-stat-row"><span>Uptime</span><span>{_html.escape(pr_uptime)}</span></div>
-      <div class="sec-stat-row"><span>Syncookies</span><span>{pr_syn}</span></div>
-      <div class="sec-stat-row"><span>ICMP Redirects</span><span>{pr_redir}</span></div>
-      <div class="sec-stat-row"><span>IP Forward</span><span>{pr_fwd}</span></div>
+    <div class="sec-col-header"><h3>🌐 Proxy VPS <span class="sec-badge">:{pr_ssh_port}</span> {pr_badge}</h3></div>
+    <div class="sec-section">
+      <div class="sec-section-title">Overview</div>
+      <div class="sec-card sec-overview">
+        <div class="sec-stat-row"><span class="stat-label">Uptime</span><span class="stat-value">{_html.escape(pr_uptime)}</span></div>
+      </div>
+      <div class="sec-sysctl-grid">{_sysctl_grid(pr_sysctl)}</div>
     </div>
-    <h4>Proxy Traffic</h4>
-    {traffic_rows if traffic_rows else '<div class="sec-card"><span class="sec-empty">No inbound data</span></div>'}
-    <h4>Firewall Rules ({len(pr_ufw_rules)})</h4>
-    <div class="sec-card sec-ufw-list">{pr_ufw_rows if pr_ufw_rows else '<span class="sec-empty">No rules</span>'}</div>
+    <div class="sec-section">
+      <div class="sec-section-title">Proxy Traffic</div>
+      {traffic_rows if traffic_rows else '<div class="sec-card"><span class="sec-empty">No inbound data</span></div>'}
+    </div>
+    <div class="sec-section">
+      <div class="sec-section-title">Firewall Rules ({len(pr_ufw_rules)})</div>
+      <div class="sec-card">{pr_ufw_rows if pr_ufw_rows else '<span class="sec-empty">No rules</span>'}</div>
+    </div>
   </div>
 
 </div>
@@ -1259,7 +3668,7 @@ var _secPaused = false;
 function toggleRefresh() {{
   if (_secPaused) {{
     _secPaused = false;
-    document.getElementById('refresh-indicator').textContent = '⟳ Live';
+    document.getElementById('refresh-indicator').textContent = 'Live';
     document.getElementById('pause-btn').textContent = '⏸';
     _secTimer = setTimeout(function(){{ location.reload(); }}, 30000);
   }} else {{
@@ -1270,161 +3679,376 @@ function toggleRefresh() {{
   }}
 }}
 _secTimer = setTimeout(function(){{ location.reload(); }}, 30000);
-</script>
+</script>"""
 
-<style>
-.sec-header{{display:flex;align-items:center;justify-content:space-between;padding:12px 16px 8px;border-bottom:1px solid var(--border);margin-bottom:8px}}
-.sec-header h1{{font-size:1.2rem;margin:0;font-weight:700;color:var(--ink)}}
-.sec-refresh{{font-size:.78rem;color:var(--ink-dim);display:flex;align-items:center;gap:6px}}
-.sec-refresh-btn{{background:none;border:1px solid var(--border);border-radius:var(--r-sm);color:var(--ink-dim);padding:4px 10px;cursor:pointer;font-size:.82rem;margin-left:8px;transition:all var(--duration)}}
-.sec-refresh-btn:hover{{background:var(--card-hover);color:var(--ink);border-color:var(--primary)}}
-@keyframes pulse{{0%,100%{{opacity:1}}50%{{opacity:.4}}}}
-.sec-kanban{{display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:0 16px 16px}}
-@media(max-width:720px){{.sec-kanban{{grid-template-columns:1fr}}}}
-.sec-col{{min-width:0}}
-.sec-col h3{{font-size:1rem;margin:12px 0 8px;color:var(--primary);display:flex;align-items:center;gap:8px;padding-bottom:6px;border-bottom:1px solid var(--border)}}
-.sec-col h4{{font-size:.85rem;margin:12px 0 6px;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.04em}}
-.sec-card{{background:var(--card);border-radius:var(--r-lg);padding:12px 14px;margin-bottom:8px;border:1px solid var(--border);transition:all var(--duration);box-shadow:var(--shadow-xs)}}
-.sec-card:hover{{border-color:var(--border-hover);box-shadow:var(--shadow-sm)}}
-.sec-overview{{background:linear-gradient(135deg,var(--card),var(--surface));border:1px solid var(--primary-muted);border-left:3px solid var(--primary)}}
-.sec-empty{{color:var(--ink-dim);font-size:.82rem;font-style:italic;padding:8px 0}}
-.dot{{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;box-shadow:0 0 4px rgba(0,0,0,.2)}}
-.dot-green{{background:var(--success);box-shadow:0 0 6px rgba(52,211,153,.4)}}
-.dot-red{{background:var(--danger);box-shadow:0 0 6px rgba(248,113,113,.4)}}
-.sec-badge{{font-size:.7rem;padding:2px 8px;border-radius:var(--r-pill);background:var(--card-hover);color:var(--ink-muted);margin-left:6px;font-weight:500;letter-spacing:.02em}}
-.sec-badge-red{{background:var(--danger-muted);color:var(--danger);font-weight:600}}
-.sec-stat-row{{display:flex;justify-content:space-between;padding:6px 0;font-size:.88rem;border-bottom:1px solid var(--border)}}
-.sec-stat-row:last-child{{border-bottom:none}}
-.sec-bar-row{{display:flex;align-items:center;gap:8px;padding:3px 0;font-size:.82rem}}
-.sec-ip{{min-width:130px;color:var(--ink-dim);font-family:monospace;font-size:.78rem}}
-.sec-bar-bg{{flex:1;height:6px;background:var(--border-hover);border-radius:3px;overflow:hidden}}
-.sec-bar-fill{{height:100%;background:var(--danger);border-radius:3px;transition:width .6s var(--ease-out)}}
-.sec-cnt{{min-width:40px;text-align:right;color:var(--ink-dim);font-size:.78rem}}
-.sec-ufw-row{{display:flex;align-items:center;gap:6px;padding:5px 0;font-size:.82rem;border-bottom:1px solid var(--border);transition:background var(--duration)}}
-.sec-ufw-row:hover{{background:var(--card-hover)}}
-.sec-ufw-row:last-child{{border-bottom:none}}
-.sec-ufw-action{{min-width:48px;font-weight:600;font-size:.78rem}}
-.sec-ufw-to{{min-width:90px;font-family:monospace;font-size:.78rem}}
-.sec-ufw-comment{{color:var(--ink-dim);font-size:.75rem}}
-.sec-inbound-card{{background:var(--card);border-radius:var(--r-lg);padding:12px 14px;margin-bottom:8px;border:1px solid var(--border);transition:all var(--duration);box-shadow:var(--shadow-xs)}}
-.sec-inbound-card:hover{{border-color:var(--border-hover);box-shadow:var(--shadow-sm)}}
-.sec-inbound-header{{display:flex;align-items:center;gap:6px;flex-wrap:wrap}}
-.sec-inbound-name{{font-weight:600;font-size:.92rem}}
-.sec-inbound-meta{{font-size:.78rem;color:var(--ink-dim);font-family:monospace}}
-.sec-inbound-traffic{{font-size:.78rem;margin-left:auto;font-weight:500}}
-.sec-inbound-clients{{margin-top:8px;padding-left:16px;border-left:2px solid var(--border)}}
-.sec-client-row{{display:flex;align-items:center;gap:6px;padding:4px 0;font-size:.82rem;border-bottom:1px solid var(--border)}}
-.sec-client-row:last-child{{border-bottom:none}}
-.sec-client-name{{min-width:120px}}
-.sec-client-traffic{{color:var(--ink-dim);font-size:.78rem;font-family:monospace}}
-</style>"""
-
-    return _page("Security Monitor", body)
+    return _page("Security Monitor", body, nav_active="home")
 
 
 # ---------------------------------------------------------------------------
 # Settings Page
 # ---------------------------------------------------------------------------
 
-def settings_page(*, error: str = "", success: str = "") -> str:
-    """Render user settings page with password change and preferences."""
-    error_html = f'<div class="settings-error">{_html.escape(error)}</div>' if error else ""
-    success_html = f'<div class="settings-success">{_html.escape(success)}</div>' if success else ""
-
-    body = f"""{_nav(active="settings")}
-<div style="padding:16px">
-  <h1 style="font-size:1.2rem;margin-bottom:16px;font-weight:700;letter-spacing:-.02em">⚙️ Settings</h1>
-
-  <div class="settings-section">
-    <h3>🔐 Change Password</h3>
-    {error_html}
-    {success_html}
-    <form method="POST" action="/settings/password" class="settings-form">
-      <label class="settings-label">Current Password</label>
-      <input type="password" name="current_password" class="settings-input" required autocomplete="current-password">
-      <label class="settings-label">New Password</label>
-      <input type="password" name="new_password" class="settings-input" required autocomplete="new-password" minlength="6">
-      <label class="settings-label">Confirm New Password</label>
-      <input type="password" name="confirm_password" class="settings-input" required autocomplete="new-password">
-      <button type="submit" class="settings-btn">Update Password</button>
-    </form>
-  </div>
-
-  <div class="settings-section">
-    <h3>🎨 Display Preferences</h3>
-    <form class="settings-form" id="prefs-form">
-      <label class="settings-label">Display Name</label>
-      <input type="text" name="display_name" class="settings-input" placeholder="Your name" id="display-name">
-      <label class="settings-label">Theme</label>
-      <select name="theme" class="settings-input" id="theme-select">
-        <option value="dark">Dracula Dark</option>
-        <option value="light">Light</option>
-      </select>
-      <button type="button" class="settings-btn" onclick="savePrefs()">Save Preferences</button>
-    </form>
-  </div>
-
-  <div class="settings-section">
-    <h3>📊 System Info</h3>
-    <div class="settings-info-grid">
-      <div class="settings-info-item">
-        <span class="settings-info-label">Brain Version</span>
-        <span class="settings-info-value">MVP</span>
-      </div>
-      <div class="settings-info-item">
-        <span class="settings-info-label">Hermes Agent</span>
-        <span class="settings-info-value">Active</span>
-      </div>
+def services_page() -> str:
+    """Render the Services portal page — AxonHub-style service status cards with live health check."""
+    services = [
+        ("n8n", "自动化工作流", "可视化编排API与任务，连接500+服务", "https://work.bioinforms.tech", "#ef4444",
+         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>',
+         "work.bioinforms.tech"),
+        ("Uptime Kuma", "服务监控", "实时状态监控、告警通知与SLA追踪", "https://status.bioinforms.tech", "#22c55e",
+         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>',
+         "status.bioinforms.tech"),
+        ("File Browser", "文件管理", "浏览、上传与管理工作文件", "https://files.bioinforms.tech", "#3b82f6",
+         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>',
+         "files.bioinforms.tech"),
+    ]
+    cards = []
+    for name, title, desc, url, color, icon, host in services:
+        cards.append(f'''<a href="{_html.escape(url)}" target="_blank" rel="noopener" class="svc-card" data-host="{_html.escape(host)}">
+  <div class="svc-card-header">
+    <div class="svc-card-icon" style="background:{color}18;color:{color}">{icon}</div>
+    <div class="svc-card-info">
+      <h3 class="svc-card-name">{_html.escape(name)}</h3>
+      <p class="svc-card-title">{_html.escape(title)}</p>
     </div>
+    <div class="svc-card-arrow">{_ICON_EXTERNAL}</div>
   </div>
+  <p class="svc-card-desc">{_html.escape(desc)}</p>
+  <div class="svc-card-footer">
+    <div class="svc-health-indicator">
+      <span class="svc-health-dot" data-host="{_html.escape(host)}"></span>
+      <span class="svc-health-status" data-host="{_html.escape(host)}">检测中...</span>
+    </div>
+    <span class="svc-health-lat" data-host="{_html.escape(host)}">—</span>
+  </div>
+</a>''')
 
-  <div class="settings-section" style="border-color:var(--danger-muted)">
-    <h3 style="color:var(--danger)">🚪 Sign Out</h3>
-    <p style="font-size:.88rem;color:var(--ink-muted);margin:0 0 12px">End your current session and return to the login page.</p>
-    <a href="/logout" class="settings-btn-logout">{_ICON_LOGOUT} Sign Out</a>
+    hosts_json = _json.dumps([h for _, _, _, _, _, _, h in services])
+    name_to_host_json = _json.dumps({n: h for n, _, _, _, _, _, h in services})
+    body = f"""
+<div class="svc-wrap">
+  <div class="svc-page-header">
+    <h1 class="svc-page-title">🔗 服务中心</h1>
+    <p class="svc-page-desc">所有外部服务运行在独立服务器上，点击卡片直接跳转</p>
+  </div>
+  <div class="svc-grid">
+    {''.join(cards)}
   </div>
 </div>
 
 <style>
-.settings-section{{background:var(--card);border-radius:var(--r-md);padding:16px 20px;margin-bottom:16px;border:1px solid var(--card-hover)}}
-.settings-section h3{{color:var(--primary);font-size:.95rem;margin:0 0 12px}}
-.settings-form{{display:flex;flex-direction:column;gap:10px;max-width:400px}}
-.settings-label{{font-size:.85rem;color:var(--ink-muted);margin-top:4px}}
-.settings-input{{background:var(--surface);border:1px solid var(--card-hover);border-radius:var(--r-md);padding:10px 12px;color:var(--ink);font-size:.95rem;outline:none;transition:border-color .15s,box-shadow .15s}}
-.settings-input:focus{{border-color:var(--primary);box-shadow:0 0 0 2px rgba(189,147,249,.3)}}
-.settings-btn{{background:var(--primary);color:var(--surface);border:none;border-radius:var(--r-md);padding:12px;font-size:.95rem;font-weight:600;cursor:pointer;transition:opacity .15s;margin-top:4px}}
-.settings-btn:hover{{opacity:.85}}
-.settings-error{{background:rgba(255,85,85,.15);color:var(--danger);padding:8px 12px;border-radius:var(--r-md);font-size:.9rem;margin-bottom:8px}}
-.settings-success{{background:rgba(80,250,123,.15);color:var(--success);padding:8px 12px;border-radius:var(--r-md);font-size:.9rem;margin-bottom:8px}}
-.settings-info-grid{{display:grid;grid-template-columns:1fr 1fr;gap:12px}}
-.settings-info-item{{background:var(--card-hover);border-radius:var(--r-md);padding:12px}}
-.settings-info-label{{display:block;font-size:.75rem;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.04em}}
-.settings-info-value{{display:block;font-size:1.1rem;font-weight:600;color:var(--ink);margin-top:2px}}
-.settings-btn-logout{{display:inline-flex;align-items:center;gap:8px;padding:12px 24px;border:1px solid var(--danger);border-radius:var(--r-md);background:var(--danger-muted);color:var(--danger);font-size:.95rem;font-weight:600;cursor:pointer;text-decoration:none;transition:all var(--duration) var(--ease-out);min-height:44px}}
-.settings-btn-logout:hover{{background:rgba(248,113,113,.25);box-shadow:var(--shadow-sm)}}
-.settings-btn-logout svg{{width:18px;height:18px}}
+.svc-wrap{{max-width:860px;margin:0 auto;padding:0 var(--sp-lg) var(--sp-xl);animation:pageEnter .4s var(--ease-out)}}
+.svc-page-header{{margin-bottom:var(--sp-lg);animation:staggerFade .3s var(--ease-out) .05s both}}
+.svc-page-title{{font-size:1.3rem;font-weight:800;color:var(--ink);margin:0 0 4px;letter-spacing:-.02em}}
+.svc-page-desc{{font-size:.88rem;color:var(--ink-muted);margin:0}}
+.svc-grid{{display:grid;grid-template-columns:1fr;gap:var(--sp-md);animation:staggerFade .3s var(--ease-out) .1s both}}
+@media(min-width:720px){{.svc-grid{{grid-template-columns:1fr 1fr}}}}
+/* AxonHub-style service card */
+.svc-card{{display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:0;text-decoration:none;color:var(--ink);transition:all var(--duration) var(--ease-out);overflow:hidden;position:relative}}
+.svc-card:hover{{border-color:var(--border-hover);transform:translateY(-2px);box-shadow:var(--shadow-lg),0 0 0 1px var(--border-hover)}}
+.svc-card-header{{display:flex;align-items:center;gap:14px;padding:var(--sp-md) var(--sp-md) var(--sp-sm)}}
+.svc-card-icon{{width:44px;height:44px;border-radius:var(--r-md);display:flex;align-items:center;justify-content:center;flex-shrink:0}}
+.svc-card-icon svg{{width:24px;height:24px}}
+.svc-card-info{{flex:1;min-width:0}}
+.svc-card-name{{font-size:1rem;font-weight:700;margin:0;color:var(--ink);letter-spacing:-.01em}}
+.svc-card-title{{font-size:.82rem;color:var(--primary);margin:2px 0 0;font-weight:500}}
+.svc-card-arrow{{color:var(--ink-dim);flex-shrink:0;transition:transform var(--duration),color var(--duration)}}
+.svc-card-arrow svg{{width:16px;height:16px}}
+.svc-card:hover .svc-card-arrow{{color:var(--primary);transform:translateX(3px)}}
+.svc-card-desc{{font-size:.82rem;color:var(--ink-muted);margin:0;padding:0 var(--sp-md) var(--sp-sm);line-height:1.5}}
+.svc-card-footer{{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-sm) var(--sp-md);border-top:1px solid var(--border);background:var(--surface);font-size:.78rem}}
+.svc-health-indicator{{display:flex;align-items:center;gap:6px}}
+.svc-health-dot{{width:8px;height:8px;border-radius:50%;background:var(--ink-dim);transition:background .3s,box-shadow .3s}}
+.svc-health-dot.alive{{background:var(--success);box-shadow:0 0 8px rgba(52,211,153,.5)}}
+.svc-health-dot.dead{{background:var(--danger);box-shadow:0 0 8px rgba(248,113,113,.4)}}
+.svc-health-dot.checking{{background:var(--warning);animation:pulse 1.5s infinite}}
+.svc-health-status{{font-weight:500;color:var(--ink-muted)}}
+.svc-health-dot.alive + .svc-health-status,.svc-health-dot.alive ~ .svc-health-status{{color:var(--success)}}
+.svc-health-dot.dead + .svc-health-status,.svc-health-dot.dead ~ .svc-health-status{{color:var(--danger)}}
+.svc-health-lat{{font-family:var(--font-mono);font-size:.72rem;color:var(--ink-dim)}}
 </style>
 
 <script>
-// Load saved preferences
 (function(){{
-  var n=localStorage.getItem('hermes_display_name');
-  if(n)document.getElementById('display-name').value=n;
-  var t=localStorage.getItem('hermes_theme');
-  if(t)document.getElementById('theme-select').value=t;
+  var hosts = {hosts_json};
+  // Set all dots to "checking" state
+  hosts.forEach(function(h){{
+    document.querySelectorAll('.svc-health-dot[data-host="'+h+'"]').forEach(function(d){{d.classList.add('checking')}});
+  }});
+  // Server-side health check via local API (same-origin, no CORS issues)
+  var nameToHost = {name_to_host_json};
+  fetch('/api/health').then(function(r){{return r.json()}}).then(function(data){{
+    for (var name in data) {{
+      var h = nameToHost[name];
+      if (!h) continue;
+      var info = data[name];
+      var alive = info.alive;
+      var ms = info.ms;
+      document.querySelectorAll('.svc-health-dot[data-host="'+h+'"]').forEach(function(d){{
+        d.classList.remove('checking');
+        d.classList.add(alive?'alive':'dead');
+        d.style.background = alive ? 'var(--success)' : 'var(--danger)';
+        if (alive) d.style.boxShadow = '0 0 8px rgba(52,211,153,.5)';
+      }});
+      document.querySelectorAll('.svc-health-status[data-host="'+h+'"]').forEach(function(s){{
+        s.textContent = alive ? '在线' : '离线';
+        s.style.color = alive ? 'var(--success)' : 'var(--danger)';
+      }});
+      document.querySelectorAll('.svc-health-lat[data-host="'+h+'"]').forEach(function(l){{
+        l.textContent = alive ? ms+'ms' : '—';
+      }});
+    }}
+  }}).catch(function(){{
+    hosts.forEach(function(h){{
+      document.querySelectorAll('.svc-health-dot[data-host="'+h+'"]').forEach(function(d){{
+        d.classList.remove('checking'); d.style.background='var(--ink-dim)';
+      }});
+      document.querySelectorAll('.svc-health-status[data-host="'+h+'"]').forEach(function(s){{
+        s.textContent='未知';
+      }});
+    }});
+  }});
 }})();
+</script>
+"""
+
+    return _page("Services", body, nav_active="services")
+
+
+def profile_page(*, error: str = "", success: str = "") -> str:
+    """Render the Profile page — AxonHub-style grouped settings with avatar card."""
+    error_html = f'<div class="pf-alert pf-alert-error">{_html.escape(error)}</div>' if error else ""
+    success_html = f'<div class="pf-alert pf-alert-success">{_html.escape(success)}</div>' if success else ""
+
+    body = f"""
+<div class="pf-wrap">
+
+  <!-- Avatar Card -->
+  <div class="pf-avatar-card">
+    <div class="pf-avatar-ring">
+      <div class="pf-avatar" id="profile-avatar">👤</div>
+    </div>
+    <div class="pf-avatar-info">
+      <h2 class="pf-avatar-name" id="profile-display-name">探索者</h2>
+      <p class="pf-avatar-role">Hermes Brain 用户</p>
+      <div class="pf-avatar-badges">
+        <span class="pf-badge pf-badge-primary">管理员</span>
+        <span class="pf-badge pf-badge-info">在线</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Display Preferences -->
+  <div class="pf-section">
+    <div class="pf-section-head">
+      <span class="pf-section-icon">🎨</span>
+      <div>
+        <h3 class="pf-section-title">显示偏好</h3>
+        <p class="pf-section-desc">自定义界面显示</p>
+      </div>
+    </div>
+    <form class="pf-form" id="prefs-form">
+      <div class="pf-field">
+        <label class="pf-label" for="display-name">显示名称</label>
+        <input type="text" name="display_name" class="pf-input" placeholder="你的名字" id="display-name">
+      </div>
+      <div class="pf-field">
+        <label class="pf-label" for="avatar-url">头像链接</label>
+        <input type="url" name="avatar_url" class="pf-input" placeholder="输入头像图片URL" id="avatar-url">
+      </div>
+      <div class="pf-field">
+        <label class="pf-label" for="theme-select">主题</label>
+        <select name="theme" class="pf-input" id="theme-select">
+          <option value="dark">深色 Dracula</option>
+          <option value="light">浅色 Light</option>
+        </select>
+      </div>
+      <button type="button" class="pf-btn pf-btn-primary" onclick="savePrefs()">保存偏好</button>
+    </form>
+  </div>
+
+  <!-- Change Password -->
+  <div class="pf-section">
+    <div class="pf-section-head">
+      <span class="pf-section-icon">🔐</span>
+      <div>
+        <h3 class="pf-section-title">修改密码</h3>
+        <p class="pf-section-desc">更新你的登录密码</p>
+      </div>
+    </div>
+    {error_html}
+    {success_html}
+    <form method="POST" action="/settings/password" class="pf-form">
+      <div class="pf-field">
+        <label class="pf-label" for="cur-pw">当前密码</label>
+        <input type="password" name="current_password" class="pf-input" id="cur-pw" required autocomplete="current-password">
+      </div>
+      <div class="pf-field-row">
+        <div class="pf-field">
+          <label class="pf-label" for="new-pw">新密码</label>
+          <input type="password" name="new_password" class="pf-input" id="new-pw" required autocomplete="new-password" minlength="6">
+        </div>
+        <div class="pf-field">
+          <label class="pf-label" for="confirm-pw">确认新密码</label>
+          <input type="password" name="confirm_password" class="pf-input" id="confirm-pw" required autocomplete="new-password">
+        </div>
+      </div>
+      <button type="submit" class="pf-btn pf-btn-primary">更新密码</button>
+    </form>
+  </div>
+
+  <!-- System Info -->
+  <div class="pf-section">
+    <div class="pf-section-head">
+      <span class="pf-section-icon">📊</span>
+      <div>
+        <h3 class="pf-section-title">系统信息</h3>
+        <p class="pf-section-desc">运行状态概览</p>
+      </div>
+    </div>
+    <div class="pf-info-grid">
+      <div class="pf-info-card">
+        <div class="pf-info-icon" style="background:rgba(189,147,249,.15);color:var(--primary)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M12 2a4 4 0 0 1 4 4c0 1.95-2 3-2 5h-4c0-2-2-3.05-2-5a4 4 0 0 1 4-4z"/><line x1="10" y1="17" x2="14" y2="17"/><line x1="10" y1="19" x2="14" y2="19"/><line x1="10" y1="21" x2="14" y2="21"/></svg>
+        </div>
+        <div class="pf-info-text">
+          <span class="pf-info-label">Brain</span>
+          <span class="pf-info-value">正常运行</span>
+        </div>
+      </div>
+      <div class="pf-info-card">
+        <div class="pf-info-icon" style="background:rgba(80,250,123,.15);color:var(--success)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        </div>
+        <div class="pf-info-text">
+          <span class="pf-info-label">API Gateway</span>
+          <span class="pf-info-value">在线</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Danger Zone -->
+  <div class="pf-section pf-danger-zone">
+    <div class="pf-section-head">
+      <span class="pf-section-icon">🚪</span>
+      <div>
+        <h3 class="pf-section-title pf-text-danger">退出登录</h3>
+        <p class="pf-section-desc">结束当前会话并返回登录页</p>
+      </div>
+    </div>
+    <a href="/logout" class="pf-btn pf-btn-danger">{_ICON_LOGOUT} 退出登录</a>
+  </div>
+</div>
+
+<style>
+.pf-wrap{{max-width:860px;margin:0 auto;padding:0 var(--sp-lg) var(--sp-xl);animation:pageEnter .4s var(--ease-out)}}
+
+/* Avatar card */
+.pf-avatar-card{{display:flex;align-items:center;gap:20px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-xl);padding:var(--sp-lg);margin-bottom:var(--sp-md);animation:staggerFade .3s var(--ease-out) .05s both}}
+.pf-avatar-ring{{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--info));padding:3px;flex-shrink:0}}
+.pf-avatar{{width:100%;height:100%;border-radius:50%;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:1.8rem;overflow:hidden}}
+.pf-avatar-info{{flex:1;min-width:0}}
+.pf-avatar-name{{font-size:1.2rem;font-weight:800;margin:0;letter-spacing:-.01em}}
+.pf-avatar-role{{font-size:.85rem;color:var(--ink-muted);margin:2px 0 8px}}
+.pf-avatar-badges{{display:flex;gap:8px}}
+.pf-badge{{display:inline-flex;align-items:center;padding:2px 10px;border-radius:9999px;font-size:.72rem;font-weight:600;letter-spacing:.02em}}
+.pf-badge-primary{{background:rgba(189,147,249,.15);color:var(--primary)}}
+.pf-badge-info{{background:rgba(80,250,123,.15);color:var(--success)}}
+
+/* Section card */
+.pf-section{{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:0;margin-bottom:var(--sp-md);overflow:hidden;animation:staggerFade .3s var(--ease-out) both;transition:border-color var(--duration)}}
+.pf-section:hover{{border-color:var(--border-hover)}}
+.pf-section-head{{display:flex;align-items:center;gap:14px;padding:var(--sp-md) var(--sp-md) var(--sp-sm);border-bottom:1px solid var(--border)}}
+.pf-section-icon{{font-size:1.2rem;flex-shrink:0}}
+.pf-section-title{{font-size:1rem;font-weight:700;margin:0;color:var(--ink)}}
+.pf-section-desc{{font-size:.78rem;color:var(--ink-muted);margin:1px 0 0}}
+.pf-text-danger{{color:var(--danger)!important}}
+
+/* Form */
+.pf-form{{padding:var(--sp-md);display:flex;flex-direction:column;gap:var(--sp-sm)}}
+.pf-field{{display:flex;flex-direction:column;gap:4px}}
+.pf-field-row{{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-sm)}}
+@media(max-width:520px){{.pf-field-row{{grid-template-columns:1fr}}}}
+.pf-label{{font-size:.82rem;font-weight:500;color:var(--ink-muted)}}
+.pf-input{{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:10px 14px;color:var(--ink);font-size:.92rem;outline:none;transition:border-color .15s,box-shadow .15s}}
+.pf-input:focus{{border-color:var(--primary);box-shadow:0 0 0 3px rgba(189,147,249,.2)}}
+
+/* Buttons */
+.pf-btn{{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 20px;border-radius:var(--r-md);font-size:.92rem;font-weight:600;cursor:pointer;transition:all var(--duration) var(--ease-out);border:none;min-height:42px}}
+.pf-btn-primary{{background:var(--primary);color:var(--surface)}}
+.pf-btn-primary:hover{{opacity:.85;transform:translateY(-1px)}}
+.pf-btn-danger{{border:1px solid var(--danger);background:rgba(248,113,113,.08);color:var(--danger)}}
+.pf-btn-danger:hover{{background:rgba(248,113,113,.18);transform:translateY(-1px)}}
+.pf-btn svg{{width:16px;height:16px}}
+
+/* Alert */
+.pf-alert{{padding:10px 14px;border-radius:var(--r-md);font-size:.88rem;margin-bottom:var(--sp-sm)}}
+.pf-alert-error{{background:rgba(255,85,85,.12);color:var(--danger);border:1px solid rgba(255,85,85,.25)}}
+.pf-alert-success{{background:rgba(80,250,123,.12);color:var(--success);border:1px solid rgba(80,250,123,.25)}}
+
+/* Info grid */
+.pf-info-grid{{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-sm);padding:var(--sp-md)}}
+.pf-info-card{{display:flex;align-items:center;gap:12px;background:var(--surface);border-radius:var(--r-md);padding:12px 14px}}
+.pf-info-icon{{width:40px;height:40px;border-radius:var(--r-md);display:flex;align-items:center;justify-content:center;flex-shrink:0}}
+.pf-info-text{{min-width:0}}
+.pf-info-label{{display:block;font-size:.72rem;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.04em}}
+.pf-info-value{{display:block;font-size:1rem;font-weight:700;color:var(--ink);margin-top:1px}}
+
+/* Danger zone */
+.pf-danger-zone{{border-color:rgba(248,113,113,.3)}}
+.pf-danger-zone .pf-section-head{{border-bottom-color:rgba(248,113,113,.15)}}
+.pf-danger-zone .pf-form,.pf-danger-zone .pf-btn{{padding-left:var(--sp-md)}}
+
+@media(max-width:520px){{.pf-info-grid{{grid-template-columns:1fr}}}}
+</style>
+
+<script>
+(function(){{var n=localStorage.getItem('hermes_display_name');
+var t=localStorage.getItem('hermes_theme');
+var a=localStorage.getItem('hermes_avatar_url');
+if(n){{document.getElementById('display-name').value=n;document.getElementById('profile-display-name').textContent=n;
+var sb=document.getElementById('sidebar-username');if(sb)sb.textContent=n;}}
+if(t)document.getElementById('theme-select').value=t;
+if(a){{document.getElementById('avatar-url').value=a;applyAvatar(a);}}
+}})();
+
+function applyAvatar(url){{
+  var els=['profile-avatar','sidebar-avatar'];
+  els.forEach(function(id){{
+    var el=document.getElementById(id);if(!el)return;
+    if(url){{el.innerHTML='<img src="'+url+'" style="width:100%;height:100%;border-radius:50%;object-fit:cover" onerror="this.parentNode.textContent=\\'👤\\'">';}}
+    else{{el.textContent='👤';}}
+  }});
+}}
 
 function savePrefs(){{
   var n=document.getElementById('display-name').value;
   var t=document.getElementById('theme-select').value;
+  var a=document.getElementById('avatar-url').value;
   localStorage.setItem('hermes_display_name',n);
   localStorage.setItem('hermes_theme',t);
-  alert('Preferences saved!');
+  localStorage.setItem('hermes_avatar_url',a);
+  document.getElementById('profile-display-name').textContent=n||'探索者';
+  var sb=document.getElementById('sidebar-username');if(sb)sb.textContent=n||'用户';
+  if(t==='light')document.documentElement.setAttribute('data-theme','light');
+  else document.documentElement.removeAttribute('data-theme');
+  applyAvatar(a);
+  var toast=document.createElement('div');
+  toast.textContent='偏好已保存';
+  toast.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--success);color:var(--surface);padding:10px 24px;border-radius:9999px;font-size:.88rem;font-weight:600;z-index:9999;animation:pageEnter .3s var(--ease-out)';
+  document.body.appendChild(toast);
+  setTimeout(function(){{toast.style.opacity='0';toast.style.transition='opacity .3s';setTimeout(function(){{toast.remove()}},300)}},1800);
 }}
 </script>
 """
 
-    return _page("Settings", body)
+    return _page("My Profile", body, nav_active="profile")
+
+
+def settings_page(*, error: str = "", success: str = "") -> str:
+    """Render user settings page — redirects to profile page."""
+    # Delegate to profile_page for unified experience
+    return profile_page(error=error, success=success)
 
 
 # ---------------------------------------------------------------------------
@@ -1610,11 +4234,11 @@ def knowledge_tree_page(
   <div class="kn-domain-cards">{group_cards}</div>
 </div>"""
 
-    body = f"""{_nav(active="knowledge")}
+    body = f"""
 <h1 style="padding:16px 16px 0;font-size:1.2rem;font-weight:700;letter-spacing:-.02em;display:flex;align-items:center;gap:8px">🌳 Knowledge Tree <span class="kn-info-btn" onclick="showStageHelp()" title="Stage definitions">ⓘ</span></h1>
 <div class="dash-grid">{stats_html}</div>
 <div style="padding:0 16px 8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-  <form method="get" action="/knowledge" style="display:flex;gap:8px;flex-wrap:wrap;flex:1" id="kn-filter-form">
+  <form method="get" action="/knowledge" style="display:flex;gap:8px;flex-wrap:wrap;flex:1" id="kn-filter-form" onsubmit="return false">
     <input type="hidden" name="stage" value="{_html.escape(active_stage)}">
     <select name="category" class="kn-filter-select" onchange="this.form.submit()">{cat_options}</select>
     <select name="domain" class="kn-filter-select" onchange="this.form.submit()">{dom_options}</select>
@@ -1830,7 +4454,7 @@ function showToast(msg, type) {{
 }}
 </script>
 """
-    return _page("Knowledge Tree", body)
+    return _page("Knowledge Tree", body, nav_active="knowledge")
 
 
 # ---------------------------------------------------------------------------
@@ -2155,7 +4779,7 @@ def knowledge_detail_page(
     if not btns:
         btns = f'<div class="empty" style="flex:1">Node is {stage} — no actions available.</div>'
 
-    body = f"""{_nav(active="knowledge")}
+    body = f"""
 <div class="detail-header">
   <a href="/knowledge" class="back-link">← Knowledge Tree</a>
   <span class="detail-title">{_html.escape(summary[:60])}</span>
@@ -2266,7 +4890,7 @@ def knowledge_detail_page(
 </div>
 
 <div class="confirm-overlay" id="confirm-overlay" onclick="if(event.target===this)hideConfirm()">
-  <div class="confirm-modal">
+  <div class="confirm-modal" id="confirm-modal">
     <h3 id="confirm-title"></h3>
     <div class="confirm-actions">
       <button class="btn-yes" id="confirm-action-btn">Confirm</button>
@@ -2317,5 +4941,6 @@ def knowledge_detail_page(
 .kn-tl-meta{{display:flex;gap:16px;margin-top:8px;font-size:.75rem;color:var(--ink-muted)}}
 </style>
 """
-    return _page(f"Knowledge · {summary[:40]}", body, extra_js=_KN_ACTION_JS)
+    return _page(f"Knowledge · {summary[:40]}", body, extra_js=_KN_ACTION_JS, nav_active="knowledge")
+
 

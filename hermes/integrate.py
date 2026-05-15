@@ -653,15 +653,24 @@ def retrospect(repo: HermesRepository, *, dry_run: bool = False) -> dict:
         "merge_candidates": 0,
     }
 
+    def _parse_dt(dt_str: str | None, fallback: datetime) -> datetime:
+        """Parse datetime string, ensuring timezone-aware UTC result."""
+        if not dt_str:
+            return fallback
+        dt = datetime.fromisoformat(dt_str)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
+
     all_nodes = repo.list_knowledge_nodes(limit=10000)
 
     # 1. Stale detection
     for node in all_nodes:
         if node.stage not in ("draft", "refined"):
             continue
-        created = datetime.fromisoformat(node.created_at) if node.created_at else now
+        created = _parse_dt(node.created_at, now)
         age_days = (now - created).days
-        last_used = datetime.fromisoformat(node.last_used_at) if node.last_used_at else created
+        last_used = _parse_dt(node.last_used_at, created)
         unused_days = (now - last_used).days
 
         if age_days > 90 and node.retrieval_count == 0:
@@ -673,7 +682,7 @@ def retrospect(repo: HermesRepository, *, dry_run: bool = False) -> dict:
     for node in all_nodes:
         if node.stage not in ("refined", "draft"):
             continue
-        created = datetime.fromisoformat(node.created_at) if node.created_at else now
+        created = _parse_dt(node.created_at, now)
 
         # draft → refined: after 3 days with no contradictions
         if node.stage == "draft":
@@ -693,7 +702,7 @@ def retrospect(repo: HermesRepository, *, dry_run: bool = False) -> dict:
             continue
 
         # refined → canonized: after 7 days, no contradictions
-        refined_at = datetime.fromisoformat(node.refined_at) if node.refined_at else created
+        refined_at = _parse_dt(node.refined_at, created)
         days_refined = (now - refined_at).days
 
         if days_refined < 7:
@@ -723,23 +732,82 @@ def retrospect(repo: HermesRepository, *, dry_run: bool = False) -> dict:
             if not dry_run:
                 repo.update_knowledge_node(node.id, confidence=new_conf)
 
-    # 4. Find merge candidates (simple: nodes with similarity > 0.7)
+    # 4. Find merge candidates using hybrid similarity (embedding + text)
+    # Strategy: text pre-filter → embedding refinement, same as dedup_check()
     active_nodes = [n for n in all_nodes if n.stage != "deprecated"]
     merge_candidates = 0
+    merge_pairs_list: list[tuple[str, str, float]] = []  # (id_a, id_b, sim)
+    review_pairs_list: list[tuple[str, str, float]] = []
     seen_pairs: set[frozenset[str]] = set()
 
-    for i, node_a in enumerate(active_nodes):
-        for node_b in active_nodes[i + 1:]:
-            pair_key = frozenset({node_a.id, node_b.id})
-            if pair_key in seen_pairs:
-                continue
+    import os as _os
+    use_embeddings = _os.environ.get("BRAIN_DISABLE_EMBEDDINGS", "").lower() not in ("1", "true", "yes")
 
-            sim = _text_similarity(node_a.summary, node_b.summary)
-            if sim > 0.70:
-                merge_candidates += 1
-                seen_pairs.add(pair_key)
+    if use_embeddings:
+        try:
+            from hermes.embedding import embed_texts
+            summaries = [n.summary for n in active_nodes]
+            embs = embed_texts(summaries)
+            if embs is not None:
+                import numpy as _np
+                emb_matrix = _np.array(embs)
+                norms = _np.linalg.norm(emb_matrix, axis=1, keepdims=True)
+                norms[norms == 0] = 1
+                emb_matrix = emb_matrix / norms
+
+                for i in range(len(active_nodes)):
+                    for j in range(i + 1, len(active_nodes)):
+                        pair_key = frozenset({active_nodes[i].id, active_nodes[j].id})
+                        if pair_key in seen_pairs:
+                            continue
+                        text_sim = _text_similarity(active_nodes[i].summary, active_nodes[j].summary)
+                        emb_sim = float(emb_matrix[i] @ emb_matrix[j])
+                        hybrid_sim = 0.7 * emb_sim + 0.3 * text_sim
+                        if hybrid_sim > 0.85:
+                            merge_candidates += 1
+                            merge_pairs_list.append((active_nodes[i].id, active_nodes[j].id, hybrid_sim))
+                            seen_pairs.add(pair_key)
+                        elif hybrid_sim > 0.55:
+                            review_pairs_list.append((active_nodes[i].id, active_nodes[j].id, hybrid_sim))
+                            seen_pairs.add(pair_key)
+            else:
+                use_embeddings = False  # Fall through to text-only below
+        except Exception:
+            use_embeddings = False
+
+    if not use_embeddings:
+        # Text-only fallback
+        for i, node_a in enumerate(active_nodes):
+            for node_b in active_nodes[i + 1:]:
+                pair_key = frozenset({node_a.id, node_b.id})
+                if pair_key in seen_pairs:
+                    continue
+                sim = _text_similarity(node_a.summary, node_b.summary)
+                if sim > 0.70:
+                    merge_candidates += 1
+                    merge_pairs_list.append((node_a.id, node_b.id, sim))
+                    seen_pairs.add(pair_key)
 
     actions["merge_candidates"] = merge_candidates
+    actions["review_candidates"] = len(review_pairs_list)
+
+    # Log top merge and review pairs
+    if merge_pairs_list:
+        merge_pairs_list.sort(key=lambda x: x[2], reverse=True)
+        for id_a, id_b, sim in merge_pairs_list[:5]:
+            node_a = next((n for n in active_nodes if n.id == id_a), None)
+            node_b = next((n for n in active_nodes if n.id == id_b), None)
+            if node_a and node_b:
+                logger.info("retrospect merge candidate: sim=%.3f [%s] %s ↔ [%s] %s",
+                            sim, node_a.stage, node_a.summary[:50], node_b.stage, node_b.summary[:50])
+    if review_pairs_list:
+        review_pairs_list.sort(key=lambda x: x[2], reverse=True)
+        for id_a, id_b, sim in review_pairs_list[:5]:
+            node_a = next((n for n in active_nodes if n.id == id_a), None)
+            node_b = next((n for n in active_nodes if n.id == id_b), None)
+            if node_a and node_b:
+                logger.info("retrospect review candidate: sim=%.3f [%s] %s ↔ [%s] %s",
+                            sim, node_a.stage, node_a.summary[:50], node_b.stage, node_b.summary[:50])
 
     return actions
 

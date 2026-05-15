@@ -89,35 +89,50 @@ def project_claude_md(*, dry_run: bool = False) -> bool:
     hermes_range = find_marker_range(existing, HERMES_START, HERMES_END)
 
     if hermes_range is None:
-        # No Hermes markers yet: wrap existing content as user section, append Hermes section
-        lines = existing.split("\n")
-        
-        # Check if file already has user markers
-        user_range = find_marker_range(existing, USER_START, USER_END)
-        
-        if user_range is None:
-            # No markers at all: wrap everything as user content, then append Hermes section
-            user_content = existing.rstrip("\n")
+        # No Hermes End marker — check if this is a clean file with just a header + Hermes section
+        # (i.e., the output of a manual rebuild, not a corrupted accumulative file)
+        #
+        # Strategy: if the file is small enough (< 200KB) and contains exactly one Hermes sync
+        # start marker, treat it as a clean replacement target rather than wrapping.
+        hermes_start_count = existing.count(HERMES_START)
+        existing_size = len(existing.encode("utf-8"))
+
+        if hermes_start_count == 1 and existing_size < 200_000:
+            # Clean file: just rewrite with proper user section wrapper
             merged = (
                 f"# CLAUDE.md\n\n"
                 f"{USER_START} content below this line is preserved across projections. -->\n\n"
-                f"{user_content}\n\n"
-                f"{USER_END} -->\n\n"
-                f"---\n\n"
                 f"{new_content.rstrip()}\n"
             )
         else:
-            # User markers exist but no Hermes markers: append Hermes section after user section
-            # This shouldn't normally happen but handle it
-            new_hermes = new_content.split("\n", 1)[-1] if "\n" in new_content else new_content
-            merged = existing.rstrip("\n") + "\n\n" + new_hermes + "\n"
+            # Corrupted/accumulative file: wrap existing content as user section, then append Hermes section
+            lines = existing.split("\n")
+
+            # Check if file already has user markers
+            user_range = find_marker_range(existing, USER_START, USER_END)
+
+            if user_range is None:
+                # No markers at all: wrap everything as user content, then append Hermes section
+                user_content = existing.rstrip("\n")
+                merged = (
+                    f"# CLAUDE.md\n\n"
+                    f"{USER_START} content below this line is preserved across projections. -->\n\n"
+                    f"{user_content}\n\n"
+                    f"{USER_END} -->\n\n"
+                    f"---\n\n"
+                    f"{new_content.rstrip()}\n"
+                )
+            else:
+                # User markers exist but no Hermes markers: append Hermes section after user section
+                new_hermes = new_content.split("\n", 1)[-1] if "\n" in new_content else new_content
+                merged = existing.rstrip("\n") + "\n\n" + new_hermes + "\n"
 
         if dry_run:
-            print(f"Would update: {target} (merging user content with Hermes section)")
+            print(f"Would update: {target}")
             return True
-        
+
         _atomic_write(target, merged)
-        print(f"Updated: {target} (merged user + Hermes sections)")
+        print(f"Updated: {target}")
         return True
 
     # Hermes markers exist: replace the Hermes section, preserve everything else

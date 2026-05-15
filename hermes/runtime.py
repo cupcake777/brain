@@ -103,6 +103,9 @@ class HermesRuntime:
             self.exporter.build_claude_md_export()
             global_updated = True
 
+        # Always rebuild KNOWLEDGE.md from canonized knowledge nodes
+        self.exporter.build_knowledge_export()
+
         project_keys = self.repo.list_exportable_project_keys()
         for project_key in project_keys:
             self.exporter.build_project_export(project_key)
@@ -128,11 +131,66 @@ class HermesRuntime:
 
         return result
 
+    def run_retrospect_cycle(self) -> dict:
+        """Run knowledge maintenance: dedup stale nodes, auto-promote stages, recompute confidence."""
+        from hermes.integrate import retrospect
+        result = retrospect(self.repo)
+        logging.info("retrospect: %s", result)
+        return result
+
+    def run_remote_dedup(self) -> dict:
+        """Run embedding-based dedup on HF Space (16GB RAM) and apply results.
+
+        Offloads fastembed computation to HuggingFace Space since VPS (2GB RAM) OOMs.
+        Uploads current DB, runs dedup, downloads updated DB with deprecated nodes.
+        """
+        import os
+        from hermes.remote_dedup import remote_dedup
+
+        db_path = str(self.config.db_path)
+        logging.info("remote_dedup: starting via HF Space ...")
+
+        result = remote_dedup(
+            db_path=db_path,
+            merge_threshold=0.85,
+            review_threshold=0.55,
+            apply=True,
+            timeout=300,
+        )
+
+        if result.error:
+            logging.error("remote_dedup: failed: %s", result.error)
+            return {"remote_dedup": "error", "error": result.error}
+
+        logging.info("remote_dedup: deprecated %d nodes, log=%s",
+                      result.deprecated_count, result.log[-200:] if result.log else "(empty)")
+
+        # Rebuild exports after DB changes
+        if result.deprecated_count > 0:
+            self.rebuild_exports()
+
+        return {
+            "remote_dedup": "ok",
+            "deprecated_count": result.deprecated_count,
+        }
+
     def watch(self, *, max_cycles: int | None = None, sleep_fn=sleep) -> None:
         cycle = 0
+        REMOTE_DEDUP_INTERVAL = 100  # every ~50 minutes at 30s intervals
         while True:
             self.run_scan_cycle()
             self.rebuild_exports()
+            # Run local retrospect every 10 cycles (~5 minutes)
+            # auto-promotes draft→refined→canonized, finds merge candidates
+            if cycle % 10 == 0:
+                self.run_retrospect_cycle()
+            # Run remote (embedding) dedup less frequently — heavy operation
+            # uploads DB to HF Space, runs fastembed, downloads result
+            if cycle > 0 and cycle % REMOTE_DEDUP_INTERVAL == 0:
+                try:
+                    self.run_remote_dedup()
+                except Exception as exc:
+                    logging.warning("remote_dedup skipped (non-fatal): %s", exc)
             cycle += 1
             if max_cycles is not None and cycle >= max_cycles:
                 return

@@ -15,7 +15,7 @@ class ExportBudgets:
     project_soft_cap: int = 9 * 1024
     recent_hard_cap: int = 4 * 1024
     recent_soft_cap: int = 3 * 1024
-    claude_md_hard_cap: int = 16 * 1024
+    claude_md_hard_cap: int = 64 * 1024
 
 # ---------------------------------------------------------------------------
 # Category / risk ordering for CLAUDE.md compilation
@@ -294,11 +294,30 @@ class ExportCompiler:
             return warning + body
         return body
 
+    # Footer markers that MUST be preserved even if content is truncated
+    _REQUIRED_FOOTERS = [
+        "*End of Hermes-managed rules.",
+        "*End of Hermes-managed knowledge.",
+    ]
+
     def _enforce_cap(self, body: str, hard_cap: int, soft_cap: int | None = None) -> str:
         encoded = body.encode("utf-8")
         if len(encoded) > hard_cap:
-            truncated = encoded[: hard_cap - len(b"\n...truncated\n")] + b"\n...truncated\n"
-            return truncated.decode("utf-8", errors="ignore")
+            # Try to preserve required footer markers by moving them to the end
+            result = encoded[: hard_cap - len(b"\n...truncated\n")] + b"\n...truncated\n"
+            result_str = result.decode("utf-8", errors="ignore")
+            # Check if any required footer survived the truncation
+            for footer in self._REQUIRED_FOOTERS:
+                if footer in body and footer not in result_str:
+                    # Footer was cut off — append it after the truncation marker
+                    # Find the full footer line(s) from the original
+                    for line in body.split("\n"):
+                        if line.strip().startswith(footer):
+                            result_str = result_str.rstrip("\n...truncated\n") + "\n\n" + line + "\n...truncated\n"
+                            break
+            if soft_cap is not None:
+                return self._enforce_soft_cap(result_str, soft_cap)
+            return result_str
         if soft_cap is not None:
             return self._enforce_soft_cap(body, soft_cap)
         return body

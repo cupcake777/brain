@@ -3,6 +3,8 @@ from __future__ import annotations
 import hashlib
 import os
 import secrets
+import time as _time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict as _asdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -18,13 +20,17 @@ from hermes.exporter import ExportCompiler
 from hermes.repository import HermesRepository
 from hermes.status import StatusPublisher
 from hermes.templates import (
+    dashboard_page,
+    gallery_detail_page,
     gallery_page,
     knowledge_detail_page,
     knowledge_tree_page as knowledge_page,
     login_page,
+    profile_page,
     review_detail_page,
     review_queue_page,
     security_page,
+    services_page,
     settings_page,
 )
 
@@ -85,17 +91,17 @@ def create_app(
     @app.get("/login", response_class=HTMLResponse, response_model=None)
     def login_get(request: Request):
         if not config.auth_token and not config.auth_username:
-            return RedirectResponse("/knowledge", status_code=303)
+            return RedirectResponse("/", status_code=303)
         if _has_valid_cookie(request):
-            return RedirectResponse("/knowledge", status_code=303)
+            return RedirectResponse("/", status_code=303)
         return login_page()
 
     @app.post("/login", response_model=None)
     def login_post(request: Request, username: str = Form(""), password: str = Form("")):
         if not config.auth_token and not config.auth_username:
-            return RedirectResponse("/knowledge", status_code=303)
+            return RedirectResponse("/", status_code=303)
         if _valid_login(username, password):
-            resp = RedirectResponse("/knowledge", status_code=303)
+            resp = RedirectResponse("/", status_code=303)
             return _set_auth_cookie(resp)
         return login_page(error="Invalid username or password")
 
@@ -113,7 +119,32 @@ def create_app(
     def root_redirect(request: Request):
         if auth_enabled and not _has_valid_cookie(request):
             return RedirectResponse("/login", status_code=303)
-        return RedirectResponse("/knowledge", status_code=303)
+        # Home page with overview cards
+        from hermes.templates import home_page
+        node_counts = {}
+        for stage in ("draft", "refined", "verified", "canonized", "deprecated"):
+            node_counts[stage] = len(repo.list_knowledge_nodes(stage=stage, limit=10000))
+        import os as _os, yaml as _yaml
+        _plotting_dir = _os.environ.get("BRAIN_PLOTTING_DIR", "")
+        _cat_path = _os.path.join(_plotting_dir, "catalog.yaml")
+        chart_count = 0
+        try:
+            with open(_cat_path) as _f:
+                _cat = _yaml.safe_load(_f) or {}
+                chart_count = len(_cat.get("templates", []))
+        except Exception:
+            pass
+        # Fetch 8 most recent knowledge nodes for the activity feed
+        recent_nodes = []
+        try:
+            _nodes = repo.list_knowledge_nodes(limit=8)
+            recent_nodes = [
+                {"id": n.id, "summary": n.summary, "stage": n.stage, "created_at": n.created_at}
+                for n in _nodes
+            ]
+        except Exception:
+            pass
+        return home_page(node_counts=node_counts, chart_count=chart_count, health_summary={}, recent_nodes=recent_nodes)
 
     @app.get("/health")
     def health() -> dict[str, str]:
@@ -677,18 +708,223 @@ def create_app(
         return {"node_id": node_id, "stage": stage}
 
     # ------------------------------------------------------------------
-    # Security Monitor – standalone page
+    # Security Monitor → Dashboard (unified)
     # ------------------------------------------------------------------
 
-    @app.get("/security", response_class=HTMLResponse, response_model=None)
-    def security_route() -> str:
-        do_status = _collect_do_security()
-        proxy_status, proxy_traffic = _collect_proxy_security()
-        return security_page(
-            do_status=do_status,
-            proxy_status=proxy_status,
-            proxy_traffic=proxy_traffic,
+    _SUB2API_BASE = os.environ.get("SUB2API_BASE", "https://cupcake777-edu-portal.hf.space")
+    _SUB2API_KEY = os.environ.get("SUB2API_KEY", "")
+    if not _SUB2API_KEY:
+        _kpath = os.path.expanduser("~/ops/.secrets/sub2api_admin_api_key.txt")
+        if os.path.exists(_kpath):
+            _SUB2API_KEY = open(_kpath).read().strip()
+
+    def _collect_sub2api_stats() -> dict:
+        """Fetch Sub2API dashboard stats + 7d trend from admin API."""
+        import json as _json
+        import urllib.request as _ureq
+        result = {"stats": None, "trend": []}
+        headers = {"x-api-key": _SUB2API_KEY}
+        try:
+            r_stats = _ureq.Request(
+                f"{_SUB2API_BASE}/api/v1/admin/dashboard/stats",
+                headers=headers,
+            )
+            with _ureq.urlopen(r_stats, timeout=10) as resp:
+                data = _json.loads(resp.read())
+                if data.get("code") == 0:
+                    result["stats"] = data["data"]
+        except Exception:
+            pass
+        try:
+            r_trend = _ureq.Request(
+                f"{_SUB2API_BASE}/api/v1/admin/dashboard/trend?days=7",
+                headers=headers,
+            )
+            with _ureq.urlopen(r_trend, timeout=10) as resp:
+                data = _json.loads(resp.read())
+                if data.get("code") == 0:
+                    result["trend"] = data["data"].get("trend", [])
+        except Exception:
+            pass
+        return result
+
+    # --- Dashboard cache: 30s TTL, parallel collection ---
+    class _DashCache:
+        """In-memory cache for dashboard data. TTL=30s, parallel collection."""
+        __slots__ = ("_data", "_ts", "_ttl", "_lock")
+        def __init__(self, ttl: float = 30.0):
+            self._data: dict | None = None
+            self._ts: float = 0.0
+            self._ttl = ttl
+            from threading import Lock
+            self._lock = Lock()
+
+        def get(self) -> dict | None:
+            with self._lock:
+                if self._data and (_time.monotonic() - self._ts) < self._ttl:
+                    return self._data
+            return None
+
+        def set(self, data: dict) -> dict:
+            with self._lock:
+                self._data = data
+                self._ts = _time.monotonic()
+            return data
+
+    _dash_cache = _DashCache(ttl=30.0)
+
+    def _collect_dashboard_data() -> dict:
+        """Collect all dashboard data in parallel, return dict for template."""
+        cached = _dash_cache.get()
+        if cached is not None:
+            return cached
+
+        result: dict = {}
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            futures = {
+                pool.submit(_collect_do_security): "do",
+                pool.submit(_collect_proxy_ssh): "proxy_ssh",
+                pool.submit(_collect_proxy_xui): "proxy_xui",
+                pool.submit(_collect_sub2api_stats): "sub2api",
+            }
+            for f in as_completed(futures):
+                key = futures[f]
+                try:
+                    res = f.result()
+                    if key == "proxy_ssh":
+                        result["proxy_status"] = res
+                    elif key == "proxy_xui":
+                        result["proxy_traffic"] = res
+                    elif key == "sub2api":
+                        result["sub2api"] = res
+                    else:
+                        result[key] = res
+                except Exception:
+                    if key == "proxy_ssh":
+                        result["proxy_status"] = {}
+                    elif key == "proxy_xui":
+                        result["proxy_traffic"] = []
+                    elif key == "sub2api":
+                        result["sub2api"] = {"stats": None, "trend": []}
+                    else:
+                        result["do"] = {}
+
+        # Ensure keys exist even on total failure
+        result.setdefault("do", {})
+        result.setdefault("proxy_status", {})
+        result.setdefault("proxy_traffic", [])
+        result.setdefault("sub2api", {"stats": None, "trend": []})
+
+        return _dash_cache.set(result)
+
+    @app.get("/dashboard", response_class=HTMLResponse, response_model=None)
+    def dashboard_route() -> str:
+        data = _collect_dashboard_data()
+        return dashboard_page(
+            do_status=data["do"],
+            proxy_status=data["proxy_status"],
+            proxy_traffic=data["proxy_traffic"],
+            sub2api=data["sub2api"],
         )
+
+    @app.get("/api/dashboard/data", response_model=None)
+    def dashboard_data_api() -> dict:
+        """JSON endpoint for incremental dashboard refresh."""
+        data = _collect_dashboard_data()
+        # Add collection timestamp for client cache awareness
+        data["collected_at"] = _time.monotonic()
+        return data
+
+    # --- Health check API with 15s cache ---
+    _health_cache: dict = {"data": None, "ts": 0.0}
+    _HEALTH_TTL = 15.0
+
+    _SERVICE_CHECKS = [
+        {"name": "Hermes Chat", "url": "http://127.0.0.1:8080/", "port": 8080, "timeout": 3},
+        {"name": "Brain", "url": "http://127.0.0.1:8083/health", "port": 8083, "timeout": 2},
+        {"name": "Grok2API", "url": "http://127.0.0.1:8081/", "port": 8081, "timeout": 3},
+        {"name": "Sub2API", "url": "https://cupcake777-edu-portal.hf.space/", "port": 443, "timeout": 5},
+        {"name": "Uptime Kuma", "url": "https://status.bioinforms.tech/", "port": 443, "timeout": 5},
+    ]
+
+    def _check_one_service(svc: dict) -> dict:
+        """Check a single service with GET request, return result dict."""
+        import urllib.request as _urlreq
+        t0 = _time.monotonic()
+        alive = False
+        try:
+            req = _urlreq.Request(svc["url"])
+            with _urlreq.urlopen(req, timeout=svc["timeout"]) as resp:
+                alive = resp.status < 500
+        except Exception:
+            alive = False
+        latency_ms = round((_time.monotonic() - t0) * 1000)
+        return {"name": svc["name"], "port": svc["port"], "alive": alive, "latency_ms": latency_ms}
+
+    @app.get("/api/dashboard/health", response_model=None)
+    def dashboard_health_api() -> dict:
+        """JSON endpoint returning health status of all tracked services."""
+        now = _time.monotonic()
+        if _health_cache["data"] is not None and (now - _health_cache["ts"]) < _HEALTH_TTL:
+            return _health_cache["data"]
+
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        services = []
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            futures = {pool.submit(_check_one_service, svc): svc for svc in _SERVICE_CHECKS}
+            for f in as_completed(futures):
+                services.append(f.result())
+
+        # Sort by port for deterministic order
+        services.sort(key=lambda s: s["port"])
+
+        result = {
+            "services": services,
+            "checked_at": _time.strftime("%Y-%m-%dT%H:%M:%SZ", _time.gmtime()),
+        }
+        _health_cache["data"] = result
+        _health_cache["ts"] = now
+        return result
+
+    # --- System resources API with 10s cache ---
+    _res_cache: dict = {"data": None, "ts": 0.0}
+    _RES_TTL = 10.0
+
+    @app.get("/api/dashboard/resources", response_model=None)
+    def dashboard_resources_api() -> dict:
+        """JSON endpoint returning system resource usage."""
+        now = _time.monotonic()
+        if _res_cache["data"] is not None and (now - _res_cache["ts"]) < _RES_TTL:
+            return _res_cache["data"]
+        try:
+            import psutil
+            cpu = psutil.cpu_percent(interval=0.5)
+            mem = psutil.virtual_memory()
+            disk = psutil.disk_usage("/")
+            load = psutil.getloadavg()
+            result = {
+                "cpu_percent": round(cpu, 1),
+                "mem_percent": round(mem.percent, 1),
+                "mem_total_gb": round(mem.total / 1e9, 1),
+                "mem_used_gb": round(mem.used / 1e9, 1),
+                "disk_percent": round(disk.percent, 1),
+                "disk_total_gb": round(disk.total / 1e9, 1),
+                "disk_used_gb": round(disk.used / 1e9, 1),
+                "load_1m": round(load[0], 2),
+                "load_5m": round(load[1], 2),
+                "load_15m": round(load[2], 2),
+            }
+        except Exception:
+            result = {"cpu_percent": 0, "mem_percent": 0, "mem_total_gb": 0,
+                       "mem_used_gb": 0, "disk_percent": 0, "disk_total_gb": 0,
+                       "disk_used_gb": 0, "load_1m": 0, "load_5m": 0, "load_15m": 0}
+        _res_cache["data"] = result
+        _res_cache["ts"] = now
+        return result
+
+    @app.get("/security", response_class=HTMLResponse, response_model=None)
+    def security_redirect():
+        return RedirectResponse("/dashboard", status_code=301)
 
     # --- Pools/Quota/Grok data collection (kept for /api endpoints) ---
 
@@ -880,12 +1116,325 @@ def create_app(
     def gallery_route() -> str:
         return gallery_page()
 
+    @app.get("/gallery/{chart_name}", response_class=HTMLResponse)
+    def gallery_detail_route(chart_name: str) -> str:
+        return gallery_detail_page(chart_name)
+
     # Serve demo images for the gallery
     _PLOTTING_STATIC = Path(os.environ.get("BRAIN_PLOTTING_DIR", ""))
     if _PLOTTING_STATIC.is_dir():
         app.mount("/gallery/static", StaticFiles(directory=str(_PLOTTING_STATIC)), name="gallery-static")
 
+    # ------------------------------------------------------------------
+    # Gallery REST API – catalog, templates, submit
+    # ------------------------------------------------------------------
+    import yaml as _yaml
+
+    # Input shape → Chinese tags (v3 has no tags; derive from input_shape)
+    _SHAPE_TAGS = {
+        "point_table": ["散点", "差异表达"],
+        "ordered_position_table": ["散点", "GWAS/QTL"],
+        "matrix": ["热图", "聚类"],
+        "pairwise_matrix": ["热图", "相关性"],
+        "grouped_values": ["分布", "箱线"],
+        "grouped_summary": ["柱状图", "分组比较"],
+        "estimate_interval": ["临床", "森林图"],
+        "ranked_term_table": ["散点", "富集"],
+        "bipartite_links": ["散点", "富集"],
+        "set_membership": ["集合图", "交集"],
+        "embedding_table": ["散点", "降维"],
+        "edge_table": ["网络/关系图", "互作"],
+        "flow_table": ["网络/关系图", "冲积"],
+        "classifier_curve": ["线图/曲线", "检验"],
+        "time_to_event": ["线图/曲线", "生存"],
+        "sparse_event_matrix": ["热图", "突变"],
+        "positioned_events": ["散点", "位点标注"],
+        "composition_table": ["面积图", "组成"],
+        "ordered_composition_table": ["面积图", "组成"],
+        "numeric_vector": ["分布", "直方图"],
+    }
+
+    # Chart id → Chinese description (v3 has no description; provide from title + input)
+    _ID_DESC = {
+        "volcano": "展示基因差异表达的fold change与显著性，标注关键基因",
+        "manhattan": "GWAS/QTL全局显著性概览，突出峰值位点",
+        "heatmap_clustered": "行列双向聚类的热图，展示表达模式",
+        "correlation_heatmap": "相关性矩阵热图，展示变量间关联强度",
+        "box_violin": "展示组间数值分布差异",
+        "raincloud": "云雨图：密度+箱线+散点，全面展示分布",
+        "ridgeline": "山峦图：多组分布对比，适合时间序列或分组比较",
+        "grouped_bar": "分组柱状图：多组定量比较",
+        "enrichment_bubble": "展示GO/KEGG富集分析结果",
+        "enrichment_circos": "圈图展示富集分析结果与基因关联",
+        "forest_plot": "森林图：估计值与置信区间的可视化比较",
+        "lollipop": "棒棒糖图：基因/位点标注的排名展示",
+        "pca_plot": "PCA降维散点图：样本分组与聚类",
+        "umap_plot": "UMAP降维散点图：细胞/样本嵌入可视化",
+        "roc_curve": "ROC曲线：分类器性能评估",
+        "km_survival": "Kaplan-Meier生存曲线",
+        "sankey": "桑基图：流量/分类转化可视化",
+        "network_graph": "网络图：节点与边的互作关系可视化",
+        "upset_plot": "UpSet图：集合交集的定量可视化",
+        "oncoplot": "Oncoplot：突变矩阵热图",
+        "scatter": "散点图：两变量关联与分组对比，支持回归线",
+        "stacked_area": "堆叠面积图：组成比例随时间/阶段的变化",
+        "histogram_density": "直方图+密度曲线：数值分布的可视化与组间比较",
+        "line_ribbon": "趋势线+置信带：有序变量的均值与不确定性范围",
+        "qq_plot": "QQ图：GWAS p值的观察分位vs期望分位，含lambda注释",
+    }
+
+    def _load_catalog() -> dict:
+        """Load catalog.yaml and normalize v3 format to v2 schema.
+
+        v3 uses top-level ``templates`` key with ``id``, ``demo_png``, ``input_shape``
+        and other fields.  The gallery UI expects ``charts`` with ``name``, ``demo``,
+        ``data_type``, ``tags``, ``description``, etc.  This function transparently
+        converts v3 → v2 so the rest of the codebase stays unchanged.
+        """
+        _cat_path = _PLOTTING_STATIC / "catalog.yaml"
+        try:
+            with open(_cat_path) as _f:
+                raw = _yaml.safe_load(_f) or {}
+        except Exception:
+            raw = {}
+
+        # Already v2 format?
+        if "charts" in raw:
+            return raw
+
+        # ---- v3 normalization ----
+        charts = []
+        for tpl in raw.get("templates", []):
+            _id = tpl.get("id", "")
+            _shape = tpl.get("input_shape", "")
+            entry = {
+                "name": _id,
+                "title": tpl.get("title", ""),
+                "description": tpl.get("description", _ID_DESC.get(_id, "")),
+                "tier": tpl.get("tier", "P2"),
+                "status": tpl.get("status", "planned"),
+                "data_type": _shape,
+                "required_fields": tpl.get("required_fields", []),
+                "optional_fields": tpl.get("optional_fields", []),
+                "visual_encodings": tpl.get("visual_encodings", {}),
+                "reusable_for": tpl.get("reusable_for", []),
+                "tags": tpl.get("tags", _SHAPE_TAGS.get(_shape, [])),
+                "template": tpl.get("template", ""),
+                "demo": tpl.get("demo_png", tpl.get("demo", "")),
+            }
+            charts.append(entry)
+
+        return {"charts": charts}
+
+    def _chart_status(name: str, chart: dict) -> dict:
+        """Build per-chart status: has_template, has_demo, template_lang, template_size."""
+        _tpl_dir = _PLOTTING_STATIC / "templates"
+        tpl_path = chart.get("template", "")
+        files_found = []
+        for ext in (".py", ".R"):
+            fname = f"{name}{ext}"
+            fpath = _tpl_dir / fname
+            if fpath.is_file():
+                files_found.append({
+                    "filename": fname,
+                    "lang": "Python" if ext == ".py" else "R",
+                    "size": fpath.stat().st_size,
+                })
+        # Also check explicit template path
+        if tpl_path:
+            full_tpl = _PLOTTING_STATIC / tpl_path
+            tpl_fname = Path(tpl_path).name
+            if full_tpl.is_file() and not any(t["filename"] == tpl_fname for t in files_found):
+                ext = Path(tpl_fname).suffix.lower()
+                files_found.append({
+                    "filename": tpl_fname,
+                    "lang": "Python" if ext == ".py" else "R",
+                    "size": full_tpl.stat().st_size,
+                })
+        demo_file = chart.get("demo", "")
+        has_demo = bool(demo_file) and (_PLOTTING_STATIC / demo_file).is_file()
+        return {
+            "has_template": len(files_found) > 0,
+            "has_demo": has_demo,
+            "template_files": files_found,
+        }
+
     
+
+    @app.get("/api/gallery/catalog")
+    def gallery_catalog_api(name: str = None, tier: str = None, status: str = None) -> dict:
+        """Return full catalog with per-chart status (template/demo availability) and repo diff info."""
+        catalog = _load_catalog()
+        charts = catalog.get("charts", [])
+        if name:
+            charts = [c for c in charts if c.get("name") == name]
+        if tier:
+            charts = [c for c in charts if c.get("tier") == tier]
+        if status:
+            charts = [c for c in charts if c.get("status") == status]
+
+        result = []
+        for c in charts:
+            info = _chart_status(c.get("name", ""), c)
+            entry = {
+                "name": c.get("name", ""),
+                "title": c.get("title", ""),
+                "tier": c.get("tier", "P2"),
+                "status": c.get("status", "planned"),
+                "data_type": c.get("data_type", ""),
+                "tags": c.get("tags", []),
+                "has_template": info["has_template"],
+                "has_demo": info["has_demo"],
+                "template_files": info["template_files"],
+            }
+            result.append(entry)
+        return {"ok": True, "total": len(result), "charts": result}
+
+    @app.get("/api/gallery/catalog/{chart_name}")
+    def gallery_catalog_single_api(chart_name: str) -> dict:
+        """Return single chart detail with template source code."""
+        catalog = _load_catalog()
+        chart = None
+        for c in catalog.get("charts", []):
+            if c.get("name") == chart_name:
+                chart = c
+                break
+        if not chart:
+            return {"ok": False, "error": f"Chart '{chart_name}' not found"}
+        info = _chart_status(chart_name, chart)
+        # Read template source code
+        tpl_dir = _PLOTTING_STATIC / "templates"
+        sources = {}
+        for ext in (".py", ".R"):
+            fpath = tpl_dir / f"{chart_name}{ext}"
+            if fpath.is_file():
+                try:
+                    sources[f"{chart_name}{ext}"] = fpath.read_text(encoding="utf-8", errors="replace")
+                except Exception:
+                    sources[f"{chart_name}{ext}"] = f"[Error reading file]"
+        # Check explicit template path
+        tpl_path = chart.get("template", "")
+        if tpl_path:
+            full_tpl = _PLOTTING_STATIC / tpl_path
+            tpl_fname = Path(tpl_path).name
+            if full_tpl.is_file() and tpl_fname not in sources:
+                try:
+                    sources[tpl_fname] = full_tpl.read_text(encoding="utf-8", errors="replace")
+                except Exception:
+                    sources[tpl_fname] = "[Error reading file]"
+
+        # Read demo image info
+        demo_file = chart.get("demo", "")
+        demo_info = None
+        if demo_file:
+            demo_path = _PLOTTING_STATIC / demo_file
+            if demo_path.is_file():
+                demo_info = {"filename": demo_file, "size": demo_path.stat().st_size, "url": f"/gallery/static/{demo_file}"}
+
+        return {
+            "ok": True,
+            "chart": {
+                **chart,
+                "has_template": info["has_template"],
+                "has_demo": info["has_demo"],
+                "template_files": info["template_files"],
+                "sources": sources,
+                "demo": demo_info,
+            },
+        }
+
+    @app.get("/api/gallery/template/{filename}")
+    def gallery_template_source_api(filename: str) -> dict:
+        """Read a single template file source code."""
+        # Security: validate filename BEFORE any filesystem access
+        if ".." in filename or "/" in filename or "\\" in filename:
+            return {"ok": False, "error": "Invalid filename"}
+        _tpl_dir = _PLOTTING_STATIC / "templates"
+        fpath = _tpl_dir / filename
+        # Resolve and verify the path stays within the templates directory
+        try:
+            fpath = fpath.resolve()
+            _tpl_dir_resolved = _tpl_dir.resolve()
+            if not str(fpath).startswith(str(_tpl_dir_resolved)):
+                return {"ok": False, "error": "Invalid filename"}
+        except Exception:
+            return {"ok": False, "error": "Invalid filename"}
+        if not fpath.is_file():
+            return {"ok": False, "error": f"Template file '{filename}' not found"}
+        ext = fpath.suffix.lower()
+        if ext not in (".py", ".r"):
+            return {"ok": False, "error": "Only .py and .R files allowed"}
+        try:
+            content = fpath.read_text(encoding="utf-8", errors="replace")
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+        return {"ok": True, "filename": filename, "lang": "Python" if ext == ".py" else "R", "content": content, "size": fpath.stat().st_size}
+
+    @app.post("/api/gallery/submit")
+    async def gallery_submit_api(request: Request) -> dict:
+        """Submit a script (.py/.R) or demo image file. Also updates catalog.yaml if chart_name provided."""
+        content_type = request.headers.get("content-type", "")
+        chart_name = ""
+        filename = ""
+        file_data = b""
+        description = ""
+
+        if "multipart/form-data" in content_type:
+            form = await request.form()
+            chart_name = form.get("chart_name", "")
+            description = form.get("description", "")
+            upload = form.get("file")
+            if upload and hasattr(upload, "filename"):
+                filename = upload.filename or ""
+                file_data = await upload.read()
+        else:
+            body = await request.json()
+            chart_name = body.get("chart_name", "")
+            filename = body.get("filename", "")
+            # For JSON, content must be provided as base64 or text
+            import base64
+            raw = body.get("content", "")
+            description = body.get("description", "")
+            if body.get("encoding") == "base64":
+                file_data = base64.b64decode(raw)
+            else:
+                file_data = raw.encode("utf-8")
+
+        if not chart_name or not filename or not file_data:
+            return {"ok": False, "error": "chart_name, filename, and file content required"}
+
+        ext = Path(filename).suffix.lower()
+        if ext not in (".py", ".r", ".png", ".jpg", ".jpeg", ".svg"):
+            return {"ok": False, "error": f"Unsupported file type: {ext}"}
+
+        # Security: prevent path traversal
+        safe_name = Path(filename).name
+        if ".." in safe_name or "/" in safe_name:
+            return {"ok": False, "error": "Invalid filename"}
+
+        # Determine destination
+        if ext in (".py", ".r"):
+            dest = _PLOTTING_STATIC / "templates" / safe_name
+        else:
+            dest = _PLOTTING_STATIC / safe_name
+
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(file_data)
+
+        # Log to feedback
+        entry = {
+            "chart": chart_name,
+            "action": "submit_file",
+            "filename": safe_name,
+            "size_bytes": len(file_data),
+            "description": description,
+            "timestamp": _dt.now(_tz.utc).isoformat(),
+        }
+        with open(_GALLERY_FEEDBACK, "a") as f:
+            f.write(_json.dumps(entry) + "\n")
+
+        return {"ok": True, "filename": safe_name, "size": len(file_data), "destination": str(dest)}
+
     # ------------------------------------------------------------------
     # Gallery feedback API – approve/suggest/reject for chart templates
     # ------------------------------------------------------------------
@@ -979,6 +1528,88 @@ def create_app(
     # Serve submitted figures
     app.mount("/gallery/submitted", StaticFiles(directory=str(_FIGURE_SUBMIT_DIR)), name="gallery-submitted")
 
+    # ------------------------------------------------------------------
+    # Gallery script upload – accept .py/.R/.zip template files
+    # ------------------------------------------------------------------
+    _TEMPLATE_DIR = Path(os.environ.get("BRAIN_PLOTTING_DIR", "")) / "templates"
+
+    @app.post("/api/gallery/upload_script")
+    async def gallery_upload_script(request: Request) -> dict:
+        """Upload a script file for a chart template."""
+        _TEMPLATE_DIR.mkdir(parents=True, exist_ok=True)
+        form = await request.form()
+        chart_name = form.get("chart_name", "")
+        upload = form.get("file")
+        description = form.get("description", "")
+
+        if not chart_name or not upload or not hasattr(upload, "filename"):
+            return {"ok": False, "error": "chart_name and file required"}
+
+        fname = upload.filename or "script.py"
+        # Security: only allow specific extensions
+        ext = Path(fname).suffix.lower()
+        if ext not in (".py", ".r", ".zip"):
+            return {"ok": False, "error": "Only .py, .R, .zip files allowed"}
+
+        # Save to templates directory
+        dest = _TEMPLATE_DIR / fname
+        data = await upload.read()
+        dest.write_bytes(data)
+
+        # Log to feedback
+        entry = {
+            "chart": chart_name,
+            "action": "upload_script",
+            "filename": fname,
+            "description": description,
+            "size_bytes": len(data),
+            "timestamp": _dt.now(_tz.utc).isoformat(),
+        }
+        with open(_GALLERY_FEEDBACK, "a") as f:
+            f.write(_json.dumps(entry) + "\n")
+
+        return {"ok": True, "filename": fname, "size": len(data)}
+
+    # ------------------------------------------------------------------
+    # Custom palette submission
+    # ------------------------------------------------------------------
+    _CUSTOM_PALETTES = Path(os.environ.get("BRAIN_PLOTTING_DIR", "")) / "custom_palettes.jsonl"
+
+    @app.post("/api/gallery/palette_submit")
+    async def gallery_palette_submit(request: Request) -> dict:
+        """Accept a custom palette submission and append to JSONL."""
+        body = await request.json()
+        name = (body.get("name") or "").strip()
+        colors = body.get("colors") or []
+        description = (body.get("description") or "").strip()
+        source = (body.get("source") or "").strip()
+
+        if not name:
+            return {"ok": False, "error": "Palette name is required"}
+        if not isinstance(colors, list) or len(colors) < 3:
+            return {"ok": False, "error": "At least 3 colors are required"}
+        # Validate hex format
+        import re as _re
+        for c in colors:
+            if not _re.match(r"^#[0-9A-Fa-f]{3,8}$", str(c)):
+                return {"ok": False, "error": f"Invalid hex color: {c}"}
+
+        entry = {
+            "name": name,
+            "colors": colors,
+            "description": description,
+            "source": source,
+            "timestamp": _dt.now(_tz.utc).isoformat(),
+        }
+        try:
+            _CUSTOM_PALETTES.parent.mkdir(parents=True, exist_ok=True)
+            with open(_CUSTOM_PALETTES, "a") as f:
+                f.write(_json.dumps(entry) + "\n")
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+        return {"ok": True, "name": name, "colors_count": len(colors)}
+
 
     # ------------------------------------------------------------------
     # Security Monitor – collects data from DO VPS + Proxy VPS
@@ -1052,19 +1683,14 @@ def create_app(
             pass
         return result
 
-    def _collect_proxy_security() -> tuple[dict, list[dict]]:
-        """Collect security + traffic status from the proxy VPS via x-ui API + SSH."""
-        _ssh_key = os.environ.get("BRAIN_SSH_KEY", os.path.expanduser("~/.ssh/id_rsa"))
-        _ssh_port = os.environ.get("BRAIN_SSH_PORT", "22")
-        _ssh_host = os.environ.get("BRAIN_PROXY_HOST", "")
-        proxy_status = {"f2b_banned": [], "f2b_total": 0,
-                        "ssh_port": _ssh_port, "ufw_rules": [], "top_attackers": [], "uptime": "?", "sysctl": {}}
+    def _collect_proxy_xui() -> list[dict]:
+        """Fetch x-ui inbound traffic data via API (runs in parallel with SSH)."""
         proxy_traffic = []
         XUI_URL = os.environ.get("BRAIN_XUI_URL", "")
         XUI_USER = os.environ.get("BRAIN_XUI_USER", "")
         XUI_PASS = os.environ.get("BRAIN_XUI_PASS", "")
-
-        # --- Fetch x-ui traffic data ---
+        if not XUI_URL:
+            return proxy_traffic
         try:
             import ssl as _ssl
             import urllib.request as _ur
@@ -1077,10 +1703,9 @@ def create_app(
             opener = _ur.build_opener(_ur.HTTPCookieProcessor(cj), _ur.HTTPSHandler(context=ctx))
             login_data = _up.urlencode({"username": XUI_USER, "password": XUI_PASS}).encode()
             req = _ur.Request(XUI_URL + "/login", data=login_data)
-            opener.open(req, timeout=10)
-
+            opener.open(req, timeout=8)
             req = _ur.Request(XUI_URL + "/panel/api/inbounds/list")
-            resp = opener.open(req, timeout=10)
+            resp = opener.open(req, timeout=8)
             import json as _json
             data = _json.loads(resp.read().decode())
             for ib in data.get("obj", []):
@@ -1103,8 +1728,15 @@ def create_app(
                 })
         except Exception:
             pass
+        return proxy_traffic
 
-        # --- Fetch proxy VPS security data via SSH (with retry for intermittent connectivity) ---
+    def _collect_proxy_ssh() -> dict:
+        """Fetch proxy VPS security data via SSH (runs in parallel with XUI)."""
+        _ssh_key = os.environ.get("BRAIN_SSH_KEY", os.path.expanduser("~/.ssh/id_rsa"))
+        _ssh_port = os.environ.get("BRAIN_SSH_PORT", "22")
+        _ssh_host = os.environ.get("BRAIN_PROXY_HOST", "")
+        proxy_status = {"f2b_banned": [], "f2b_total": 0,
+                        "ssh_port": _ssh_port, "ufw_rules": [], "top_attackers": [], "uptime": "?", "sysctl": {}}
         import re as _re, logging as _logging
         _ssh_logger = _logging.getLogger("brain.security")
         _ssh_cmd = [
@@ -1117,14 +1749,13 @@ def create_app(
             "echo '===SYSCTL==='; sysctl -n net.ipv4.tcp_syncookies net.ipv4.conf.all.accept_redirects net.ipv4.ip_forward"
         ]
         out = None
-        for _attempt in range(3):
-            try:
-                out = _sp.run(_ssh_cmd, capture_output=True, text=True, timeout=25)
-                if out.returncode == 0 and out.stdout.strip():
-                    break
-                _ssh_logger.warning("SSH attempt %d RC=%s stderr=%s", _attempt + 1, out.returncode, out.stderr[:200])
-            except _sp.TimeoutExpired:
-                _ssh_logger.warning("SSH attempt %d timed out", _attempt + 1)
+        try:
+            out = _sp.run(_ssh_cmd, capture_output=True, text=True, timeout=15)
+            if out.returncode != 0 or not out.stdout.strip():
+                _ssh_logger.warning("SSH RC=%s stderr=%s", out.returncode, out.stderr[:200])
+                out = None
+        except _sp.TimeoutExpired:
+            _ssh_logger.warning("SSH timed out (15s)")
         if out and out.returncode == 0 and out.stdout.strip():
             _ssh_logger.info("SSH success RC=%s stdout_len=%s", out.returncode, len(out.stdout))
             text = out.stdout
@@ -1171,15 +1802,14 @@ def create_app(
                         "ip_forward": sysctl_section[2].strip() != "0",
                     }
         else:
-            _ssh_logger.warning("SSH failed after 3 attempts: no data")
+            _ssh_logger.warning("SSH failed: no data")
 
-        return proxy_status, proxy_traffic
+        return proxy_status
 
     @app.get("/api/security", response_model=None)
     def security_api() -> dict:
-        do_status = _collect_do_security()
-        proxy_status, proxy_traffic = _collect_proxy_security()
-        return {"do": do_status, "proxy": proxy_status, "proxy_traffic": proxy_traffic}
+        data = _collect_dashboard_data()
+        return {"do": data["do"], "proxy": data["proxy_status"], "proxy_traffic": data["proxy_traffic"]}
 
     # ------------------------------------------------------------------
     # Settings page
@@ -1187,20 +1817,53 @@ def create_app(
 
     @app.get("/settings", response_class=HTMLResponse)
     def settings_get() -> str:
-        return settings_page()
+        return profile_page()
+
+    @app.get("/profile", response_class=HTMLResponse)
+    def profile_get() -> str:
+        return profile_page()
+
+    @app.get("/api/health")
+    def api_health():
+        """Server-side health check for external services."""
+        import asyncio
+        services = [
+            {"name": "n8n", "url": "https://work.bioinforms.tech/favicon.ico"},
+            {"name": "Uptime Kuma", "url": "https://status.bioinforms.tech/favicon.ico"},
+            {"name": "File Browser", "url": "https://files.bioinforms.tech/favicon.ico"},
+        ]
+        results = {}
+        def check_one(svc):
+            start = _time.monotonic()
+            try:
+                r = httpx.get(svc["url"], timeout=6, follow_redirects=True)
+                ms = int((_time.monotonic() - start) * 1000)
+                results[svc["name"]] = {"alive": r.status_code < 500, "ms": ms}
+            except Exception:
+                ms = int((_time.monotonic() - start) * 1000)
+                results[svc["name"]] = {"alive": False, "ms": ms}
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            futures = [pool.submit(check_one, s) for s in services]
+            for f in as_completed(futures):
+                f.result()
+        return results
+
+    @app.get("/services", response_class=HTMLResponse)
+    def services_get() -> str:
+        return services_page()
 
     @app.post("/settings/password")
     def settings_password(request: Request, current_password: str = Form(""), new_password: str = Form(""), confirm_password: str = Form("")):
         if not _valid_login(config.auth_username or "admin", current_password):
-            return settings_page(error="Current password is incorrect")
+            return profile_page(error="当前密码不正确")
         if new_password != confirm_password:
-            return settings_page(error="New passwords do not match")
+            return profile_page(error="两次输入的新密码不一致")
         if len(new_password) < 6:
-            return settings_page(error="Password must be at least 6 characters")
+            return profile_page(error="密码至少6个字符")
         # Update password in config
         object.__setattr__(config, "auth_password", new_password)
-        # Also write to .env for persistence
-        import hashlib as _hl
+        # Also write to .env for persistence (store plaintext — .env is not a secrets vault,
+        # and _valid_login compares plaintext, so storing a hash here would break login after restart)
         try:
             env_path = sync_root / ".." / ".env"
             env_path = env_path.resolve()
@@ -1209,14 +1872,14 @@ def create_app(
                 with open(env_path) as f:
                     for line in f:
                         if line.startswith("HERMES_AUTH_PASSWORD="):
-                            lines.append(f"HERMES_AUTH_PASSWORD={_hl.sha256(new_password.encode()).hexdigest()[:16]}\n")
+                            lines.append(f"HERMES_AUTH_PASSWORD={new_password}\n")
                         else:
                             lines.append(line)
                 with open(env_path, "w") as f:
                     f.writelines(lines)
         except Exception:
             pass
-        return settings_page(success="Password updated successfully")
+        return profile_page(success="密码已更新")
 
     # ------------------------------------------------------------------
     # Admin: hot-reload templates without full restart
@@ -1233,10 +1896,10 @@ def create_app(
             importlib.reload(_tmpl_mod)
             # Re-bind all template functions in this module's scope
             from hermes.templates import (
-                gallery_page, knowledge_detail_page, knowledge_tree_page as knowledge_page,
-                login_page,
+                dashboard_page, gallery_page, knowledge_detail_page, knowledge_tree_page as knowledge_page,
+                login_page, profile_page,
                 review_detail_page, review_queue_page,
-                security_page, settings_page,
+                security_page, services_page, settings_page,
             )
             return {"ok": True, "message": "Templates reloaded successfully"}
         except Exception as e:

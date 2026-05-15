@@ -56,6 +56,9 @@ def main(argv: list[str] | None = None) -> int:
     subparsers.add_parser("watch", help="Run the polling watcher loop")
     subparsers.add_parser("evict", help="Run export eviction / budget pressure check")
 
+    retrospect_parser = subparsers.add_parser("retrospect", help="Run knowledge node maintenance: auto-promote stages, recompute confidence, find merge candidates")
+    retrospect_parser.add_argument("--dry-run", action="store_true", help="Show what would change without writing")
+
     reweight_parser = subparsers.add_parser("reweight", help="Recalculate proposal weights from category/risk/retrieval")
     reweight_parser.add_argument("--dry-run", action="store_true", help="Show what weights would change without writing")
 
@@ -66,6 +69,11 @@ def main(argv: list[str] | None = None) -> int:
     dedup_v2_parser.add_argument("--dry-run", action="store_true", help="Show duplicates without modifying DB")
     dedup_v2_parser.add_argument("--threshold", type=float, default=0.85, help="Embedding similarity threshold for auto-merge (default: 0.85)")
     dedup_v2_parser.add_argument("--review-threshold", type=float, default=0.70, help="Threshold for review candidates (default: 0.70)")
+
+    remote_dedup_parser = subparsers.add_parser("remote-dedup", help="Run embedding dedup on HF Space (offloaded, for VPS OOM avoidance)")
+    remote_dedup_parser.add_argument("--merge-threshold", type=float, default=0.85, help="Merge similarity threshold (default: 0.85)")
+    remote_dedup_parser.add_argument("--review-threshold", type=float, default=0.55, help="Review similarity threshold (default: 0.55)")
+    remote_dedup_parser.add_argument("--no-apply", action="store_true", help="Run dedup but don't apply deprecation / download updated DB")
 
     migrate_parser = subparsers.add_parser("migrate-v2", help="Migrate proposals to V2 knowledge_nodes table")
     migrate_parser.add_argument("--dry-run", action="store_true", help="Show what would be migrated without writing")
@@ -116,6 +124,17 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "evict":
         result = runtime.run_eviction_cycle()
         print(f"Evicted: {result.evicted_count}, Flagged rebuild: {result.flagged_for_rebuild_count}")
+        return 0
+    if args.command == "retrospect":
+        from hermes.integrate import retrospect as _retrospect
+        if args.dry_run:
+            result = _retrospect(runtime.repo, dry_run=True)
+        else:
+            result = _retrospect(runtime.repo, dry_run=False)
+        print(f"Retrospect results: {result}", flush=True)
+        if not args.dry_run:
+            runtime.rebuild_exports()
+            print("Exports rebuilt.", flush=True)
         return 0
     if args.command == "reweight":
         if args.dry_run:
@@ -252,6 +271,7 @@ def main(argv: list[str] | None = None) -> int:
 
         # Auto-deprecate merge pairs (keep the one with higher confidence)
         deprecated_count = 0
+        seen = set()  # Track already-deprecated IDs to avoid double-counting
         now = datetime.now(timezone.utc).isoformat()
 
         print(f"\n=== MERGE candidates (emb sim > {merge_threshold}): {len(merge_pairs)} ===")
@@ -280,6 +300,28 @@ def main(argv: list[str] | None = None) -> int:
             print(f"\nDeprecated {deprecated_count} duplicate nodes.")
             remaining = [n for n in v2_repo.list_knowledge_nodes(limit=10000) if n.stage != "deprecated"]
             print(f"Remaining active nodes: {len(remaining)}")
+        return 0
+
+    if args.command == "remote-dedup":
+        """Run embedding-based dedup on HuggingFace Space."""
+        from hermes.remote_dedup import remote_dedup
+
+        result = remote_dedup(
+            db_path=str(config.db_path),
+            merge_threshold=args.merge_threshold,
+            review_threshold=args.review_threshold,
+            apply=not args.no_apply,
+            timeout=300,
+        )
+        if result.error:
+            print(f"Remote dedup failed: {result.error}", flush=True)
+            return 1
+        print(f"Remote dedup complete.", flush=True)
+        print(f"  Merge pairs: {result.merge_count}", flush=True)
+        print(f"  Review pairs: {result.review_count}", flush=True)
+        print(f"  Deprecated: {result.deprecated_count} nodes", flush=True)
+        if result.log:
+            print(f"  Log (tail):\n{result.log[-500:]}", flush=True)
         return 0
 
     if args.command == "migrate-v2":

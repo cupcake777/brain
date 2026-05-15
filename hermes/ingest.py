@@ -11,10 +11,21 @@ from hermes.repository import HermesRepository
 from hermes.notifier import NotificationRouter
 
 
+# All proposals auto-approve — manual review removed.
+# Knowledge Nodes (integrate.py) handle dedup, contradiction, and quality.
 AUTO_APPROVE_MATRIX = {
-    ("preference", "low"): "approved_db_only",
-    ("fact", "low"): "approved_db_only",
-    ("workflow_hint", "low"): "approved_db_only",
+    ("preference", "low"): "approved_for_export",
+    ("fact", "low"): "approved_for_export",
+    ("workflow_hint", "low"): "approved_for_export",
+    ("preference", "medium"): "approved_for_export",
+    ("fact", "medium"): "approved_for_export",
+    ("workflow_hint", "medium"): "approved_for_export",
+    ("preference", "high"): "approved_for_export",
+    ("fact", "high"): "approved_for_export",
+    ("workflow_hint", "high"): "approved_for_export",
+    ("rule", "low"): "approved_for_export",
+    ("rule", "medium"): "approved_for_export",
+    ("rule", "high"): "approved_for_export",
 }
 
 
@@ -98,14 +109,64 @@ class IngestionService:
             suggested_memory=sections["Suggested durable memory"],
         )
 
+        # -- auto-integrate into Knowledge Nodes (V2 pipeline) ---------------
+        self._integrate_proposal(
+            category=front_matter["category"],
+            project_key=front_matter["project_key"],
+            suggested_memory=sections["Suggested durable memory"],
+            observation=sections["Observation"],
+            source=f"proposal:{proposal_id[:12]}",
+        )
+
         return IngestOutcome(proposal_id=proposal_id, route=route)
 
+    def _integrate_proposal(
+        self,
+        *,
+        category: str,
+        project_key: str,
+        suggested_memory: str,
+        observation: str,
+        source: str,
+    ) -> None:
+        """Push an approved proposal through the Knowledge Node integration pipeline.
+
+        Uses integrate() which provides semantic dedup, contradiction detection,
+        and auto-merge — all the quality control that the old pending state
+        relied on manual review for.
+        """
+        try:
+            from hermes.integrate import integrate as _integrate
+            content = f"{suggested_memory}"
+            if observation:
+                content += f"\n\nObservation: {observation}"
+            domain_map = {
+                "apa": "apa",
+                "devops": "devops",
+                "network": "network",
+                "security": "security",
+                "study": "study",
+            }
+            domain = domain_map.get(project_key, "general")
+            cat_map = {"workflow_hint": "workflow_hint"}
+            cat = cat_map.get(category, category if category in ("rule", "preference", "fact") else "fact")
+            _integrate(
+                content=content,
+                source=source,
+                category=cat,
+                domain=domain,
+                repo=self.repo,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logging.warning("Knowledge Node integration failed for %s: %s", source, exc)
+
     def _route(self, category: str, risk_level: str) -> str:
-        if category == "rule":
-            return "pending"
-        if self.auto_approve_low_risk and AUTO_APPROVE_MATRIX.get((category, risk_level)) == "approved_db_only":
-            return "approved_db_only"
-        return "pending"
+        # All proposals auto-approve — Knowledge Nodes handle quality control.
+        result = AUTO_APPROVE_MATRIX.get((category, risk_level))
+        if result:
+            return result
+        # Fallback: still auto-approve anything not in the matrix
+        return "approved_for_export"
 
     def _dispatch_ingest_notifications(
         self,
@@ -129,18 +190,11 @@ class IngestionService:
                 "suggested_memory": suggested_memory,
             })
 
-        if route == "approved_db_only":
-            self._router.dispatch("auto_approved", {
-                "proposal_id": proposal_id,
-                "category": category,
-            })
-        else:
-            self._router.dispatch("pending_new", {
-                "proposal_id": proposal_id,
-                "category": category,
-                "summary": summary,
-                "project_key": project_key,
-            })
+        # All proposals are auto-approved now — notify accordingly
+        self._router.dispatch("auto_approved", {
+            "proposal_id": proposal_id,
+            "category": category,
+        })
 
     def _write_rejected(self, candidate: Path, reason: str) -> Path:
         target_dir = self.sync_root / "review" / "rejected"

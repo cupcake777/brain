@@ -18,23 +18,29 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 _EVENT_TEMPLATES: dict[str, str] = {
-    "pending_new": (
-        "<b>📝 New Proposal — Needs Review</b>\n"
+    "auto_approved": (
+        "<b>✅ Auto-Approved &amp; Integrated</b>\n"
         "Proposal: <code>{proposal_id}</code>\n"
         "Category: {category}\n"
-        "Project: <code>{project_key}</code>\n"
-        "Summary: {summary}"
-    ),
-    "auto_approved": (
-        "<b>✅ Auto-Approved (Low Risk)</b>\n"
-        "Proposal: <code>{proposal_id}</code>\n"
-        "Category: {category}"
+        "Integrated into Knowledge Nodes with dedup/contradiction checks."
     ),
     "duplicate_detected": (
         "<b>🔄 Semantic Duplicate Detected</b>\n"
         "New: <code>{new_id}</code>\n"
         "Original: <code>{original_id}</code>\n"
         "Suggested memory: {suggested_memory}"
+    ),
+    "integrated_merged": (
+        "<b>🔀 Knowledge Merged</b>\n"
+        "New knowledge merged into existing node.\n"
+        "Node: {node_id}\n"
+        "Similarity: {similarity}"
+    ),
+    "integrated_contradiction": (
+        "<b>⚠️ Knowledge Contradiction Detected</b>\n"
+        "New: <code>{node_id}</code>\n"
+        "Contradicts: {contradicts}\n"
+        "Resolution: {resolution}"
     ),
     "health_alert": (
         "<b>⚠️ Health Alert</b>\n"
