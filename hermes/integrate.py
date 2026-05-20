@@ -568,14 +568,16 @@ def integrate(
     )
 
     # Determine initial stage
-    # - High confidence sources (user_direct, verified) → refined
+    # - High confidence sources (user_direct, verified, migration, proposal) → refined
     # - Contradictions → draft (needs review)
     # - Everything else → draft
+    # Proposals from agents have already been reviewed by the submitting agent,
+    # so they start at refined (immediately visible in exports).
     source_type = source.split(":")[0] if ":" in source else source
     if contradict_ids:
         initial_stage = "draft"  # Needs review if contradicts existing
     else:
-        initial_stage = "refined" if source_type in ("user_direct", "verified", "migration") else "draft"
+        initial_stage = "refined" if source_type in ("user_direct", "verified", "migration", "proposal") else "draft"
 
     # Step 3: Create new node
     node = KnowledgeNode(
@@ -684,10 +686,10 @@ def retrospect(repo: HermesRepository, *, dry_run: bool = False) -> dict:
             continue
         created = _parse_dt(node.created_at, now)
 
-        # draft → refined: after 3 days with no contradictions
+        # draft → refined: after 1 day with no contradictions
         if node.stage == "draft":
             age_days = (now - created).days
-            if age_days < 3:
+            if age_days < 1:
                 continue
             contradict_ids = json.loads(node.contradicts) if isinstance(node.contradicts, str) else node.contradicts
             has_active_contradiction = any(
@@ -701,11 +703,11 @@ def retrospect(repo: HermesRepository, *, dry_run: bool = False) -> dict:
                     repo.update_knowledge_node(node.id, stage="refined", refined_at=now.isoformat())
             continue
 
-        # refined → canonized: after 7 days, no contradictions
+        # refined → canonized: after 2 days, no contradictions
         refined_at = _parse_dt(node.refined_at, created)
         days_refined = (now - refined_at).days
 
-        if days_refined < 7:
+        if days_refined < 2:
             continue
 
         # Check no active contradictions

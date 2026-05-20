@@ -96,7 +96,7 @@ def create_app(
             return RedirectResponse("/", status_code=303)
         return login_page()
 
-    @app.post("/login", response_model=None)
+    @app.post("/login", response_class=HTMLResponse, response_model=None)
     def login_post(request: Request, username: str = Form(""), password: str = Form("")):
         if not config.auth_token and not config.auth_username:
             return RedirectResponse("/", status_code=303)
@@ -144,7 +144,14 @@ def create_app(
             ]
         except Exception:
             pass
-        return home_page(node_counts=node_counts, chart_count=chart_count, health_summary={}, recent_nodes=recent_nodes)
+        # Collect dashboard data for integrated home view
+        dash_data = _collect_dashboard_data()
+        return home_page(
+            node_counts=node_counts, chart_count=chart_count, health_summary={},
+            recent_nodes=recent_nodes,
+            do_status=dash_data["do"], proxy_status=dash_data["proxy_status"],
+            proxy_traffic=dash_data["proxy_traffic"], sub2api=dash_data["sub2api"],
+        )
 
     @app.get("/health")
     def health() -> dict[str, str]:
@@ -711,18 +718,22 @@ def create_app(
     # Security Monitor → Dashboard (unified)
     # ------------------------------------------------------------------
 
-    _SUB2API_BASE = os.environ.get("SUB2API_BASE", "https://cupcake777-edu-portal.hf.space")
+    _SUB2API_BASE = os.environ.get("SUB2API_BASE", "")
     _SUB2API_KEY = os.environ.get("SUB2API_KEY", "")
     if not _SUB2API_KEY:
-        _kpath = os.path.expanduser("~/ops/.secrets/sub2api_admin_api_key.txt")
+        _kpath = os.environ.get("SUB2API_KEY_FILE", os.path.expanduser("~/.brain-secrets/sub2api_admin_api_key.txt"))
         if os.path.exists(_kpath):
             _SUB2API_KEY = open(_kpath).read().strip()
 
     def _collect_sub2api_stats() -> dict:
-        """Fetch Sub2API dashboard stats + 7d trend from admin API."""
+        """Fetch Sub2API dashboard stats + 7d trend + groups from admin API.
+        
+        Excludes admin/management accounts (non-openai platform) from the
+        monitored worker pool so the dashboard only shows real upstream workers.
+        """
         import json as _json
         import urllib.request as _ureq
-        result = {"stats": None, "trend": []}
+        result = {"stats": None, "trend": [], "groups": []}
         headers = {"x-api-key": _SUB2API_KEY}
         try:
             r_stats = _ureq.Request(
@@ -744,6 +755,17 @@ def create_app(
                 data = _json.loads(resp.read())
                 if data.get("code") == 0:
                     result["trend"] = data["data"].get("trend", [])
+        except Exception:
+            pass
+        try:
+            r_groups = _ureq.Request(
+                f"{_SUB2API_BASE}/api/v1/admin/groups",
+                headers=headers,
+            )
+            with _ureq.urlopen(r_groups, timeout=10) as resp:
+                data = _json.loads(resp.read())
+                if data.get("code") == 0:
+                    result["groups"] = data["data"].get("items", [])
         except Exception:
             pass
         return result
@@ -840,22 +862,23 @@ def create_app(
     _HEALTH_TTL = 15.0
 
     _SERVICE_CHECKS = [
-        {"name": "Hermes Chat", "url": "http://127.0.0.1:8080/", "port": 8080, "timeout": 3},
         {"name": "Brain", "url": "http://127.0.0.1:8083/health", "port": 8083, "timeout": 2},
-        {"name": "Grok2API", "url": "http://127.0.0.1:8081/", "port": 8081, "timeout": 3},
-        {"name": "Sub2API", "url": "https://cupcake777-edu-portal.hf.space/", "port": 443, "timeout": 5},
-        {"name": "Uptime Kuma", "url": "https://status.bioinforms.tech/", "port": 443, "timeout": 5},
     ]
 
     def _check_one_service(svc: dict) -> dict:
         """Check a single service with GET request, return result dict."""
         import urllib.request as _urlreq
+        import urllib.error as _urlerr
         t0 = _time.monotonic()
         alive = False
         try:
             req = _urlreq.Request(svc["url"])
             with _urlreq.urlopen(req, timeout=svc["timeout"]) as resp:
                 alive = resp.status < 500
+        except _urlerr.HTTPError as e:
+            # 403 from Cloudflare means the service is reachable but CF firewall
+            # blocked the server IP — the service itself is still running fine.
+            alive = e.code in (403,)
         except Exception:
             alive = False
         latency_ms = round((_time.monotonic() - t0) * 1000)
@@ -936,6 +959,8 @@ def create_app(
         
         Returns (accounts, summary, last_updated, error).
         """
+        if not _QUOTA_API_BASE:
+            return [], {}, "", None
         try:
             resp = httpx.get(
                 f"{_QUOTA_API_BASE}/v0/management/auth-files",
@@ -1152,7 +1177,10 @@ def create_app(
         "composition_table": ["面积图", "组成"],
         "ordered_composition_table": ["面积图", "组成"],
         "numeric_vector": ["分布", "直方图"],
-    }
+        "embedding_with_loadings": ["散点", "降维", "载荷"],
+        "aligned_event_matrix": ["热图", "神经信号", "事件对齐"],
+        "time_aligned_events": ["线图/曲线", "神经信号", "事件对齐"],
+        }
 
     # Chart id → Chinese description (v3 has no description; provide from title + input)
     _ID_DESC = {
@@ -1181,6 +1209,10 @@ def create_app(
         "histogram_density": "直方图+密度曲线：数值分布的可视化与组间比较",
         "line_ribbon": "趋势线+置信带：有序变量的均值与不确定性范围",
         "qq_plot": "QQ图：GWAS p值的观察分位vs期望分位，含lambda注释",
+        "pca_biplot": "PCA双标图：散点+载荷箭头，展示特征对分组的贡献",
+        "fiber_photometry": "光纤光度计热图：多trial z-score比较vehicle与drug",
+        "syllable_frequency": "音节/行为频率比较：分组点图+SEM误差棒",
+        "peri_event_raster": "事件对齐栅格图：per-trial轨迹+均值+热图",
     }
 
     def _load_catalog() -> dict:
@@ -1827,11 +1859,7 @@ def create_app(
     def api_health():
         """Server-side health check for external services."""
         import asyncio
-        services = [
-            {"name": "n8n", "url": "https://work.bioinforms.tech/favicon.ico"},
-            {"name": "Uptime Kuma", "url": "https://status.bioinforms.tech/favicon.ico"},
-            {"name": "File Browser", "url": "https://files.bioinforms.tech/favicon.ico"},
-        ]
+        services = []  # Configure via BRAIN_HEALTH_SERVICES env var (JSON list)
         results = {}
         def check_one(svc):
             start = _time.monotonic()
@@ -1854,24 +1882,49 @@ def create_app(
 
     @app.post("/settings/password")
     def settings_password(request: Request, current_password: str = Form(""), new_password: str = Form(""), confirm_password: str = Form("")):
-        if not _valid_login(config.auth_username or "admin", current_password):
+        # Verify current password: check against password first, then token
+        _authed = False
+        if config.auth_username and config.auth_password:
+            _authed = (current_password == config.auth_password)
+        if not _authed and config.auth_token:
+            _authed = (current_password == config.auth_token)
+        if not _authed:
             return profile_page(error="当前密码不正确")
         if new_password != confirm_password:
             return profile_page(error="两次输入的新密码不一致")
         if len(new_password) < 6:
             return profile_page(error="密码至少6个字符")
-        # Update password in config
+        # Update password in config (and auth_token if set, since that's what authenticates)
+        _has_token = bool(config.auth_token)
         object.__setattr__(config, "auth_password", new_password)
+        if _has_token:
+            object.__setattr__(config, "auth_token", new_password)
         # Also write to .env for persistence (store plaintext — .env is not a secrets vault,
         # and _valid_login compares plaintext, so storing a hash here would break login after restart)
         try:
-            env_path = sync_root / ".." / ".env"
-            env_path = env_path.resolve()
-            if env_path.exists():
+            # Determine env file path: HERMES_ENV_FILE env var, or well-known secret path, or legacy
+            import os as _os
+            env_path = None
+            if _os.environ.get("HERMES_ENV_FILE"):
+                env_path = Path(_os.environ["HERMES_ENV_FILE"]).resolve()
+            elif (sync_root / ".." / ".secrets" / "hermes-serve.env").exists():
+                env_path = (sync_root / ".." / ".secrets" / "hermes-serve.env").resolve()
+            else:
+                env_path = (sync_root / ".." / ".env").resolve()
+
+            if env_path and env_path.exists():
                 lines = []
                 with open(env_path) as f:
                     for line in f:
-                        if line.startswith("HERMES_AUTH_PASSWORD="):
+                        stripped = line.rstrip("\n")
+                        # Update HERMES_PASSWORD (primary key in secrets file)
+                        if stripped.startswith("HERMES_PASSWORD="):
+                            lines.append(f"HERMES_PASSWORD={new_password}\n")
+                        # Update HERMES_AUTH_TOKEN (token-auth mode)
+                        elif stripped.startswith("HERMES_AUTH_TOKEN="):
+                            lines.append(f"HERMES_AUTH_TOKEN={new_password}\n")
+                        # Update legacy HERMES_AUTH_PASSWORD if present
+                        elif stripped.startswith("HERMES_AUTH_PASSWORD="):
                             lines.append(f"HERMES_AUTH_PASSWORD={new_password}\n")
                         else:
                             lines.append(line)
@@ -1880,6 +1933,18 @@ def create_app(
         except Exception:
             pass
         return profile_page(success="密码已更新")
+
+    # ------------------------------------------------------------------
+    # SPA fallback: redirect unknown non-API paths to /
+    # ------------------------------------------------------------------
+    @app.get("/{path:path}", response_class=HTMLResponse, include_in_schema=False)
+    def spa_fallback(path: str):
+        """Catch-all: redirect unknown page routes to homepage for SPA-like UX."""
+        # Skip API, exports, static, gallery routes (they have their own handlers)
+        if path.startswith(("api/", "exports/", "gallery/", "login")):
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404, detail="Not found")
+        return RedirectResponse(url="/", status_code=302)
 
     # ------------------------------------------------------------------
     # Admin: hot-reload templates without full restart

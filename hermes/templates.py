@@ -6,6 +6,295 @@ import os
 
 import html as _html
 
+# ── i18n translations ──────────────────────────────────────────────────────
+_I18N_DICT = {
+    "zh": {
+        "nav_home": "首页", "nav_knowledge": "知识", "nav_gallery": "绘图", "nav_services": "服务",
+        "nav_profile": "我的", "nav_label": "导航", "nav_user": "用户",
+        "dash_greeting": "你好，探索者", "dash_total": "总节点", "dash_canonized": "正典",
+        "dash_refined": "精炼", "dash_draft": "草稿", "dash_recent": "📋 最近更新",
+        "dash_viewall": "查看全部 →", "dash_shortcuts": "⚡ 快捷入口",
+        "dash_knowledge": "知识树", "dash_gallery": "绘图库", "dash_monitor": "监控台",
+        "dash_tokens": "今日 Tokens", "dash_requests": "今日请求数", "dash_cost": "今日费用",
+        "dash_week": "本周费用", "dash_total_tokens": "累计 Tokens", "dash_total_req": "累计请求数",
+        "dash_users": "用户数", "dash_rpm": "RPM(请求/分)",
+        "dash_monitor_title": "📊 服务监控", "dash_monitor_link": "打开 Uptime Kuma ↗",
+        "dash_monitor_desc1": "全栈服务状态监控 · 历史可用性数据",
+        "dash_monitor_desc2": "服务健康检查 JSON 接口",
+        "dash_auth_notice": "联合登录", "dash_auth_notice2": "与本系统共享凭据",
+        "pf_prefs": "显示偏好", "pf_prefs_desc": "自定义界面显示", "pf_name": "显示名称",
+        "pf_name_ph": "你的名字", "pf_avatar": "头像链接", "pf_avatar_ph": "输入头像图片URL",
+        "pf_avatar_upload": "上传图片", "pf_avatar_too_large": "图片不能超过 200KB",
+        "pf_theme": "主题", "pf_theme_dark": "深色 Dracula", "pf_theme_light": "浅色 Light",
+        "pf_lang": "语言", "pf_lang_zh": "中文", "pf_lang_en": "English",
+        "pf_save": "保存偏好", "pf_password": "修改密码", "pf_password_desc": "更新你的登录密码",
+        "pf_cur_pw": "当前密码", "pf_new_pw": "新密码", "pf_confirm_pw": "确认新密码",
+        "pf_update_pw": "更新密码", "pf_system": "系统信息", "pf_system_desc": "运行状态概览",
+        "pf_status_run": "正常运行", "pf_online": "在线",
+        "pf_logout": "退出登录", "pf_logout_desc": "结束当前会话并返回登录页",
+        "pf_saved": "偏好已保存", "pf_explorer": "探索者", "pf_brain_user": "Hermes Brain 用户",
+        "pf_admin": "管理员",
+        "pf_pw_wrong": "当前密码不正确", "pf_pw_mismatch": "两次输入的新密码不一致",
+        "pf_pw_short": "密码至少6个字符", "pf_pw_updated": "密码已更新",
+        "svc_title": "🔗 服务中心", "svc_desc": "所有外部服务运行在独立服务器上，点击卡片直接跳转",
+        "svc_detecting": "检测中...", "svc_online": "在线", "svc_offline": "离线", "svc_unknown": "未知",
+        "svc_n8n": "自动化工作流", "svc_n8n_desc": "可视化编排API与任务，连接500+服务",
+        "svc_kuma": "服务监控", "svc_kuma_desc": "实时状态监控、告警通知与SLA追踪",
+        "svc_files": "文件管理", "svc_files_desc": "浏览、上传与管理工作文件",
+        "greeting_morning": "早上好", "greeting_afternoon": "下午好", "greeting_evening": "晚上好",
+        "time_sun": "星期日", "time_mon": "星期一", "time_tue": "星期二", "time_wed": "星期三",
+        "time_thu": "星期四", "time_fri": "星期五", "time_sat": "星期六",
+        "time_just": "刚刚", "time_min_ago": "分钟前", "time_hr_ago": "小时前", "time_day_ago": "天前",
+        "time_comma": "，", "time_day_suffix": "日",
+        "time_jan": "1月", "time_feb": "2月", "time_mar": "3月", "time_apr": "4月", "time_may": "5月", "time_jun": "6月",
+        "time_jul": "7月", "time_aug": "8月", "time_sep": "9月", "time_oct": "10月", "time_nov": "11月", "time_dec": "12月",
+        "btn_edit": "✏️ 编辑", "btn_promote": "⬆ 晋级为精炼", "btn_deprecate": "🗑 废弃",
+        "btn_approve_db": "存入记忆库", "btn_approve_export": "批准并同步导出",
+        "btn_promote_export": "升级为同步导出", "btn_reject": "拒绝此提案",
+        "stage_title": "Stage 生命周期",
+        "stage_draft_short": "草稿", "stage_refined_short": "精炼", "stage_verified_short": "验证", "stage_canonized_short": "正典", "stage_deprecated_short": "废弃",
+        "stage_all": "全部",
+        "stage_draft": "原始知识条目。未经整理的observation或手动输入。3天无矛盾自动晋级Refined",
+        "stage_refined": "Agent已整理的表述。去冗余、结构化完成，但尚未经事实核查。7天无矛盾自动晋级Canonize",
+        "stage_verified": "经来源或用户确认的可信事实。手动Promote到达，确认后可继续晋级Canonize",
+        "stage_canonized": "核心知识。高置信度，导出至KNOWLEDGE.md。",
+        "stage_deprecated": "垃圾箱。过时、错误或被替代的知识。点击\"Empty Trash\"永久删除。",
+        "stat_pending": "待审提案", "no_recent": "暂无最近活动",
+        "col_status": "状态", "col_summary": "摘要", "col_time": "时间", "dash_no_activity": "暂无最近活动", "dash_no_summary": "无摘要",
+        "rv_no_proposals": "当前视图无提案",
+        "rv_search": "搜索提案…",
+        "rv_review": "← 返回审核",
+        "rv_observation": "观察记录", "rv_why_matters": "为何重要",
+        "rv_suggested": "建议持久记忆", "rv_scope": "范围",
+        "rv_evidence": "证据", "rv_summary": "摘要",
+        "rv_project": "项目", "rv_category": "类别", "rv_risk": "风险",
+        "rv_source": "来源", "rv_created": "创建时间", "rv_weight": "权重",
+        "rv_confirm": "确认", "rv_cancel": "取消",
+        "rv_rejected": "此提案已被拒绝。",
+        "rv_approved_synced": "此提案已批准并同步。",
+        "rv_superseded": "此提案已被更新版本替代。",
+        "rv_all": "全部", "rv_pending": "待审", "rv_approved": "已批准", "rv_synced": "已同步",
+        "rv_approve_db": "存入记忆库", "rv_approve_export": "批准并同步导出",
+        "rv_promote_export": "升级为同步导出", "rv_reject": "拒绝此提案",
+        "kn_title": "知识树", "kn_search": "搜索知识…", "kn_add": "+ 添加知识",
+        "kn_export": "⬇ 导出MD", "kn_retrospect": "🔄 回顾",
+        "kn_empty_trash": "🗑 清空回收站", "kn_no_nodes": "当前筛选条件下无知识节点。",
+        "kn_nodes": "节点", "kn_all_cat": "所有类别", "kn_all_dom": "所有领域",
+        "kn_stage_lifecycle": "Stage 生命周期",
+        "kn_draft_desc": "原始知识条目。未经整理的observation或手动输入。3天无矛盾自动晋级Refined。",
+        "kn_refined_desc": "Agent已整理的表述。去冗余、结构化完成，但尚未经事实核查。7天无矛盾自动晋级Canonized。",
+        "kn_verified_desc": "经来源或用户确认的可信事实。手动Promote到达，确认后可继续晋级Canonized。",
+        "kn_canonized_desc": "核心知识。高置信度，导出至KNOWLEDGE.md。",
+        "kn_deprecated_desc": "垃圾箱。过时、错误或被替代的知识。点击\"Empty Trash\"永久删除。",
+        "kn_confidence_formula": "Confidence = category_base + source_bonus + evidence×0.05(上限0.2) − corrections×0.1 + retrieval_bonus + time_bonus − age_penalty<br>Clamped [0.0, 1.0]，Retrospect自动重算。",
+        "kn_close": "关闭", "kn_cancel": "取消", "kn_submit": "提交",
+        "kn_content_label": "内容 *", "kn_content_ph": "输入知识内容…",
+        "kn_source_label": "来源", "kn_source_ph": "如：对话、手动、观察",
+        "kn_category_label": "类别", "kn_domain_label": "领域",
+        "kd_summary": "摘要", "kd_confidence": "置信度", "kd_content": "内容",
+        "kd_evidence": "证据", "kd_provenance": "来源链",
+        "kd_relationships": "关联", "kd_thought_chain": "思维链时间线",
+        "kd_no_relationships": "暂无关联",
+        "kd_no_relationships_hint": "与父节点、子节点或矛盾节点的连接将显示在此。",
+        "kd_no_evidence": "尚无证据记录",
+        "kd_no_evidence_hint": "关联证据将在此显示。",
+        "kd_no_thought": "暂无思维链记录",
+        "kd_no_thought_hint": "随着知识演进，推理步骤和决策将记录在此。",
+        "kd_parent": "父节点", "kd_child": "子节点", "kd_supersedes": "取代",
+        "kd_superseded_by": "被取代", "kd_contradicts": "矛盾",
+        "kd_merged_from": "合并自", "kd_contradicts_list": "矛盾于", "kd_verified_by": "验证者",
+        "kd_none_yet": "暂无",
+        "kd_edit": "✏️ 编辑", "kd_promote": "⬆ 晋级为", "kd_deprecate": "🗑 废弃",
+        "kd_delete_perm": "🗑 永久删除", "kd_merge_into": "🔗 合并到",
+        "kd_no_actions": "节点处于{stage}阶段 — 无可用操作。",
+        "kd_back": "← 知识树",
+        "kd_node_id": "节点ID", "kd_category": "类别", "kd_domain": "领域",
+        "kd_stage": "阶段", "kd_operation": "操作", "kd_source_label": "来源",
+        "kd_created": "创建时间", "kd_refined": "精炼时间", "kd_verified": "验证时间",
+        "kd_deprecated": "废弃时间", "kd_retrievals": "检索次数", "kd_last_used": "最后使用",
+        "kd_corrections": "修正次数", "kd_save": "保存", "kd_cancel": "取消",
+        "kd_edit_title": "✏️ 编辑节点",
+        "kd_decision": "决策", "kd_tl_confidence": "置信度",
+        "gl_title": "Sci-Fig 绘图库",
+        "gl_subtitle": "科研图表模板库 — 查看、审核与贡献",
+        "gl_search": "搜索图表…", "gl_showing": "显示", "gl_of": "/",
+        "gl_submit": "+ 提交", "gl_image_url": "图片链接",
+        "gl_image_url_ph": "https://...", "gl_or_upload": "或上传",
+        "gl_notes": "备注", "gl_notes_ph": "图表类型、论文来源、你喜欢什么…",
+        "gl_submit_btn": "提交", "gl_interactive": "交互式图表",
+        "gl_planned": "计划中",
+        "gl_suggest": "✎ 建议", "gl_suggest_ph": "输入建议…",
+        "gl_approve_btn": "✓ 批准",
+        "kd_evidence": "EVIDENCE", "kd_provenance": "PROVENANCE",
+        "kd_relationships": "RELATIONSHIPS", "kd_thought": "THOUGHT CHAIN TIMELINE",
+        "kd_no_evidence": "No evidence recorded",
+        "kd_no_evidence_hint": "Supporting evidence will appear here when linked.",
+        "kd_no_rel": "No relationships",
+        "kd_no_rel_hint": "Connections to parent, child, or contradictory nodes will appear here.",
+        "kd_no_thought": "No thought chain entries",
+        "kd_no_thought_hint": "Reasoning steps and decisions will be recorded here as this knowledge evolves.",
+        "kd_none_yet": "None yet",
+        "kh_actions": "Action", "kh_approve": "Approve", "kh_reject": "Reject",
+        "login_title": "登录", "login_subtitle": "知识管理系统", "login_user": "用户名", "login_pass": "密码", "login_btn": "登录",
+        "toast_added": "已添加", "toast_export_done": "导出完成", "toast_retrospect_done": "回顾完成",
+        "toast_deleted": "已删除 {count} 个节点", "toast_done": "完成", "toast_node_updated": "节点已更新",
+        "toast_error": "错误", "toast_network_error": "网络错误", "toast_copy_ok": "已复制", "toast_copy_fail": "复制失败",
+        "toast_no_interactive": "暂无交互版本", "toast_approved": "已批准", "toast_rejected": "已拒绝",
+        "toast_suggestion_saved": "建议已保存", "toast_suggestion_noted": "建议已记录",
+        "toast_enter_suggestion": "请先输入建议", "toast_enter_palette_name": "请输入调色板名称",
+        "toast_min_colors": "请输入至少3个有效十六进制颜色", "toast_palette_submitted": "调色板已提交，感谢！",
+        "toast_figure_submitted": "图表已提交分析", "toast_upload_ok": "模板上传成功",
+        "toast_upload_fail": "上传失败", "toast_enter_url_or_file": "请提供图片URL或上传文件",
+        "confirm_empty_trash": "确定清空回收站？此操作不可撤消。",
+        "confirm_delete_node": "确定永久删除此节点？",
+    },
+    "en": {
+        "nav_home": "Home", "nav_knowledge": "Knowledge", "nav_gallery": "Gallery", "nav_services": "Services",
+        "nav_profile": "Profile", "nav_label": "Navigation", "nav_user": "User",
+        "dash_greeting": "Hello, Explorer", "dash_total": "Total Nodes", "dash_canonized": "Canonized",
+        "dash_refined": "Refined", "dash_draft": "Draft", "dash_recent": "📋 Recent Updates",
+        "dash_viewall": "View all →", "dash_shortcuts": "⚡ Quick Access",
+        "dash_knowledge": "Knowledge Tree", "dash_gallery": "Gallery", "dash_monitor": "Dashboard",
+        "dash_tokens": "Today Tokens", "dash_requests": "Today Requests", "dash_cost": "Today Cost",
+        "dash_week": "Weekly Cost", "dash_total_tokens": "Total Tokens", "dash_total_req": "Total Requests",
+        "dash_users": "Users", "dash_rpm": "RPM (req/min)",
+        "dash_monitor_title": "📊 Service Monitor", "dash_monitor_link": "Open Uptime Kuma ↗",
+        "dash_monitor_desc1": "Full-stack service status & historical availability",
+        "dash_monitor_desc2": "Service health check JSON endpoint",
+        "dash_auth_notice": "Shared authentication", "dash_auth_notice2": "credentials shared with this system",
+        "pf_prefs": "Display Preferences", "pf_prefs_desc": "Customize the interface", "pf_name": "Display Name",
+        "pf_name_ph": "Your name", "pf_avatar": "Avatar URL", "pf_avatar_ph": "Enter avatar image URL",
+        "pf_avatar_upload": "Upload Image", "pf_avatar_too_large": "Image must not exceed 200KB",
+        "pf_theme": "Theme", "pf_theme_dark": "Dark Dracula", "pf_theme_light": "Light",
+        "pf_lang": "Language", "pf_lang_zh": "中文", "pf_lang_en": "English",
+        "pf_save": "Save Preferences", "pf_password": "Change Password", "pf_password_desc": "Update your login password",
+        "pf_cur_pw": "Current Password", "pf_new_pw": "New Password", "pf_confirm_pw": "Confirm New Password",
+        "pf_update_pw": "Update Password", "pf_system": "System Info", "pf_system_desc": "Runtime status overview",
+        "pf_status_run": "Running", "pf_online": "Online",
+        "pf_logout": "Sign Out", "pf_logout_desc": "End current session and return to login page",
+        "pf_saved": "Preferences saved", "pf_explorer": "Explorer", "pf_brain_user": "Hermes Brain User",
+        "pf_admin": "Admin",
+        "pf_pw_wrong": "Current password is incorrect", "pf_pw_mismatch": "New passwords don't match",
+        "pf_pw_short": "Password must be at least 6 characters", "pf_pw_updated": "Password updated",
+        "svc_title": "🔗 Service Center", "svc_desc": "All services run on independent servers. Click cards to navigate.",
+        "svc_detecting": "Detecting...", "svc_online": "Online", "svc_offline": "Offline", "svc_unknown": "Unknown",
+        "svc_n8n": "Automation Workflows", "svc_n8n_desc": "Visual API & task orchestration, 500+ integrations",
+        "svc_kuma": "Service Monitoring", "svc_kuma_desc": "Real-time status monitoring, alerts & SLA tracking",
+        "svc_files": "File Manager", "svc_files_desc": "Browse, upload & manage work files",
+        "greeting_morning": "Good morning", "greeting_afternoon": "Good afternoon", "greeting_evening": "Good evening",
+        "time_sun": "Sun", "time_mon": "Mon", "time_tue": "Tue", "time_wed": "Wed",
+        "time_thu": "Thu", "time_fri": "Fri", "time_sat": "Sat",
+        "time_just": "just now", "time_min_ago": " min ago", "time_hr_ago": " hr ago", "time_day_ago": " days ago",
+        "time_comma": ", ", "time_day_suffix": "",
+        "time_jan": "Jan", "time_feb": "Feb", "time_mar": "Mar", "time_apr": "Apr", "time_may": "May", "time_jun": "Jun",
+        "time_jul": "Jul", "time_aug": "Aug", "time_sep": "Sep", "time_oct": "Oct", "time_nov": "Nov", "time_dec": "Dec",
+        "btn_edit": "✏️ Edit", "btn_promote": "⬆ Promote", "btn_deprecate": "🗑 Deprecate",
+        "btn_approve_db": "Approve to Memory", "btn_approve_export": "Approve & Export",
+        "btn_promote_export": "Promote to Export", "btn_reject": "Reject",
+        "stage_title": "Stage Lifecycle",
+        "stage_draft_short": "Draft", "stage_refined_short": "Refined", "stage_verified_short": "Verified", "stage_canonized_short": "Canonized", "stage_deprecated_short": "Deprecated",
+        "stage_all": "Total",
+        "stage_draft": "Raw knowledge. Unprocessed observations or manual entries. Auto-promotes to Refined after 3 conflict-free days.",
+        "stage_refined": "Agent-curated. De-duplicated & structured, but not yet fact-checked. Auto-promotes to Canonized after 7 conflict-free days.",
+        "stage_verified": "Source/user-confirmed facts. Reached via manual Promote. Can proceed to Canonize.",
+        "stage_canonized": "Core knowledge. High confidence, exported to KNOWLEDGE.md.",
+        "stage_deprecated": "Trash bin. Outdated, incorrect, or superseded knowledge. \"Empty Trash\" for permanent deletion.",
+        "stat_pending": "Pending Proposals", "no_recent": "No recent activity",
+        "col_status": "Status", "col_summary": "Summary", "col_time": "Time", "dash_no_activity": "No recent activity", "dash_no_summary": "No summary",
+        "rv_no_proposals": "No proposals in this view",
+        "rv_search": "Search proposals…",
+        "rv_review": "← Review",
+        "rv_observation": "Observation", "rv_why_matters": "Why it matters",
+        "rv_suggested": "Suggested durable memory", "rv_scope": "Scope",
+        "rv_evidence": "Evidence", "rv_summary": "Summary",
+        "rv_project": "Project", "rv_category": "Category", "rv_risk": "Risk",
+        "rv_source": "Source", "rv_created": "Created", "rv_weight": "Weight",
+        "rv_confirm": "Confirm", "rv_cancel": "Cancel",
+        "rv_rejected": "This proposal was rejected.",
+        "rv_approved_synced": "This proposal was approved and synced.",
+        "rv_superseded": "This proposal was superseded by a newer version.",
+        "rv_all": "All", "rv_pending": "Pending", "rv_approved": "Approved", "rv_synced": "Synced",
+        "rv_approve_db": "Save to memory", "rv_approve_export": "Approve & sync",
+        "rv_promote_export": "Promote to sync", "rv_reject": "Reject this proposal",
+        "kn_title": "Knowledge Tree", "kn_search": "Search knowledge…", "kn_add": "+ Add Knowledge",
+        "kn_export": "⬇ Export MD", "kn_retrospect": "🔄 Retrospect",
+        "kn_empty_trash": "🗑 Empty Trash", "kn_no_nodes": "No knowledge nodes match the current filters.",
+        "kn_nodes": "nodes", "kn_all_cat": "All Categories", "kn_all_dom": "All Domains",
+        "kn_stage_lifecycle": "Stage Lifecycle",
+        "kn_draft_desc": "Raw knowledge. Unprocessed observations or manual entries. Auto-promotes to Refined after 3 conflict-free days.",
+        "kn_refined_desc": "Agent-curated. De-duplicated & structured, but not yet fact-checked. Auto-promotes to Canonized after 7 conflict-free days.",
+        "kn_verified_desc": "Source/user-confirmed facts. Reached via manual Promote. Can proceed to Canonize.",
+        "kn_canonized_desc": "Core knowledge. High confidence, exported to KNOWLEDGE.md.",
+        "kn_deprecated_desc": "Trash bin. Outdated, incorrect, or superseded knowledge. Click \"Empty Trash\" to permanently delete.",
+        "kn_confidence_formula": "Confidence = category_base + source_bonus + evidence×0.05(cap 0.2) − corrections×0.1 + retrieval_bonus + time_bonus − age_penalty<br>Clamped [0.0, 1.0], Retrospect auto-recomputes.",
+        "kn_close": "Close", "kn_cancel": "Cancel", "kn_submit": "Submit",
+        "kn_content_label": "Content *", "kn_content_ph": "Enter knowledge content…",
+        "kn_source_label": "Source", "kn_source_ph": "e.g. conversation, manual, observation",
+        "kn_category_label": "Category", "kn_domain_label": "Domain",
+        "kd_summary": "Summary", "kd_confidence": "Confidence", "kd_content": "Content",
+        "kd_evidence": "Evidence", "kd_provenance": "Provenance",
+        "kd_relationships": "Relationships", "kd_thought_chain": "Thought Chain Timeline",
+        "kd_no_relationships": "No relationships",
+        "kd_no_relationships_hint": "Connections to parent, child, or contradictory nodes will appear here.",
+        "kd_no_evidence": "No evidence recorded",
+        "kd_no_evidence_hint": "Supporting evidence will appear here when linked.",
+        "kd_no_thought": "No thought chain entries",
+        "kd_no_thought_hint": "Reasoning steps and decisions will be recorded here as this knowledge evolves.",
+        "kd_parent": "Parent", "kd_child": "Child", "kd_supersedes": "Supersedes",
+        "kd_superseded_by": "Superseded by", "kd_contradicts": "Contradicts",
+        "kd_merged_from": "Merged From", "kd_contradicts_list": "Contradicts", "kd_verified_by": "Verified By",
+        "kd_none_yet": "None yet",
+        "kd_edit": "✏️ Edit", "kd_promote": "⬆ Promote to", "kd_deprecate": "🗑 Deprecate",
+        "kd_delete_perm": "🗑 Delete Permanently", "kd_merge_into": "🔗 Merge into",
+        "kd_no_actions": "Node is {stage} — no actions available.",
+        "kd_back": "← Knowledge Tree",
+        "kd_node_id": "Node ID", "kd_category": "Category", "kd_domain": "Domain",
+        "kd_stage": "Stage", "kd_operation": "Operation", "kd_source_label": "Source",
+        "kd_created": "Created", "kd_refined": "Refined", "kd_verified": "Verified",
+        "kd_deprecated": "Deprecated", "kd_retrievals": "Retrievals", "kd_last_used": "Last Used",
+        "kd_corrections": "Corrections", "kd_save": "Save", "kd_cancel": "Cancel",
+        "kd_edit_title": "✏️ Edit Node",
+        "kd_decision": "Decision", "kd_tl_confidence": "Confidence",
+        "gl_title": "Sci-Fig Gallery",
+        "gl_subtitle": "Scientific figure template library — view, approve, and contribute",
+        "gl_search": "Search charts…", "gl_showing": "Showing", "gl_of": "of",
+        "gl_submit": "+ Submit", "gl_image_url": "Image URL",
+        "gl_image_url_ph": "https://...", "gl_or_upload": "Or Upload",
+        "gl_notes": "Notes", "gl_notes_ph": "Figure type, paper source, what you like…",
+        "gl_submit_btn": "Submit", "gl_interactive": "Interactive Chart",
+        "gl_planned": "Planned",
+        "gl_suggest": "✎ Suggest", "gl_suggest_ph": "Enter your suggestion…",
+        "gl_approve_btn": "✓ Approve",
+        "kd_evidence": "EVIDENCE", "kd_provenance": "PROVENANCE",
+        "kd_relationships": "RELATIONSHIPS", "kd_thought": "THOUGHT CHAIN TIMELINE",
+        "kd_no_evidence": "No evidence recorded",
+        "kd_no_evidence_hint": "Supporting evidence will appear here when linked.",
+        "kd_no_rel": "No relationships",
+        "kd_no_rel_hint": "Connections to parent, child, or contradictory nodes will appear here.",
+        "kd_no_thought": "No thought chain entries",
+        "kd_no_thought_hint": "Reasoning steps and decisions will be recorded here as this knowledge evolves.",
+        "kd_none_yet": "None yet",
+        "kh_actions": "Action", "kh_approve": "Approve", "kh_reject": "Reject",
+        "login_title": "Sign In", "login_subtitle": "Knowledge Management System", "login_user": "Username", "login_pass": "Password", "login_btn": "Sign In",
+        "toast_added": "Added", "toast_export_done": "Export complete", "toast_retrospect_done": "Retrospect complete",
+        "toast_deleted": "Deleted {count} nodes", "toast_done": "Done", "toast_node_updated": "Node updated",
+        "toast_error": "Error", "toast_network_error": "Network error", "toast_copy_ok": "Copied", "toast_copy_fail": "Copy failed",
+        "toast_no_interactive": "No interactive version available", "toast_approved": "Approved", "toast_rejected": "Rejected",
+        "toast_suggestion_saved": "Suggestion saved", "toast_suggestion_noted": "Suggestion noted",
+        "toast_enter_suggestion": "Enter a suggestion first", "toast_enter_palette_name": "Please enter a palette name",
+        "toast_min_colors": "Enter at least 3 valid hex colors", "toast_palette_submitted": "Palette submitted! Thank you.",
+        "toast_figure_submitted": "Figure submitted for analysis", "toast_upload_ok": "Template uploaded",
+        "toast_upload_fail": "Upload failed", "toast_enter_url_or_file": "Provide an image URL or upload a file",
+        "confirm_empty_trash": "Empty the recycle bin? This cannot be undone.",
+        "confirm_delete_node": "Permanently delete this node?",
+    },
+}
+
+def _pt(key: str, lang: str = "zh") -> str:
+    """Python-side i18n lookup — returns zh text by default."""
+    d = _I18N_DICT.get(lang, _I18N_DICT["zh"])
+    return d.get(key, key)
+
 # Input shape → Chinese tags (v3 has no tags; derive from input_shape)
 _SHAPE_TAGS = {
     "point_table": ["散点", "差异表达"],
@@ -28,6 +317,9 @@ _SHAPE_TAGS = {
     "composition_table": ["面积图", "组成"],
     "ordered_composition_table": ["面积图", "组成"],
     "numeric_vector": ["分布", "直方图"],
+    "embedding_with_loadings": ["散点", "降维", "载荷"],
+    "aligned_event_matrix": ["热图", "神经信号", "事件对齐"],
+    "time_aligned_events": ["线图/曲线", "神经信号", "事件对齐"],
 }
 
 # Chart id → Chinese description (v3 has no description; provide from title)
@@ -54,6 +346,10 @@ _ID_DESC = {
     "oncoplot": "Oncoplot：突变矩阵热图",
     "scatter": "散点图：两变量关联与分组对比，支持回归线",
     "stacked_area": "堆叠面积图：组成比例随时间/阶段的变化",
+    "pca_biplot": "PCA双标图：散点+载荷箭头，展示特征对分组的贡献",
+    "fiber_photometry": "光纤光度计热图：多trial z-score比较vehicle与drug",
+    "syllable_frequency": "音节/行为频率比较：分组点图+SEM误差棒",
+    "peri_event_raster": "事件对齐栅格图：per-trial轨迹+均值+热图",
 }
 
 
@@ -237,11 +533,17 @@ body{animation:pageEnter .35s var(--ease-out)}
   background:none;border:none;color:var(--ink-muted);
   cursor:pointer;padding:6px;border-radius:var(--r-sm);
   display:flex;align-items:center;justify-content:center;
-  transition:color var(--duration),background var(--duration);
+  transition:color var(--duration),background var(--duration),transform .25s var(--ease-out);
   flex-shrink:0;
 }
 .sidebar-toggle:hover{color:var(--ink);background:var(--sidebar-accent)}
 .sidebar-toggle svg{width:20px;height:20px}
+.sidebar.collapsed .sidebar-toggle{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(180deg);
+  padding:4px;margin:0;z-index:1;
+}
+.sidebar.collapsed .sidebar-brand{position:relative}
+.sidebar.collapsed .brand-logo{opacity:.2;pointer-events:none}
 /* Nav groups */
 .sidebar-nav{flex:1;overflow-y:auto;overflow-x:hidden;padding:var(--sp-sm) 0}
 .sidebar-nav-group{margin-bottom:var(--sp-sm)}
@@ -338,7 +640,6 @@ body{animation:pageEnter .35s var(--ease-out)}
 .sidebar.collapsed ~ .main-wrap{margin-left:var(--sidebar-w-collapsed)}
 .sidebar.collapsed ~ .top-header{left:var(--sidebar-w-collapsed)}
 .sidebar-toggle svg{transition:transform .25s var(--ease-out)}
-.sidebar.collapsed .sidebar-toggle svg{transform:rotate(180deg)}
 
 /* ---- Mobile sidebar overlay ---- */
 .sidebar-overlay{
@@ -493,7 +794,7 @@ kbd{font-family:var(--font-mono);font-size:.68rem;background:var(--surface);bord
 .quota-row .qr-status{font-size:.78rem;font-weight:600}
 .quota-col-section{padding:var(--sp-md) var(--sp-md) var(--sp-xs);font-size:.84rem;font-weight:600;color:var(--primary);display:flex;align-items:center;gap:6px}
 .quota-col-section .qcs-count{font-size:.72rem;color:var(--ink-dim);font-weight:400}
-.refresh-info{padding:var(--sp-xs) var(--sp-md) var(--sp-sm);font-size:.72rem;color:var(--ink-dim);text-align:right}
+.refresh-info{padding:var(--sp-xs) var(--sp-md) var(--sp-sm);font-size:.72rem;color:var(--ink-dim);margin-left:auto;white-space:nowrap}
 
 /* ---- Confirm modal ---- */
 .confirm-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);backdrop-filter:blur(8px);z-index:200;justify-content:center;align-items:center}
@@ -534,6 +835,8 @@ kbd{font-family:var(--font-mono);font-size:.68rem;background:var(--surface);bord
 .dash-metricPrimary .dash-num{color:var(--primary)}
 .dash-metricWarning .dash-num{color:var(--warning)}
 .dash-metricDanger .dash-num{color:var(--danger)}
+.dash-charts-row{display:grid;grid-template-columns:1.2fr 1fr;gap:var(--sp-md);margin-top:var(--sp-md)}
+@media(max-width:720px){.dash-charts-row{grid-template-columns:1fr}}
 /* ---- API section (full-width) ---- */
 .dash-api-section{margin:var(--sp-lg) var(--sp-lg) 0;padding:var(--sp-lg);background:var(--card);border:1px solid var(--border);border-radius:var(--r-xl);animation:staggerFade .3s var(--ease-out) .04s both}
 @media(max-width:720px){.dash-api-section{margin:var(--sp-md);padding:var(--sp-md)}}
@@ -676,16 +979,18 @@ def _page(title: str, body: str, *, extra_js: str = "", nav_active: str = "home"
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%237c3aed'/><text x='50' y='72' font-size='60' font-family='sans-serif' font-weight='bold' fill='white' text-anchor='middle'>B</text></svg>">
 <title>{_html.escape(title)}</title>
 <style>{_DARK_CSS}</style>
-<script>(function(){{var t=localStorage.getItem('hermes_theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}})();document.addEventListener('DOMContentLoaded',function(){{var n=localStorage.getItem('hermes_display_name');if(n){{var su=document.getElementById('sidebar-username');if(su)su.textContent=n;}}var a=localStorage.getItem('hermes_avatar_url');if(a){{var sa=document.getElementById('sidebar-avatar');if(sa)sa.innerHTML='<img src=\"'+a+'\" style=\"width:100%;height:100%;object-fit:cover;border-radius:50%\" onerror=\"this.parentElement.textContent=\\'👤\\'\">';}}}});</script>
+<script>var _I18N={_json.dumps(_I18N_DICT, ensure_ascii=False)};function _t(key){{var lang=localStorage.getItem('hermes_lang')||'zh';var dict=_I18N[lang]||_I18N.zh;return dict[key]||key;}}function applyI18n(lang){{if(!lang)lang=localStorage.getItem('hermes_lang')||'zh';var dict=_I18N[lang]||_I18N.zh;document.querySelectorAll('[data-i18n]').forEach(function(el){{var key=el.getAttribute('data-i18n');if(dict[key])el.textContent=dict[key];}});document.querySelectorAll('[data-i18n-ph]').forEach(function(el){{var key=el.getAttribute('data-i18n-ph');if(dict[key])el.placeholder=dict[key];}});var g=document.getElementById('dash-greeting-text');if(g){{var h=new Date().getHours();var name=localStorage.getItem('hermes_display_name')||dict.pf_explorer;g.textContent=(h<12?dict.greeting_morning:h<18?dict.greeting_afternoon:dict.greeting_evening)+dict.time_comma+name;}}}}function switchLang(lang){{localStorage.setItem('hermes_lang',lang);var sel=document.getElementById('lang-select');if(sel)sel.value=lang;applyI18n(lang);}}</script>
+<script>(function(){{var t=localStorage.getItem('hermes_theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}})();document.addEventListener('DOMContentLoaded',function(){{var n=localStorage.getItem('hermes_display_name');if(n){{var su=document.getElementById('sidebar-username');if(su)su.textContent=n;}}var a=localStorage.getItem('hermes_avatar_url');if(a){{var sa=document.getElementById('sidebar-avatar');if(sa)sa.innerHTML='<img src=\"'+a+'\" style=\"width:100%;height:100%;object-fit:cover;border-radius:50%\" onerror=\"this.outerHTML=this.dataset.fallback\" data-fallback=\"👤\">';}}applyI18n();}});</script>
 </head>
 <body>
 {nav_html}
 <div class="main-wrap">
 {body}
 </div>
-{f'<script>{extra_js}</script>' if extra_js else ''}
+{extra_js if extra_js.strip().startswith('<script') or not extra_js.strip() else f'<script>{extra_js}</script>'}
 </body>
 </html>"""
     else:
@@ -694,13 +999,15 @@ def _page(title: str, body: str, *, extra_js: str = "", nav_active: str = "home"
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%237c3aed'/><text x='50' y='72' font-size='60' font-family='sans-serif' font-weight='bold' fill='white' text-anchor='middle'>B</text></svg>">
 <title>{_html.escape(title)}</title>
 <style>{_DARK_CSS}</style>
-<script>(function(){{var t=localStorage.getItem('hermes_theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}})();document.addEventListener('DOMContentLoaded',function(){{var n=localStorage.getItem('hermes_display_name');if(n){{var su=document.getElementById('sidebar-username');if(su)su.textContent=n;}}var a=localStorage.getItem('hermes_avatar_url');if(a){{var sa=document.getElementById('sidebar-avatar');if(sa)sa.innerHTML='<img src=\"'+a+'\" style=\"width:100%;height:100%;object-fit:cover;border-radius:50%\" onerror=\"this.parentElement.textContent=\\'👤\\'\">';}}}});</script>
+<script>var _I18N={_json.dumps(_I18N_DICT, ensure_ascii=False)};function _t(key){{var lang=localStorage.getItem('hermes_lang')||'zh';var dict=_I18N[lang]||_I18N.zh;return dict[key]||key;}}function applyI18n(lang){{if(!lang)lang=localStorage.getItem('hermes_lang')||'zh';var dict=_I18N[lang]||_I18N.zh;document.querySelectorAll('[data-i18n]').forEach(function(el){{var key=el.getAttribute('data-i18n');if(dict[key])el.textContent=dict[key];}});document.querySelectorAll('[data-i18n-ph]').forEach(function(el){{var key=el.getAttribute('data-i18n-ph');if(dict[key])el.placeholder=dict[key];}});var g=document.getElementById('dash-greeting-text');if(g){{var h=new Date().getHours();var name=localStorage.getItem('hermes_display_name')||dict.pf_explorer;g.textContent=(h<12?dict.greeting_morning:h<18?dict.greeting_afternoon:dict.greeting_evening)+dict.time_comma+name;}}}}function switchLang(lang){{localStorage.setItem('hermes_lang',lang);var sel=document.getElementById('lang-select');if(sel)sel.value=lang;applyI18n(lang);}}</script>
+<script>(function(){{var t=localStorage.getItem('hermes_theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}})();document.addEventListener('DOMContentLoaded',function(){{var n=localStorage.getItem('hermes_display_name');if(n){{var su=document.getElementById('sidebar-username');if(su)su.textContent=n;}}var a=localStorage.getItem('hermes_avatar_url');if(a){{var sa=document.getElementById('sidebar-avatar');if(sa)sa.innerHTML='<img src=\"'+a+'\" style=\"width:100%;height:100%;object-fit:cover;border-radius:50%\" onerror=\"this.outerHTML=this.dataset.fallback\" data-fallback=\"👤\">';}};applyI18n();}});</script>
 </head>
 <body>
 {body}
-{f'<script>{extra_js}</script>' if extra_js else ''}
+{extra_js if extra_js.strip().startswith('<script') or not extra_js.strip() else f'<script>{extra_js}</script>'}
 </body>
 </html>"""
 
@@ -745,7 +1052,7 @@ def _nav(*, active: str = "home") -> str:
     for key, label, href, icon in nav_items:
         cls = "sidebar-nav-item active" if key == active else "sidebar-nav-item"
         nav_items_html.append(
-            f'<a href="{href}" class="{cls}">{icon}<span>{_html.escape(label)}</span></a>'
+            f'<a href="{href}" class="{cls}">{icon}<span data-i18n="nav_{key}">{_html.escape(label)}</span></a>'
         )
 
     profile_cls = "sidebar-nav-item active" if active == "profile" else "sidebar-nav-item"
@@ -754,26 +1061,26 @@ def _nav(*, active: str = "home") -> str:
   <div class="sidebar-brand">
     <div class="brand-logo">B</div>
     <span class="brand-name">Brain</span>
-    <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar">
+    <button type="button" class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar" onclick="var s=document.getElementById('brainSidebar');s.classList.toggle('collapsed');localStorage.setItem('hermes_sidebar_collapsed',s.classList.contains('collapsed')?'1':'0')">
       {icon_chevron}
     </button>
   </div>
   <nav class="sidebar-nav">
     <div class="sidebar-nav-group">
-      <div class="sidebar-nav-label">导航</div>
+      <div class="sidebar-nav-label" data-i18n="nav_label">导航</div>
       {''.join(nav_items_html)}
-      <a href="/profile" class="{profile_cls}">{_ICON_USER}<span>我的</span></a>
+      <a href="/profile" class="{profile_cls}">{_ICON_USER}<span data-i18n="nav_profile">我的</span></a>
     </div>
   </nav>
   <a href="/profile" class="sidebar-user-link">
     <div class="sidebar-user-avatar" id="sidebar-avatar">{_ICON_USER}</div>
-    <span class="sidebar-user-name" id="sidebar-username">用户</span>
+    <span class="sidebar-user-name" id="sidebar-username" data-i18n="nav_user">用户</span>
   </a>
 </aside>"""
 
     top_header = f"""<header class="top-header" id="topHeader">
   <div class="header-left">
-    <button class="header-mobile-toggle" id="mobileMenuToggle" title="Menu">
+    <button type="button" class="header-mobile-toggle" id="mobileMenuToggle" title="Menu">
       {icon_menu}
     </button>
   </div>
@@ -786,22 +1093,33 @@ def _nav(*, active: str = "home") -> str:
 
     toggle_js = """(function(){
   var sb=document.getElementById('brainSidebar');
-  var toggle=document.getElementById('sidebarToggle');
   var mobile=document.getElementById('mobileMenuToggle');
   var overlay=document.getElementById('sidebarOverlay');
-  if(!sb||!toggle)return;
-  toggle.addEventListener('click',function(){
+  if(!sb)return;
+  /* Restore sidebar collapsed state from localStorage */
+  if(localStorage.getItem('hermes_sidebar_collapsed')==='1'&&window.innerWidth>=768){
+    sb.classList.add('collapsed');
+  }
+  /* Toggle function used by both onclick and addEventListener */
+  window._toggleSidebar=function(){
     if(window.innerWidth<768){
       sb.classList.remove('mobile-open');
-      overlay.classList.remove('open');
+      if(overlay)overlay.classList.remove('open');
     } else {
       sb.classList.toggle('collapsed');
+      localStorage.setItem('hermes_sidebar_collapsed',sb.classList.contains('collapsed')?'1':'0');
     }
-  });
+  };
+  var toggle=document.getElementById('sidebarToggle');
+  if(toggle){
+    /* Remove onclick to prevent double-fire; use addEventListener only */
+    toggle.removeAttribute('onclick');
+    toggle.addEventListener('click',window._toggleSidebar);
+  }
   if(mobile){
     mobile.addEventListener('click',function(){
       sb.classList.toggle('mobile-open');
-      overlay.classList.toggle('open');
+      if(overlay)overlay.classList.toggle('open');
     });
   }
   if(overlay){
@@ -814,7 +1132,7 @@ def _nav(*, active: str = "home") -> str:
   var _dn=localStorage.getItem('hermes_display_name');
   if(_dn){var _su=document.getElementById('sidebar-username');if(_su)_su.textContent=_dn;}
   var _au=localStorage.getItem('hermes_avatar_url');
-  if(_au){var _sa=document.getElementById('sidebar-avatar');if(_sa)_sa.innerHTML='<img src="'+_au+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentElement.innerHTML=\'👤\'">';}
+  if(_au){var _sa=document.getElementById('sidebar-avatar');if(_sa)_sa.innerHTML='<img src="'+_au+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.outerHTML=this.dataset.fallback" data-fallback="👤">';}
 })();"""
 
     return f"""{sidebar}
@@ -898,10 +1216,10 @@ def review_queue_page(
     """Render the review queue with filter tabs and proposal cards."""
     total = sum(counts.values())
     tabs = [
-        ("all", "All", total),
-        ("pending", "Pending", counts.get("pending", 0)),
-        ("approved_db_only", "Approved", counts.get("approved_db_only", 0)),
-        ("approved_for_export", "Synced", counts.get("approved_for_export", 0)),
+        ("all", _pt("rv_all"), total),
+        ("pending", _pt("rv_pending"), counts.get("pending", 0)),
+        ("approved_db_only", _pt("rv_approved"), counts.get("approved_db_only", 0)),
+        ("approved_for_export", _pt("rv_synced"), counts.get("approved_for_export", 0)),
     ]
     tab_html = ""
     for key, label, count in tabs:
@@ -934,15 +1252,15 @@ def review_queue_page(
 </a>"""
 
     if not proposals:
-        cards = '<div class="empty">No proposals in this view.</div>'
+        cards = f'<div class="empty">{_pt("rv_no_proposals")}</div>'
 
     # The heading must contain "Pending proposals" for the test
-    heading = "待审提案" if active_state == "pending" else f"{active_state.replace('_', ' ').title()} proposals"
+    heading = _pt("stat_pending") if active_state == "pending" else f"{active_state.replace('_', ' ').title()} proposals"
 
     body = f"""
 <h1 style="padding:16px 16px 0;font-size:1.2rem">{_html.escape(heading)}</h1>
 <div class="tabs">{tab_html}</div>
-<div class="search-bar"><input type="text" id="search-input" placeholder="Search proposals…" oninput="filterCards()"></div>
+<div class="search-bar"><input type="text" id="search-input" data-i18n-ph="rv_search" placeholder="{_pt('rv_search')}" oninput="filterCards()"></div>
 <div class="card-grid" id="card-grid">{cards}</div>
 <script>
 function filterCards(){{
@@ -961,13 +1279,13 @@ function filterCards(){{
 # Review Detail page
 # ---------------------------------------------------------------------------
 
-_PROPOSAL_SECTIONS = [
-    ("Observation", "observation"),
-    ("Why it matters", "why_it_matters"),
-    ("Suggested durable memory", "suggested_memory"),
-    ("Scope", "scope"),
-    ("Evidence", "evidence"),
-    ("Summary", "summary"),
+_PROPOSAL_SECTIONS_KEYS = [
+    ("rv_observation", "observation"),
+    ("rv_why_matters", "why_it_matters"),
+    ("rv_suggested", "suggested_memory"),
+    ("rv_scope", "scope"),
+    ("rv_evidence", "evidence"),
+    ("rv_summary", "summary"),
 ]
 
 # JavaScript for action buttons – uses fetch + confirm
@@ -992,7 +1310,7 @@ function act(url, actionName) {
         }
       })
       .catch(function(e){
-        showToast('Error: ' + e.message, 'reject');
+        showToast(_t('toast_error') + ': ' + e.message, 'reject');
         if (btn) btn.disabled = false;
       });
   };
@@ -1034,10 +1352,10 @@ def review_detail_page(*, proposal: dict) -> str:
 
     # Sections
     sections_html = ""
-    for title, key in _PROPOSAL_SECTIONS:
+    for i18n_key, key in _PROPOSAL_SECTIONS_KEYS:
         val = str(proposal.get(key, ""))
         sections_html += f"""<div class="section">
-  <h3>{_html.escape(title)}</h3>
+  <h3 data-i18n="{_html.escape(i18n_key)}">{_pt(i18n_key)}</h3>
   <p>{_html.escape(val)}</p>
 </div>"""
 
@@ -1047,52 +1365,52 @@ def review_detail_page(*, proposal: dict) -> str:
     is_rejected = state == "rejected"
 
     weight = str(proposal.get("weight", ""))
-    weight_html = f'<span class="label">Weight</span><span class="value">{_html.escape(weight)}</span>' if weight else ''
+    weight_html = f'<span class="label" data-i18n="rv_weight">{_pt("rv_weight")}</span><span class="value">{_html.escape(weight)}</span>' if weight else ''
 
     # Action buttons
     btns = ""
     if is_pending or is_approved_db:
         btns += (
-            f'<button class="btn btn-approve" onclick="act(\'/api/review/{_html.escape(pid)}/approve-db-only?state={_html.escape(state)}\',\'存入记忆库\')">'
-            '✓ Approve <kbd>A</kbd></button>'
+            f'<button class="btn btn-approve" onclick="act(\'/api/review/{_html.escape(pid)}/approve-db-only?state={_html.escape(state)}\',\'{_pt("rv_approve_db")}\')">'
+            f'✓ {_pt("kh_approve")} <kbd>A</kbd></button>'
         )
         btns += (
-            f'<button class="btn btn-export" onclick="act(\'/api/review/{_html.escape(pid)}/approve-for-export?state={_html.escape(state)}\',\'批准并同步导出\')">'
-            '↗ Approve & Sync <kbd>S</kbd></button>'
+            f'<button class="btn btn-export" onclick="act(\'/api/review/{_html.escape(pid)}/approve-for-export?state={_html.escape(state)}\',\'{_pt("rv_approve_export")}\')">'
+            f'↗ {_pt("kh_approve")} & {_pt("rv_synced")} <kbd>S</kbd></button>'
         )
     if is_approved_db:
         btns += (
-            f'<button class="btn btn-export" onclick="act(\'/api/review/{_html.escape(pid)}/promote-to-export?state={_html.escape(state)}\',\'升级为同步导出\')">'
+            f'<button class="btn btn-export" onclick="act(\'/api/review/{_html.escape(pid)}/promote-to-export?state={_html.escape(state)}\',\'{_pt("rv_promote_export")}\')">'
             '⬆ Promote <kbd>P</kbd></button>'
         )
     if is_pending or is_approved_db:
         btns += (
-            f'<button class="btn btn-reject" onclick="act(\'/api/review/{_html.escape(pid)}/reject?state={_html.escape(state)}\',\'拒绝此提案\')">'
-            '✕ Reject <kbd>R</kbd></button>'
+            f'<button class="btn btn-reject" onclick="act(\'/api/review/{_html.escape(pid)}/reject?state={_html.escape(state)}\',\'{_pt("rv_reject")}\')">'
+            f'✕ {_pt("kh_reject")} <kbd>R</kbd></button>'
         )
     if is_rejected:
-        btns = '<div class="empty" style="flex:1">This proposal was rejected.</div>'
+        btns = f'<div class="empty" style="flex:1" data-i18n="rv_rejected">{_pt("rv_rejected")}</div>'
     if state in ("approved_for_export",):
-        btns = '<div class="empty" style="flex:1">This proposal was approved and synced.</div>'
+        btns = f'<div class="empty" style="flex:1" data-i18n="rv_approved_synced">{_pt("rv_approved_synced")}</div>'
     if state == "superseded":
-        btns = '<div class="empty" style="flex:1">This proposal was superseded by a newer version.</div>'
+        btns = f'<div class="empty" style="flex:1" data-i18n="rv_superseded">{_pt("rv_superseded")}</div>'
 
     # If no action buttons were set (e.g. rejected was not handled above)
     if not btns and is_rejected:
-        btns = '<div class="empty" style="flex:1">This proposal was rejected.</div>'
+        btns = f'<div class="empty" style="flex:1" data-i18n="rv_rejected">{_pt("rv_rejected")}</div>'
 
     body = f"""
 <div class="detail-header">
-  <a href="/review" class="back-link">← Review</a>
+  <a href="/review" class="back-link" data-i18n="rv_review">{_pt("rv_review")}</a>
   <span class="detail-title">{_html.escape(pid[:12])}…</span>
   {_state_badge(state)}
 </div>
 <div class="meta-grid">
-  <span class="label">Project</span><span class="value">{_html.escape(project)}</span>
-  <span class="label">Category</span><span class="value">{_category_badge(category)}</span>
-  <span class="label">Risk</span><span class="value">{_risk_badge(risk)}</span>
-  <span class="label">Source</span><span class="value">{_html.escape(source_agent)}</span>
-  <span class="label">Created</span><span class="value">{_html.escape(created_at[:19])}</span>
+  <span class="label" data-i18n="rv_project">{_pt("rv_project")}</span><span class="value">{_html.escape(project)}</span>
+  <span class="label" data-i18n="rv_category">{_pt("rv_category")}</span><span class="value">{_category_badge(category)}</span>
+  <span class="label" data-i18n="rv_risk">{_pt("rv_risk")}</span><span class="value">{_risk_badge(risk)}</span>
+  <span class="label" data-i18n="rv_source">{_pt("rv_source")}</span><span class="value">{_html.escape(source_agent)}</span>
+  <span class="label" data-i18n="rv_created">{_pt("rv_created")}</span><span class="value">{_html.escape(created_at[:19])}</span>
   {weight_html}
 </div>
 <div class="detail-body">{sections_html}</div>
@@ -1101,8 +1419,8 @@ def review_detail_page(*, proposal: dict) -> str:
   <div class="confirm-modal" id="confirm-modal">
     <h3 id="confirm-title"></h3>
     <div class="confirm-actions">
-      <button class="btn-yes" id="confirm-action-btn">Confirm</button>
-      <button class="btn-no" onclick="hideConfirm()">Cancel</button>
+      <button class="btn-yes" id="confirm-action-btn" data-i18n="rv_confirm">{_pt("rv_confirm")}</button>
+      <button class="btn-no" onclick="hideConfirm()" data-i18n="rv_cancel">{_pt("rv_cancel")}</button>
     </div>
   </div>
 </div>
@@ -1121,22 +1439,22 @@ def login_page(*, error: str = "") -> str:
 <div class="login-card">
   <div class="login-brand">
     <div class="login-logo">🧠</div>
-    <h1 class="login-title">Hermes</h1>
-    <p class="login-subtitle">Knowledge Management System</p>
+    <h1 class="login-title" data-i18n="login_title">Sign In</h1>
+    <p class="login-subtitle" data-i18n="login_subtitle">Knowledge Management System</p>
   </div>
   {error_html}
   <form method="POST" action="/login" class="login-form">
-    <label class="login-label">Username</label>
+    <label class="login-label" data-i18n="login_user">Username</label>
     <div class="login-input-wrap">
       <svg class="login-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-      <input type="text" name="username" autocomplete="username" class="login-input" placeholder="Username" autofocus>
+      <input type="text" name="username" autocomplete="username" class="login-input" placeholder="Username" data-i18n-ph="login_user" autofocus>
     </div>
-    <label class="login-label">Password</label>
+    <label class="login-label" data-i18n="login_pass">Password</label>
     <div class="login-input-wrap">
       <svg class="login-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-      <input type="password" name="password" autocomplete="current-password" class="login-input" placeholder="Password">
+      <input type="password" name="password" autocomplete="current-password" class="login-input" placeholder="Password" data-i18n-ph="login_pass">
     </div>
-    <button type="submit" class="login-btn">Sign In</button>
+    <button type="submit" class="login-btn" data-i18n="login_btn">Sign In</button>
   </form>
   <p class="login-hint">
     API: <code>Authorization: Bearer &lt;token&gt;</code>
@@ -1343,7 +1661,11 @@ function togglePalettes() {{
     arrow.textContent = '▾';
     btn.classList.remove('open');
   }} else {{
-    body.style.maxHeight = body.scrollHeight + 'px';
+    body.style.maxHeight = 'none';
+    var h = body.scrollHeight;
+    body.style.maxHeight = '0px';
+    body.offsetHeight;
+    body.style.maxHeight = h + 'px';
     body.style.overflow = 'visible';
     arrow.textContent = '▴';
     btn.classList.add('open');
@@ -1363,7 +1685,7 @@ document.querySelectorAll('.pal-filter-btn').forEach(function(btn){{
 }});
 function copyHex(el) {{
   var hex = el.dataset.hex || (el.querySelector('.pal-hex') || {{}}).textContent;
-  if(hex) navigator.clipboard.writeText(hex).then(function(){{ showToast('Copied ' + hex); }}).catch(function(){{ showToast('Copy failed', 'reject'); }});
+  if(hex) navigator.clipboard.writeText(hex).then(function(){{ showToast(_t('toast_copy_ok') + ': ' + hex); }}).catch(function(){{ showToast(_t('toast_copy_fail'), 'reject'); }});
 }}
 var PAL_DATA = {_pal_js};
 var PAL_DETAIL = {_pal_detail_js};
@@ -1371,7 +1693,7 @@ var _curPalColors = [];
 function copyPalette(el) {{
   var pid = el.dataset.pid;
   var c = PAL_DATA[pid];
-  if(c) navigator.clipboard.writeText(c.join(', ')).then(function(){{ showToast('Copied ' + c.length + ' colors'); }}).catch(function(){{ showToast('Copy failed', 'reject'); }});
+  if(c) navigator.clipboard.writeText(c.join(', ')).then(function(){{ showToast(_t('toast_copy_ok') + ' ' + c.length + ' colors'); }}).catch(function(){{ showToast(_t('toast_copy_fail'), 'reject'); }});
 }}
 function openPaletteDetail(pid) {{
   var d = PAL_DETAIL[pid];
@@ -1384,7 +1706,7 @@ function openPaletteDetail(pid) {{
   _curPalColors = [];
   d.colors.forEach(function(c) {{
     _curPalColors.push(c.hex);
-    swHtml += '<div class="pd-swatch" style="background:' + c.hex + '" onclick="navigator.clipboard.writeText(\\''+c.hex+'\\');showToast(\\''+c.hex+' copied\\')"><span class="pd-hex-label">' + c.hex + '</span></div>';
+    swHtml += '<div class="pd-swatch" style="background:' + c.hex + '" data-hex="' + c.hex + '" onclick="event.stopPropagation();copyHex(this)"><span class="pd-hex-label">' + c.hex + '</span></div>';
   }});
   document.getElementById('pd-swatches').innerHTML = swHtml;
   var codeHtml = '<strong>Python:</strong><br><code>from brain.plotting.colors import get_palette\\npal = get_palette(&quot;' + pid + '&quot;)</code><br><br><strong>R:</strong><br><code>pal <- get_pal(&quot;' + pid + '&quot;)</code>';
@@ -1395,15 +1717,15 @@ function closePaletteDetail(e) {{
   document.getElementById('palette-detail-overlay').classList.remove('show');
 }}
 function copyAllPaletteColors() {{
-  if(_curPalColors.length) navigator.clipboard.writeText(_curPalColors.join(', ')).then(function(){{ showToast('Copied ' + _curPalColors.length + ' colors'); }}).catch(function(){{ showToast('Copy failed', 'reject'); }});
+  if(_curPalColors.length) navigator.clipboard.writeText(_curPalColors.join(', ')).then(function(){{ showToast(_t('toast_copy_ok') + ' ' + _curPalColors.length + ' colors'); }}).catch(function(){{ showToast(_t('toast_copy_fail'), 'reject'); }});
 }}
 function submitCustomPalette() {{
   var name = document.getElementById('ps-name').value.trim();
-  if(!name) {{ showToast('Please enter a palette name', 'reject'); return; }}
+  if(!name) {{ showToast(_t('toast_enter_palette_name'), 'reject'); return; }}
   var inputs = document.querySelectorAll('#ps-colors .ps-color-input');
   var colors = [];
   inputs.forEach(function(inp) {{ var v = inp.value.trim(); if(v && /^#[0-9A-Fa-f]{{3,8}}$/.test(v)) colors.push(v); }});
-  if(colors.length < 3) {{ showToast('Enter at least 3 valid hex colors', 'reject'); return; }}
+  if(colors.length < 3) {{ showToast(_t('toast_min_colors'), 'reject'); return; }}
   var source = document.getElementById('ps-source').value.trim();
   var desc = document.getElementById('ps-desc').value.trim();
   fetch('/api/gallery/palette_submit', {{
@@ -1411,9 +1733,9 @@ function submitCustomPalette() {{
     headers: {{'Content-Type': 'application/json'}},
     body: JSON.stringify({{name: name, colors: colors, description: desc, source: source}})
   }}).then(function(r) {{ return r.json(); }}).then(function(d) {{
-    if(d.ok) showToast('Palette submitted! Thank you.');
-    else showToast('Error: ' + (d.error||'Unknown'), 'reject');
-  }}).catch(function() {{ showToast('Network error', 'reject'); }});
+    if(d.ok) showToast(_t('toast_palette_submitted'));
+    else showToast(_t('toast_error') + ': ' + (d.error||'Unknown'), 'reject');
+  }}).catch(function() {{ showToast(_t('toast_network_error'), 'reject'); }});
 }}
 </script>
 '''
@@ -1529,7 +1851,7 @@ def gallery_page() -> str:
             img_url = f"/gallery/static/{img_file}"
             preview = f'<div class="card-img">{badges_html}<img src="{img_url}" loading="lazy"></div>'
         else:
-            preview = f'<div class="card-img" style="color:var(--ink-dim);font-size:13px;display:flex;align-items:center;justify-content:center;">{badges_html}<span class="planned-placeholder">Planned</span></div>'
+            preview = f'<div class="card-img" style="color:var(--ink-dim);font-size:13px;display:flex;align-items:center;justify-content:center;">{badges_html}<span class="planned-placeholder" data-i18n="gl_planned">Planned</span></div>'
 
         tags_html = "".join(f'<span class="tag">{_html.escape(t)}</span>' for t in tags[:3])
         # Add input_shape as a distinguishing tag
@@ -1804,27 +2126,27 @@ def gallery_page() -> str:
     body = (
         gallery_css +
         '<div class="gallery-container">'
-        '<div class="gallery-header"><h1>Sci-Fig Gallery</h1>'
-        '<p>Scientific figure template library — view, approve, and contribute</p></div>'
+        '<div class="gallery-header"><h1 data-i18n="gl_title">Sci-Fig Gallery</h1>'
+        f'<p data-i18n="gl_subtitle">Scientific figure template library — view, approve, and contribute</p></div>'
         + stats_html +
         '<div class="gallery-toolbar">'
         '<div class="search-wrap">'
         '<span class="search-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>'
-        '<input type="text" id="gallery-search" placeholder="Search charts..." autocomplete="off">'
+        '<input type="text" id="gallery-search" data-i18n-ph="gl_search" placeholder="Search charts..." autocomplete="off">'
         '<span class="search-clear" id="search-clear" onclick="clearSearch()">✕</span>'
         '</div>'
         '<div class="toolbar-actions">'
-        f'<span class="card-count" id="card-count">Showing {_total} of {_total}</span>'
-        '<button class="submit-toggle-btn" onclick="toggleSubmitForm()">+ Submit</button>'
+        f'<span class="card-count" id="card-count" data-i18n-args data-i18n="gl_showing">Showing {_total} of {_total}</span>'
+        '<button class="submit-toggle-btn" data-i18n="gl_submit" onclick="toggleSubmitForm()">+ Submit</button>'
         '</div></div>'
         '<div class="submit-form" id="submit-form">'
         '<div class="submit-grid">'
-        '<div><label>Image URL</label><input type="text" id="submit-url" placeholder="https://..."></div>'
-        '<div><label>Or Upload</label><input type="file" id="submit-file" accept="image/*"></div>'
+        '<div><label data-i18n="gl_image_url">Image URL</label><input type="text" id="submit-url" data-i18n-ph="gl_image_url_ph" placeholder="https://..."></div>'
+        '<div><label data-i18n="gl_or_upload">Or Upload</label><input type="file" id="submit-file" accept="image/*"></div>'
         '</div>'
-        '<div class="submit-notes-row"><label>Notes</label>'
-        '<textarea id="submit-notes" rows="2" placeholder="Figure type, paper source, what you like..."></textarea></div>'
-        '<div class="submit-actions"><button class="submit-go" onclick="submitFigure()">Submit</button></div>'
+        '<div class="submit-notes-row"><label data-i18n="gl_notes">Notes</label>'
+        '<textarea id="submit-notes" rows="2" data-i18n-ph="gl_notes_ph" placeholder="Figure type, paper source, what you like..."></textarea></div>'
+        '<div class="submit-actions"><button class="submit-go" data-i18n="gl_submit_btn" onclick="submitFigure()">Submit</button></div>'
         '</div>'
         '<div class="filter-bar">' + filter_btns + '</div>'
         + _build_palettes_section()
@@ -1832,7 +2154,7 @@ def gallery_page() -> str:
         + '<div class="modal-overlay" id="modal" onclick="closeModal()"><span class="close">&times;</span>'
         '<img id="modal-img" src=""></div>'
         '<div class="iframe-modal" id="iframe-modal">'
-        '<div class="iframe-header"><h3 id="iframe-title">Interactive Chart</h3><span class="iframe-close" onclick="closeInteractive()">&times;</span></div>'
+        '<div class="iframe-header"><h3 id="iframe-title" data-i18n="gl_interactive">Interactive Chart</h3><span class="iframe-close" onclick="closeInteractive()">&times;</span></div>'
         '<iframe id="iframe-chart" src="" sandbox="allow-scripts allow-same-origin"></iframe>'
         '</div>'
         '<div class="toast" id="toast"></div>'
@@ -1852,8 +2174,8 @@ function closeModal() {
 }
 function openInteractive(name) {
   var url = INTERACTIVE_MAP[name];
-  if (!url) { showToast('No interactive version available', 'reject'); return; }
-  document.getElementById('iframe-title').textContent = 'Interactive: ' + name;
+  if (!url) { showToast(_t('toast_no_interactive'), 'reject'); return; }
+  document.getElementById('iframe-title').textContent = _t('gl_interactive') + ': ' + name;
   document.getElementById('iframe-chart').src = '/gallery/static/' + url;
   document.getElementById('iframe-modal').classList.add('show');
 }
@@ -1879,7 +2201,7 @@ function feedback(chart, action, ev) {
     ta.placeholder = 'Your suggestion...';
     div.appendChild(ta);
     var btn = document.createElement('button');
-    btn.textContent = 'Submit';
+    btn.textContent = _t('gl_submit');
     btn.onclick = function(){ submitSuggest(chart); };
     div.appendChild(btn);
     card.appendChild(div);
@@ -1891,25 +2213,25 @@ function feedback(chart, action, ev) {
     body: JSON.stringify({chart: chart, action: action, suggestion: ''}),
     credentials: 'same-origin'
   }).then(function(r) {
-    if (r.ok) { showToast(chart + (action === 'approve' ? ' ✓ Approved' : ' ✕ Rejected'), action); }
-    else { showToast('Error: ' + r.status, 'reject'); }
-  }).catch(function() {
-    showToast(chart + (action === 'approve' ? ' ✓ Approved' : ' ✕ Rejected'), action);
+if (r.ok) { showToast(chart + (action === 'approve' ? ' ✓ ' + _t('toast_approved') : ' ✕ ' + _t('toast_rejected')), action); }
+    else { showToast(_t('toast_error') + ': ' + r.status, 'reject'); }
+  }
+  showToast(chart + (action === 'approve' ? ' ✓ ' + _t('toast_approved') : ' ✕ ' + _t('toast_rejected')), action);
   });
 }
 function submitSuggest(chart) {
   var textarea = document.getElementById('suggest-' + chart);
   var text = textarea ? textarea.value.trim() : '';
-  if (!text) { showToast('Enter a suggestion first', 'reject'); return; }
+  if (!text) { showToast(_t('toast_enter_suggestion'), 'reject'); return; }
   fetch('/api/gallery/feedback', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({chart: chart, action: 'suggest', suggestion: text}),
     credentials: 'same-origin'
   }).then(function(r) {
-    if (r.ok) { showToast(chart + ' ✓ Suggestion saved', 'suggest'); }
+    if (r.ok) { showToast(chart + ' ✓ ' + _t('toast_suggestion_saved'), 'suggest'); }
   }).catch(function() {
-    showToast(chart + ' ✓ Suggestion noted', 'suggest');
+    showToast(chart + ' ✓ ' + _t('toast_suggestion_noted'), 'suggest');
   });
   var input = textarea.closest('.suggest-input');
   if (input) input.remove();
@@ -1928,7 +2250,7 @@ function submitFigure() {
   var file = fileInput.files[0];
 
   if (!url && !file) {
-    showToast('Provide an image URL or upload a file', 'reject');
+    showToast(_t('toast_enter_url_or_file'), 'reject');
     return;
   }
 
@@ -1945,16 +2267,16 @@ function submitFigure() {
     throw new Error('Server error: ' + r.status);
   }).then(function(data) {
     if (data.ok) {
-      showToast('Figure submitted for analysis ✓', 'approve');
+      showToast(_t('toast_figure_submitted'), 'approve');
       urlInput.value = '';
       notesInput.value = '';
       fileInput.value = '';
       document.getElementById('submit-form').classList.remove('open');
     } else {
-      showToast(data.error || 'Error', 'reject');
+      showToast(data.error || _t('toast_error'), 'reject');
     }
   }).catch(function(e) {
-    showToast('Error: ' + e.message, 'reject');
+    showToast(_t('toast_error') + ': ' + e.message, 'reject');
   });
 }
 // Search functionality
@@ -1977,7 +2299,7 @@ function updateCardCount() {
   var total = document.querySelectorAll('.gallery-card-link').length;
   var visible = document.querySelectorAll('.gallery-card-link:not([style*="display: none"])').length;
   var el = document.getElementById('card-count');
-  if (el) el.textContent = 'Showing ' + visible + ' of ' + total;
+  if (el) el.textContent = _t('gl_showing') + ' ' + visible + ' ' + _t('gl_of') + ' ' + total;
 }
 
 // Restore saved filter from localStorage
@@ -2340,18 +2662,18 @@ def gallery_detail_page(name: str) -> str:
     actions_html = (
         '<div style="background:var(--card);border:1px solid var(--border-hover);border-radius:var(--r-md);'
         'padding:var(--sp-md);">'
-        '<h2 style="font-size:15px;font-weight:600;color:var(--ink);margin-bottom:10px;">Actions</h2>'
+        f'<h2 style="font-size:15px;font-weight:600;color:var(--ink);margin-bottom:10px;" data-i18n="kh_actions">{_pt("kh_actions")}</h2>'
         '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">'
         f'{approve_btn}'
-        '<button onclick="openSuggestBox()" '
+        f'<button onclick="openSuggestBox()" '
         'style="padding:8px 20px;border-radius:4px;background:var(--primary-muted);color:var(--primary);'
-        'border:1px solid var(--primary);font-size:13px;cursor:pointer;font-weight:600;">✎ Suggest</button>'
-        '<button onclick="detailFeedback(\'reject\')" '
+        f'border:1px solid var(--primary);font-size:13px;cursor:pointer;font-weight:600;">{_pt("gl_suggest")}</button>'
+        f'<button onclick="detailFeedback(\'reject\')" '
         'style="padding:8px 20px;border-radius:4px;background:var(--danger-muted);color:var(--danger);'
-        'border:1px solid var(--danger);font-size:13px;cursor:pointer;font-weight:600;">✕ Reject</button>'
+        f'border:1px solid var(--danger);font-size:13px;cursor:pointer;font-weight:600;">✕ {_pt("kh_reject")}</button>'
         '</div>'
         '<div id="suggest-box" style="display:none;margin-top:12px;">'
-        '<textarea id="suggest-text" placeholder="Enter your suggestion..." '
+        f'<textarea id="suggest-text" placeholder="{_pt("gl_suggest_ph")}" '
         'style="width:100%;padding:8px;border-radius:4px;border:1px solid var(--border-hover);'
         'background:var(--bg);color:var(--ink);font-size:13px;min-height:80px;resize:vertical;'
         'box-sizing:border-box;"></textarea>'
@@ -2377,7 +2699,7 @@ def gallery_detail_page(name: str) -> str:
     )
 
     # Detail page CSS (minimal - most styling is inline)
-    detail_css = '<style>#detail-modal.show{display:flex!important}@media(max-width:640px){.detail-meta-grid,.detail-action-grid{grid-template-columns:1fr!important}}</style>'
+    detail_css = '<style>#detail-modal.show{display:flex!important}@media(max-width:640px){.detail-meta-grid,.detail-action-grid{grid-template-columns:1fr!important}}.CodeMirror{font-size:13px;font-family:var(--font-mono),"Fira Code",monospace;border:none;height:auto;min-height:200px;max-height:500px;}.CodeMirror-scroll{min-height:200px;}.cm-s-material-darker .CodeMirror-gutters{background:#1e1e2e!important;border-right:1px solid var(--border)!important;}.cm-s-material-darker{background:#1a1a2e!important;}</style>'
 
     # Assemble body — image full width on top, then Details | Template Files side by side
     _image_row = (
@@ -2391,6 +2713,99 @@ def gallery_detail_page(name: str) -> str:
     )
 
     # Full-width sections below the two-column area
+    # ── Live Editor section ──
+    # Read first R template for pre-fill
+    _default_code = "# Write your R code here\nlibrary(ggplot2)\n"
+    _tpl_code = _default_code
+    _first_r_tpl = None
+    for tf in template_files:
+        if tf["lang"] == "R":
+            _first_r_tpl = tf["filename"]
+            break
+    if not _first_r_tpl:
+        for ext in (".R", ".py"):
+            for c in _catalog.get("charts", []):
+                _tpl = c.get("template", "")
+                if _tpl.endswith(ext):
+                    _first_r_tpl = _tpl.split("/")[-1]
+                    break
+            if _first_r_tpl:
+                break
+    # Read template file content for pre-fill
+    if _first_r_tpl:
+        for _tf in template_files:
+            if _tf["filename"] == _first_r_tpl:
+                _fpath = _os.path.join(_templates_dir, _tf["filename"])
+                try:
+                    with open(_fpath) as _f:
+                        _tpl_code = _f.read()
+                except Exception:
+                    pass
+                break
+    # Strip source() boilerplate (render endpoint handles it)
+    import re as _re
+    _tpl_code = _re.sub(r'suppressPackageStartupMessages\(\{[^}]*\}\)', '', _tpl_code, flags=_re.DOTALL)
+    _tpl_code = _re.sub(r'tryCatch\(source\([^)]+\),\s*\n\s*error\s*=\s*function\([^)]*\)\s*source\([^)]+\)\)', '', _tpl_code, flags=_re.DOTALL)
+    _tpl_code = _re.sub(r'source\("[^"]+"\)\s*\n?', '', _tpl_code)
+    # Strip entire if(sys.nframe()==0) demo block (uses ggsave, not current device)
+    _tpl_code = _re.sub(r'if\s*\(sys\.nframe\(\)\s*==\s*0\)\s*\{.*\}\s*$', '', _tpl_code, flags=_re.DOTALL)
+    _tpl_code = _re.sub(r'\n{3,}', '\n\n', _tpl_code)
+    _tpl_code = _tpl_code.strip()
+    # Detect main plot function name and add demo call
+    _plot_fn_match = _re.search(r'(\w+_plot)\s*<-\s*function', _tpl_code)
+    _demo_fn = _plot_fn_match.group(1) if _plot_fn_match else 'plot'
+    _data_fn_match = _re.search(r'(generate_\w+|mock_\w+)\s*<-\s*function', _tpl_code)
+    _data_fn = _data_fn_match.group(1) if _data_fn_match else None
+    if _data_fn:
+        _tpl_code += f'\n\n# --- Demo (editable) ---\ndf <- {_data_fn}()\nprint({_demo_fn}(df))\n'
+    else:
+        _tpl_code += f'\n\n# --- Demo (editable) ---\nprint({_demo_fn}())\n'
+    _tpl_code_json = _json.dumps(_tpl_code)
+
+    _editor_toolbar = (
+        '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;'
+        'border-bottom:1px solid var(--border-hover);flex-wrap:wrap;">'
+        '<span style="font-size:14px;font-weight:600;color:var(--ink);">🧪 Live Editor</span>'
+        '<span style="font-size:11px;color:var(--ink-dim);">Edit code → Run → Preview</span>'
+        '<div style="margin-left:auto;display:flex;gap:8px;align-items:center;">'
+        '<select id="editor-format" style="padding:4px 8px;border:1px solid var(--border-hover);'
+        'border-radius:4px;background:var(--bg);color:var(--ink);font-size:12px;">'
+        '<option value="png">PNG</option><option value="pdf">PDF</option></select>'
+        '<button id="editor-run-btn" onclick="runEditorCode()" '
+        'style="padding:6px 18px;border-radius:var(--r-md);background:var(--primary);color:#fff;'
+        'border:none;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;'
+        'transition:opacity var(--duration);">▶ Run</button>'
+        '<button onclick="resetEditorCode()" '
+        'style="padding:6px 12px;border-radius:var(--r-md);background:var(--card);color:var(--ink-muted);'
+        'border:1px solid var(--border-hover);font-size:12px;cursor:pointer;">↺ Reset</button>'
+        '</div></div>'
+    )
+
+    _editor_body = (
+        '<div id="editor-container" style="border-bottom:1px solid var(--border-hover);"></div>'
+    )
+
+    _editor_preview = (
+        '<div id="editor-preview" style="padding:16px;min-height:120px;text-align:center;">'
+        '<div id="editor-preview-placeholder" style="color:var(--ink-dim);font-size:13px;padding:40px 0;">'
+        'Click <strong>▶ Run</strong> to generate a preview</div>'
+        '<img id="editor-preview-img" style="max-width:100%;display:none;border-radius:var(--r-md);'
+        'border:1px solid var(--border-hover);cursor:pointer;" '
+        'onclick="window.open(this.src,\'_blank\')" title="Click to open full size">'
+        '<div id="editor-preview-status" style="display:none;margin-top:8px;font-size:12px;color:var(--ink-dim);"></div>'
+        '<pre id="editor-preview-error" style="display:none;margin-top:8px;padding:12px;background:var(--danger-muted);'
+        'color:var(--danger);border-radius:var(--r-sm);font-size:12px;white-space:pre-wrap;text-align:left;'
+        'max-height:200px;overflow:auto;"></pre>'
+        '</div>'
+    )
+
+    live_editor_html = (
+        '<div style="background:var(--card);border:1px solid var(--border-hover);border-radius:var(--r-md);'
+        'overflow:hidden;margin-bottom:var(--sp-md);">'
+        + _editor_toolbar + _editor_body + _editor_preview +
+        '</div>'
+    )
+
     # Row 1: Actions (left) | Upload (right), Row 2: Feedback (full width)
     _bottom_grid = (
         '<div class="detail-action-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-md);margin-bottom:var(--sp-md);">'
@@ -2406,6 +2821,7 @@ def gallery_detail_page(name: str) -> str:
         '<div style="max-width:960px;margin:0 auto;padding:0 var(--sp-md) var(--sp-xl);">' +
         _image_row +
         _meta_row +
+        live_editor_html +
         _bottom_grid +
         '</div>' +
         modal_html +
@@ -2430,10 +2846,10 @@ function detailFeedback(action) {
     body: JSON.stringify({chart: CHART_NAME, action: action, suggestion: ''}),
     credentials: 'same-origin'
   }).then(function(r) {
-    if (r.ok) { showToast(CHART_NAME + (action === 'approve' ? ' ✓ Approved' : ' ✕ Rejected'), action); setTimeout(function(){ location.reload(); }, 1200); }
-    else { showToast('Error: ' + r.status, 'reject'); }
+    if (r.ok) { showToast(CHART_NAME + (action === 'approve' ? ' ✓ ' + _t('toast_approved') : ' ✕ ' + _t('toast_rejected')), action); setTimeout(function(){ location.reload(); }, 1200); }
+    else { showToast(_t('toast_error') + ': ' + r.status, 'reject'); }
   }).catch(function() {
-    showToast(CHART_NAME + (action === 'approve' ? ' ✓ Approved' : ' ✕ Rejected'), action);
+    showToast(CHART_NAME + (action === 'approve' ? ' ✓ ' + _t('toast_approved') : ' ✕ ' + _t('toast_rejected')), action);
     setTimeout(function(){ location.reload(); }, 1200);
   });
 }
@@ -2446,17 +2862,17 @@ function openSuggestBox() {
 
 function submitDetailSuggest() {
   var text = document.getElementById('suggest-text').value.trim();
-  if (!text) { showToast('Enter a suggestion first', 'reject'); return; }
+  if (!text) { showToast(_t('toast_enter_suggestion'), 'reject'); return; }
   fetch('/api/gallery/feedback', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({chart: CHART_NAME, action: 'suggest', suggestion: text}),
     credentials: 'same-origin'
   }).then(function(r) {
-    if (r.ok) { showToast(CHART_NAME + ' ✓ Suggestion saved', 'suggest'); setTimeout(function(){ location.reload(); }, 1200); }
-    else { showToast('Error: ' + r.status, 'reject'); }
+    if (r.ok) { showToast(CHART_NAME + ' ✓ ' + _t('toast_suggestion_saved'), 'suggest'); setTimeout(function(){ location.reload(); }, 1200); }
+    else { showToast(_t('toast_error') + ': ' + r.status, 'reject'); }
   }).catch(function() {
-    showToast(CHART_NAME + ' ✓ Suggestion noted', 'suggest');
+    showToast(CHART_NAME + ' ✓ ' + _t('toast_suggestion_noted'), 'suggest');
     setTimeout(function(){ location.reload(); }, 1200);
   });
 }
@@ -2469,10 +2885,10 @@ document.getElementById('upload-form').addEventListener('submit', function(e) {
     method: 'POST',
     body: formData
   }).then(function(r) {
-    if (r.ok) { showToast('Template uploaded ✓', 'approve'); setTimeout(function(){ location.reload(); }, 1200); }
-    else { showToast('Upload failed: ' + r.status, 'reject'); }
+    if (r.ok) { showToast(_t('toast_upload_ok'), 'approve'); setTimeout(function(){ location.reload(); }, 1200); }
+    else { showToast(_t('toast_upload_fail') + ': ' + r.status, 'reject'); }
   }).catch(function(err) {
-    showToast('Upload error: ' + err.message, 'reject');
+    showToast(_t('toast_upload_fail') + ': ' + err.message, 'reject');
   });
 });
 
@@ -2492,14 +2908,14 @@ function toggleCodePreview(id, filename) {
   if (el.style.display === 'none') {
     // Show — load code if not yet loaded
     var pre = document.getElementById(id + '-pre');
-    if (pre && pre.textContent === 'Loading...') {
+    if (pre && pre.textContent === _t('gl_loading') + '...') {
       fetch('/api/gallery/template/' + filename)
         .then(function(r) { return r.json(); })
         .then(function(data) {
           if (data.ok) { pre.textContent = data.content; }
-          else { pre.textContent = 'Error: ' + (data.error || 'Failed to load'); }
+          else { pre.textContent = _t('toast_error') + ': ' + (data.error || _t('toast_network_error')); }
         })
-        .catch(function() { pre.textContent = 'Network error'; });
+        .catch(function() { pre.textContent = _t('toast_network_error'); });
     }
     el.style.display = 'block';
     if (btn) { btn.textContent = '▾ Code'; btn.style.borderColor = 'var(--primary)'; btn.style.color = 'var(--primary)'; }
@@ -2508,9 +2924,129 @@ function toggleCodePreview(id, filename) {
     if (btn) { btn.textContent = '▸ Code'; btn.style.borderColor = 'var(--border-hover)'; btn.style.color = 'var(--ink-muted)'; }
   }
 }
+
+/* ── Live Editor (CodeMirror + HF Space API) ── */
+var EDITOR_CM = null;
+var EDITOR_ORIG_CODE = EDITOR_INITIAL_CODE;
+var RENDER_API = (window.BRAIN_CONFIG && window.BRAIN_CONFIG.renderApi) || '/api/render';
+
+function _loadCSS(href) {
+  return new Promise(function(resolve) {
+    if (document.querySelector('link[href="' + href + '"]')) { resolve(); return; }
+    var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = href;
+    l.onload = resolve; l.onerror = resolve; document.head.appendChild(l);
+  });
+}
+function _loadScript(src) {
+  return new Promise(function(resolve) {
+    if (document.querySelector('script[src="' + src + '"]')) { resolve(); return; }
+    var s = document.createElement('script'); s.src = src;
+    s.onload = resolve; s.onerror = resolve; document.head.appendChild(s);
+  });
+}
+
+var _CM_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/';
+
+function loadCodeMirror() {
+  return _loadCSS(_CM_BASE + 'codemirror.min.css')
+    .then(function() { return _loadCSS(_CM_BASE + 'theme/material-darker.min.css'); })
+    .then(function() { return _loadScript(_CM_BASE + 'codemirror.min.js'); })
+    .then(function() { return _loadScript(_CM_BASE + 'mode/r/r.min.js'); });
+}
+
+function initLiveEditor() {
+  var container = document.getElementById('editor-container');
+  if (!container || typeof CodeMirror === 'undefined') return;
+  EDITOR_CM = CodeMirror(container, {
+    value: EDITOR_INITIAL_CODE,
+    mode: 'r',
+    theme: 'material-darker',
+    lineNumbers: true,
+    lineWrapping: true,
+    indentUnit: 2,
+    tabSize: 2,
+    matchBrackets: true,
+    styleActiveLine: true,
+    viewportMargin: Infinity
+  });
+  var cmEl = container.querySelector('.CodeMirror');
+  if (cmEl) { cmEl.style.height = 'auto'; cmEl.style.minHeight = '200px'; cmEl.style.maxHeight = '500px'; }
+}
+
+function runEditorCode() {
+  if (!EDITOR_CM) return;
+  var code = EDITOR_CM.getValue();
+  var fmt = (document.getElementById('editor-format') || {}).value || 'png';
+  var btn = document.getElementById('editor-run-btn');
+  var img = document.getElementById('editor-preview-img');
+  var ph = document.getElementById('editor-preview-placeholder');
+  var err = document.getElementById('editor-preview-error');
+  var status = document.getElementById('editor-preview-status');
+
+  // UI: loading
+  if (btn) { btn.textContent = '⏳ Running...'; btn.style.opacity = '0.6'; btn.disabled = true; }
+  if (ph) ph.style.display = 'none';
+  if (img) img.style.display = 'none';
+  if (err) err.style.display = 'none';
+  if (status) { status.style.display = 'none'; status.textContent = ''; }
+
+  var start = Date.now();
+  fetch(RENDER_API, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({script: code, format: fmt})
+  }).then(function(r) {
+    var elapsed = ((Date.now() - start) / 1000).toFixed(1);
+    if (!r.ok) {
+      return r.json().then(function(e) { throw new Error(e.detail || e.error || 'HTTP ' + r.status); });
+    }
+    if (fmt === 'pdf') {
+      return r.blob().then(function(blob) {
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url; a.download = CHART_NAME + '_output.pdf'; a.click();
+        if (status) { status.textContent = 'PDF downloaded (' + elapsed + 's)'; status.style.display = 'block'; status.style.color = 'var(--success)'; }
+      });
+    }
+    return r.blob().then(function(blob) {
+      var url = URL.createObjectURL(blob);
+      if (img) { img.src = url; img.style.display = 'block'; }
+      if (status) { status.textContent = 'Generated in ' + elapsed + 's'; status.style.display = 'block'; status.style.color = 'var(--success)'; }
+    });
+  }).catch(function(e) {
+    if (err) { err.textContent = 'Error: ' + e.message; err.style.display = 'block'; }
+  }).finally(function() {
+    if (btn) { btn.textContent = '▶ Run'; btn.style.opacity = '1'; btn.disabled = false; }
+  });
+}
+
+function resetEditorCode() {
+  if (EDITOR_CM) EDITOR_CM.setValue(EDITOR_ORIG_CODE);
+  var img = document.getElementById('editor-preview-img');
+  var ph = document.getElementById('editor-preview-placeholder');
+  var err = document.getElementById('editor-preview-error');
+  var status = document.getElementById('editor-preview-status');
+  if (img) img.style.display = 'none';
+  if (err) err.style.display = 'none';
+  if (status) status.style.display = 'none';
+  if (ph) ph.style.display = 'block';
+}
+
+/* Ctrl+Enter / Cmd+Enter to run */
+document.addEventListener('keydown', function(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    var cm = document.querySelector('.CodeMirror');
+    if (cm && cm.contains(document.activeElement)) { e.preventDefault(); runEditorCode(); }
+  }
+});
+
+/* Init editor: load CodeMirror then create editor */
+document.addEventListener('DOMContentLoaded', function() {
+  loadCodeMirror().then(function() { initLiveEditor(); });
+});
 """
     safe_name_json = _json.dumps(name)
-    detail_js = f"var CHART_NAME = {safe_name_json};\n" + detail_js
+    detail_js = f"var CHART_NAME = {safe_name_json};\nvar EDITOR_INITIAL_CODE = {_tpl_code_json};\n" + detail_js
 
     return _page(f"{title} — Gallery Detail", body, extra_js=detail_js, nav_active="gallery")
 
@@ -2537,7 +3073,7 @@ def _format_cost(c: float) -> str:
     return f"${c:.0f}"
 
 
-def home_page(*, node_counts: dict[str, int], chart_count: int, health_summary: dict, recent_nodes: list | None = None) -> str:
+def home_page(*, node_counts: dict[str, int], chart_count: int, health_summary: dict, recent_nodes: list | None = None, do_status: dict | None = None, proxy_status: dict | None = None, proxy_traffic: list | None = None, sub2api: dict | None = None) -> str:
     """Render the home/landing page as a Notion-style personal dashboard."""
     total_nodes = sum(node_counts.values())
     canonized = node_counts.get("canonized", 0)
@@ -2555,11 +3091,11 @@ def home_page(*, node_counts: dict[str, int], chart_count: int, health_summary: 
         "deprecated": "#6b7280",
     }
     stage_labels = {
-        "draft": "草稿",
-        "refined": "精炼",
-        "verified": "验证",
-        "canonized": "正典",
-        "deprecated": "废弃",
+        "draft": _pt("stage_draft_short"),
+        "refined": _pt("stage_refined_short"),
+        "verified": _pt("stage_verified_short"),
+        "canonized": _pt("stage_canonized_short"),
+        "deprecated": _pt("stage_deprecated_short"),
     }
 
     # Build recent activity rows
@@ -2569,19 +3105,73 @@ def home_page(*, node_counts: dict[str, int], chart_count: int, health_summary: 
             stage = node.get("stage", "draft")
             color = stage_colors.get(stage, "#6b7280")
             label = stage_labels.get(stage, stage)
-            summary = (node.get("summary") or "无摘要")
+            summary = (node.get("summary") or _pt("dash_no_summary"))
             if len(summary) > 60:
                 summary = summary[:57] + "..."
             created = node.get("created_at", "")
             nid = node.get("id", "")
+            i18n_stage_key = f"stage_{stage}_short"
             recent_items += f'''<tr class="dash-activity-row">
-  <td><span class="dash-stage-badge" style="background:{color}20;color:{color};border:1px solid {color}40">{_html.escape(label)}</span></td>
+  <td><span class="dash-stage-badge" style="background:{color}20;color:{color};border:1px solid {color}40" data-i18n="{_html.escape(i18n_stage_key)}">{_html.escape(label)}</span></td>
   <td class="dash-activity-summary">{_html.escape(summary)}</td>
   <td class="dash-activity-time" data-ts="{_html.escape(str(created))}">{_html.escape(str(created)[:10])}</td>
 </tr>
 '''
     else:
-        recent_items = '<tr><td colspan="3" class="dash-activity-empty">暂无最近活动</td></tr>'
+        recent_items = f'<tr><td colspan="3" class="dash-activity-empty" data-i18n="dash_no_activity">{_pt("dash_no_activity")}</td></tr>'
+
+    # --- Build Sub2API hero cards and trend chart for home page ---
+    _s2 = sub2api or {}
+    _s2st = _s2.get("stats")
+    _s2trend = _s2.get("trend") or []
+    home_sub2api_cards = ""
+    home_trend_data_js = "[]"
+    home_need_chartjs = False
+    if _s2st:
+        home_need_chartjs = True
+        _today_tokens = int(_s2st.get("today_tokens", 0))
+        _today_requests = int(_s2st.get("today_requests", 0))
+        _today_cost = float(_s2st.get("today_actual_cost", 0))
+        _weekly_cost = sum(float(d.get("actual_cost", 0)) for d in _s2trend[-7:]) if _s2trend else _today_cost
+        import json as _json_home
+        _home_chart_data = []
+        for d in _s2trend[-7:]:
+            _home_chart_data.append({
+                "date": d.get("date", "?")[5:],
+                "tokens": int(d.get("total_tokens", 0)),
+                "requests": int(d.get("total_requests", 0)),
+                "cost": round(float(d.get("actual_cost", 0)), 2),
+            })
+        home_trend_data_js = _json_home.dumps(_home_chart_data)
+        home_sub2api_cards = f"""  <!-- Sub2API Stats -->
+  <section class="dash-section" style="animation-delay:.2s">
+    <div class="dash-section-header">
+      <h2 class="dash-section-title">⚡ Sub2API</h2>
+    </div>
+    <div class="dash-hero">
+      <div class="dash-metric dash-metricPrimary dash-metricAccent">
+        <div class="dash-num">{_format_tokens(_today_tokens)}</div>
+        <div class="dash-label" data-i18n="dash_tokens">{_pt("dash_tokens")}</div>
+      </div>
+      <div class="dash-metric dash-metricSuccess">
+        <div class="dash-num">{_today_requests}</div>
+        <div class="dash-label" data-i18n="dash_requests">{_pt("dash_requests")}</div>
+      </div>
+      <div class="dash-metric{' dash-metricWarning' if _today_cost > 50 else ''}">
+        <div class="dash-num">{_format_cost(_today_cost)}</div>
+        <div class="dash-label" data-i18n="dash_cost">{_pt("dash_cost")}</div>
+      </div>
+      <div class="dash-metric">
+        <div class="dash-num">{_format_cost(_weekly_cost)}</div>
+        <div class="dash-label" data-i18n="dash_week">{_pt("dash_week")}</div>
+      </div>
+    </div>
+    <div class="dash-trend-wrap" style="margin-top:var(--sp-md)">
+      <div class="dash-trend-label">7-Day Token · Request · Cost Trend</div>
+      <div class="dash-trend-chart-box"><canvas id="home-trend-chart"></canvas></div>
+    </div>
+  </section>
+"""
 
     body = f"""
 
@@ -2589,7 +3179,7 @@ def home_page(*, node_counts: dict[str, int], chart_count: int, health_summary: 
 
   <!-- Greeting -->
   <section class="dash-greeting" id="dash-greeting">
-    <h1 id="dash-greeting-text">你好，探索者</h1>
+    <h1 id="dash-greeting-text" data-i18n="dash_greeting">你好，探索者</h1>
     <p class="dash-greeting-date" id="dash-greeting-date"></p>
   </section>
 
@@ -2598,35 +3188,35 @@ def home_page(*, node_counts: dict[str, int], chart_count: int, health_summary: 
     <div class="dash-stat-card" data-accent="primary">
       <div class="dash-stat-watermark">{_ICON_KNOWLEDGE}</div>
       <div class="dash-stat-value">{total_nodes}</div>
-      <div class="dash-stat-label">总节点</div>
+      <div class="dash-stat-label" data-i18n="dash_total">总节点</div>
     </div>
     <div class="dash-stat-card" data-accent="success">
       <div class="dash-stat-watermark">{_ICON_STATUS}</div>
       <div class="dash-stat-value" style="color:var(--primary)">{canonized}</div>
-      <div class="dash-stat-label">正典</div>
+      <div class="dash-stat-label" data-i18n="dash_canonized">正典</div>
     </div>
     <div class="dash-stat-card" data-accent="info">
       <div class="dash-stat-watermark">{_ICON_GALLERY}</div>
       <div class="dash-stat-value" style="color:var(--info)">{refined}</div>
-      <div class="dash-stat-label">精炼</div>
+      <div class="dash-stat-label" data-i18n="dash_refined">精炼</div>
     </div>
     <div class="dash-stat-card" data-accent="warning">
       <div class="dash-stat-watermark">{_ICON_QUEUE}</div>
       <div class="dash-stat-value" style="color:var(--warning)">{draft}</div>
-      <div class="dash-stat-label">草稿</div>
+      <div class="dash-stat-label" data-i18n="dash_draft">草稿</div>
     </div>
   </section>
 
   <!-- Recent Activity — table style -->
   <section class="dash-section">
     <div class="dash-section-header">
-      <h2 class="dash-section-title">📋 最近更新</h2>
-      <a href="/knowledge" class="dash-section-link">查看全部 →</a>
+      <h2 class="dash-section-title" data-i18n="dash_recent">📋 最近更新</h2>
+      <a href="/knowledge" class="dash-section-link" data-i18n="dash_viewall">查看全部 →</a>
     </div>
     <div class="dash-table-wrap">
       <table class="dash-activity-table">
         <thead>
-          <tr><th>状态</th><th>摘要</th><th>时间</th></tr>
+          <tr><th data-i18n="col_status">{_pt("col_status")}</th><th data-i18n="col_summary">{_pt("col_summary")}</th><th data-i18n="col_time">{_pt("col_time")}</th></tr>
         </thead>
         <tbody>
           {recent_items}
@@ -2638,25 +3228,60 @@ def home_page(*, node_counts: dict[str, int], chart_count: int, health_summary: 
   <!-- Quick Access — horizontal icon cards -->
   <section class="dash-section">
     <div class="dash-section-header">
-      <h2 class="dash-section-title">⚡ 快捷入口</h2>
+      <h2 class="dash-section-title" data-i18n="dash_shortcuts">⚡ 快捷入口</h2>
     </div>
     <div class="dash-quick-row">
       <a href="/knowledge" class="dash-quick-tile">
         <div class="dash-quick-tile-icon" style="background:var(--primary-muted);color:var(--primary)">{_ICON_KNOWLEDGE}</div>
-        <span>知识树</span>
+        <span data-i18n="dash_knowledge">知识树</span>
       </a>
       <a href="/gallery" class="dash-quick-tile">
         <div class="dash-quick-tile-icon" style="background:var(--success-muted);color:var(--success)">{_ICON_GALLERY}</div>
-        <span>绘图库</span>
+        <span data-i18n="dash_gallery">绘图库</span>
       </a>
       <a href="/dashboard" class="dash-quick-tile">
         <div class="dash-quick-tile-icon" style="background:var(--info-muted);color:var(--info)">{_ICON_SHIELD}</div>
-        <span>监控台</span>
+        <span data-i18n="dash_monitor">监控台</span>
       </a>
       <a href="/services" class="dash-quick-tile">
         <div class="dash-quick-tile-icon" style="background:rgba(251,191,36,.12);color:#fbbf24">{_ICON_SERVICES}</div>
-        <span>服务</span>
+        <span data-i18n="nav_services">服务</span>
       </a>
+    </div>
+  </section>
+
+
+
+{home_sub2api_cards}
+
+  <!-- Resource Monitor -->
+  <section class="dash-section" style="animation-delay:.24s">
+    <div class="dash-section-header">
+      <h2 class="dash-section-title">📊 Resources</h2>
+    </div>
+    <div class="dash-resource-section" id="home-resource-section" style="margin:0">
+      <div class="dash-res-card">
+        <div class="dash-res-label">CPU</div>
+        <div class="dash-res-value" id="home-res-cpu">—</div>
+        <div class="dash-res-bar"><div class="dash-res-fill" id="home-res-cpu-bar" style="width:0;background:var(--primary)"></div></div>
+      </div>
+      <div class="dash-res-card">
+        <div class="dash-res-label">Memory</div>
+        <div class="dash-res-value" id="home-res-mem">—</div>
+        <div class="dash-res-bar"><div class="dash-res-fill" id="home-res-mem-bar" style="width:0;background:var(--success)"></div></div>
+        <div class="dash-res-sub" id="home-res-mem-sub"></div>
+      </div>
+      <div class="dash-res-card">
+        <div class="dash-res-label">Disk</div>
+        <div class="dash-res-value" id="home-res-disk">—</div>
+        <div class="dash-res-bar"><div class="dash-res-fill" id="home-res-disk-bar" style="width:0;background:var(--warning)"></div></div>
+        <div class="dash-res-sub" id="home-res-disk-sub"></div>
+      </div>
+      <div class="dash-res-card">
+        <div class="dash-res-label">Load Avg</div>
+        <div class="dash-res-value" id="home-res-load">—</div>
+        <div class="dash-res-sub" id="home-res-load-sub"></div>
+      </div>
     </div>
   </section>
 
@@ -2664,11 +3289,11 @@ def home_page(*, node_counts: dict[str, int], chart_count: int, health_summary: 
   <footer class="dash-health-bar">
     <div class="dash-health-indicator">
       <span class="dash-health-dot" style="background:var(--success);box-shadow:0 0 8px rgba(52,211,153,.5)"></span>
-      <span>Brain 正常运行</span>
+      <span data-i18n="pf_status_run">正常运行</span>
     </div>
     <div class="dash-health-indicator">
       <span class="dash-health-dot" style="background:var(--success);box-shadow:0 0 8px rgba(52,211,153,.5)"></span>
-      <span>API Gateway 在线</span>
+      <span data-i18n="dash_auth_notice">联合登录</span>
     </div>
   </footer>
 
@@ -2929,19 +3554,20 @@ def home_page(*, node_counts: dict[str, int], chart_count: int, health_summary: 
 }}
 </style>
 """
-    return _page("Hermes Brain", body, nav_active="home", extra_js=r"""
+    _chartjs_tag = '<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js" crossorigin="anonymous"></script>' if home_need_chartjs else ''
+    return _page("Hermes Brain", body, nav_active="home", extra_js=_chartjs_tag + '<script>' + """
 (function(){
   /* Greeting: time-of-day + display_name from localStorage */
   var h = new Date().getHours();
-  var greet = h < 12 ? '早上好' : h < 18 ? '下午好' : '晚上好';
-  var name = localStorage.getItem('hermes_display_name') || '探索者';
+  var greet = h < 12 ? _t('greeting_morning') : h < 18 ? _t('greeting_afternoon') : _t('greeting_evening');
+  var name = localStorage.getItem('hermes_display_name') || _t('pf_explorer');
   var el = document.getElementById('dash-greeting-text');
-  if(el) el.textContent = greet + '，' + name;
+  if(el) el.textContent = greet + _t('time_comma') + name;
   /* Date subtitle */
-  var days = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
-  var months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  var days = [_t('time_sun'),_t('time_mon'),_t('time_tue'),_t('time_wed'),_t('time_thu'),_t('time_fri'),_t('time_sat')];
+  var months = [_t('time_jan'),_t('time_feb'),_t('time_mar'),_t('time_apr'),_t('time_may'),_t('time_jun'),_t('time_jul'),_t('time_aug'),_t('time_sep'),_t('time_oct'),_t('time_nov'),_t('time_dec')];
   var now = new Date();
-  var dateStr = days[now.getDay()] + '，' + months[now.getMonth()] + now.getDate() + '日';
+  var dateStr = days[now.getDay()] + _t('time_comma') + months[now.getMonth()] + ' ' + now.getDate() + _t('time_day_suffix');
   var dateEl = document.getElementById('dash-greeting-date');
   if(dateEl) dateEl.textContent = dateStr;
   /* Relative time for activity rows */
@@ -2952,15 +3578,116 @@ def home_page(*, node_counts: dict[str, int], chart_count: int, health_summary: 
     if(isNaN(d.getTime())) return;
     var diff = (Date.now() - d.getTime()) / 1000;
     var r;
-    if(diff < 60) r = '刚刚';
-    else if(diff < 3600) r = Math.floor(diff/60) + '分钟前';
-    else if(diff < 86400) r = Math.floor(diff/3600) + '小时前';
-    else if(diff < 604800) r = Math.floor(diff/86400) + '天前';
+    if(diff < 60) r = _t('time_just');
+    else if(diff < 3600) r = Math.floor(diff/60) + _t('time_min_ago');
+    else if(diff < 86400) r = Math.floor(diff/3600) + _t('time_hr_ago');
+    else if(diff < 604800) r = Math.floor(diff/86400) + _t('time_day_ago');
     else r = (d.getMonth()+1) + '/' + d.getDate();
     el.textContent = r;
   });
+  /* Resource monitor for home page */
+  function _homeCheckResources() {
+    fetch('/api/dashboard/resources').then(function(r){ return r.json(); }).then(function(d) {
+      function barColor(pct) {
+        if (pct > 85) return 'var(--danger)';
+        if (pct > 65) return 'var(--warning)';
+        return null;
+      }
+      var cpu = d.cpu_percent || 0;
+      var cpuBar = document.getElementById('home-res-cpu-bar');
+      var cpuVal = document.getElementById('home-res-cpu');
+      if (cpuBar) { cpuBar.style.width = cpu + '%'; if (barColor(cpu)) cpuBar.style.background = barColor(cpu); }
+      if (cpuVal) cpuVal.textContent = cpu + '%';
+      var mem = d.mem_percent || 0;
+      var memBar = document.getElementById('home-res-mem-bar');
+      var memVal = document.getElementById('home-res-mem');
+      var memSub = document.getElementById('home-res-mem-sub');
+      if (memBar) { memBar.style.width = mem + '%'; if (barColor(mem)) memBar.style.background = barColor(mem); }
+      if (memVal) memVal.textContent = mem + '%';
+      if (memSub) memSub.textContent = (d.mem_used_gb || 0) + '/' + (d.mem_total_gb || 0) + ' GB';
+      var disk = d.disk_percent || 0;
+      var diskBar = document.getElementById('home-res-disk-bar');
+      var diskVal = document.getElementById('home-res-disk');
+      var diskSub = document.getElementById('home-res-disk-sub');
+      if (diskBar) { diskBar.style.width = disk + '%'; if (barColor(disk)) diskBar.style.background = barColor(disk); }
+      if (diskVal) diskVal.textContent = disk + '%';
+      if (diskSub) diskSub.textContent = (d.disk_used_gb || 0) + '/' + (d.disk_total_gb || 0) + ' GB';
+      var loadEl = document.getElementById('home-res-load');
+      var loadSub = document.getElementById('home-res-load-sub');
+      if (loadEl) loadEl.textContent = (d.load_1m || 0).toFixed(2);
+      if (loadSub) loadSub.textContent = '5m: ' + (d.load_5m || 0).toFixed(2) + '  15m: ' + (d.load_15m || 0).toFixed(2);
+    }).catch(function() {});
+  }
+  /* Home trend chart init */
+  function _homeInitTrend() {
+    var el = document.getElementById('home-trend-chart');
+    if (!el || typeof Chart === 'undefined') return;
+    var data = """ + home_trend_data_js + """;
+    if (!data || data.length === 0) return;
+    var _cs = getComputedStyle(document.documentElement);
+    var _cPrimary = _cs.getPropertyValue('--primary').trim() || '#a78bfa';
+    var _cSuccess = _cs.getPropertyValue('--success').trim() || '#34d399';
+    var _cWarning = _cs.getPropertyValue('--warning').trim() || '#fbbf24';
+    var _cInkMuted = _cs.getPropertyValue('--ink-muted').trim() || '#8b90a5';
+    var _cInk = _cs.getPropertyValue('--ink').trim() || '#e2e4ed';
+    var _cBg = _cs.getPropertyValue('--bg').trim() || '#1a1a2e';
+    new Chart(el, {
+      type: 'line',
+      data: {
+        labels: data.map(function(d){ return d.date; }),
+        datasets: [{
+          label: 'Tokens',
+          data: data.map(function(d){ return d.tokens; }),
+          borderColor: _cPrimary,
+          backgroundColor: 'rgba(167,139,250,.12)',
+          fill: true, tension: 0.35, pointRadius: 3, pointHoverRadius: 6,
+          pointBackgroundColor: _cPrimary, borderWidth: 2, yAxisID: 'y'
+        },{
+          label: 'Requests',
+          data: data.map(function(d){ return d.requests; }),
+          borderColor: _cSuccess,
+          backgroundColor: 'rgba(52,211,153,.08)',
+          fill: true, tension: 0.35, pointRadius: 2, pointHoverRadius: 5,
+          pointBackgroundColor: _cSuccess, borderWidth: 1.5, yAxisID: 'y1'
+        },{
+          label: 'Cost ($)',
+          data: data.map(function(d){ return d.cost; }),
+          borderColor: _cWarning,
+          backgroundColor: 'rgba(251,191,36,.10)',
+          fill: false, tension: 0.35, pointRadius: 3, pointHoverRadius: 6,
+          pointBackgroundColor: _cWarning, borderWidth: 2, borderDash: [4, 3], yAxisID: 'y2'
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: true, position: 'top', labels: { boxWidth: 12, padding: 12 } },
+          tooltip: {
+            backgroundColor: _cBg, titleColor: _cInk, bodyColor: _cInkMuted, borderColor: _cPrimary, borderWidth: 1, padding: 10, cornerRadius: 8,
+            callbacks: {
+              label: function(ctx) {
+                if (ctx.dataset.label === 'Cost ($)') return 'Cost: $' + ctx.parsed.y.toFixed(2);
+                return ctx.dataset.label + ': ' + ctx.formattedValue;
+              }
+            }
+          }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+          y: { type: 'linear', position: 'left', grid: { color: 'rgba(255,255,255,.04)' }, ticks: { callback: function(v){ return v >= 1e6 ? (v/1e6).toFixed(1)+'M' : v >= 1e3 ? (v/1e3).toFixed(0)+'K' : v; } } },
+          y1: { type: 'linear', position: 'right', min: 0, grid: { display: false }, ticks: { callback: function(v){ return v >= 1e3 ? (v/1e3).toFixed(0)+'K' : v; } } },
+          y2: { type: 'linear', position: 'right', min: 0, grid: { display: false }, ticks: { callback: function(v){ return '$'+v.toFixed(0); } } }
+        }
+      }
+    });
+  }
+  _homeCheckResources();
+  _homeInitTrend();
+  /* Auto-refresh resources every 30s */
+  setInterval(function() { _homeCheckResources(); }, 30000);
 })();
-""")
+</script>""")
 
 
 def dashboard_page(
@@ -2973,19 +3700,38 @@ def dashboard_page(
     """Render unified dashboard: health overview cards + security kanban + sub2api stats."""
     st = sub2api.get("stats") or {}
     trend = sub2api.get("trend") or []
+    groups = sub2api.get("groups") or []
     do = do_status
     pr = proxy_status
+
+    # --- Identify worker groups (exclude admin/management accounts) ---
+    # Admin accounts are on platforms other than "openai" (e.g. antigravity).
+    # Only openai platform accounts are real upstream workers serving API requests.
+    worker_groups = [g for g in groups if g.get("platform") == "openai"]
+    worker_total = sum(g.get("account_count", 0) for g in worker_groups)
+    worker_ratelimit = sum(g.get("rate_limited_account_count", 0) or 0 for g in worker_groups)
+    worker_active = sum(g.get("active_account_count", 0) for g in worker_groups)
+    admin_accts = int(st.get("total_accounts", 0)) - worker_total
 
     # --- Sub2API stat cards ---
     today_tokens = int(st.get("today_tokens", 0))
     today_requests = int(st.get("today_requests", 0))
     today_cost = float(st.get("today_actual_cost", 0))
-    total_cost = float(st.get("total_actual_cost", 0))
-    normal_accts = int(st.get("normal_accounts", 0))
+    # Weekly cost = sum of last 7 days' actual_cost from trend data
+    weekly_cost = sum(float(d.get("actual_cost", 0)) for d in trend[-7:]) if trend else today_cost
+    # Use worker-only account counts for monitored pool
+    if worker_total > 0:
+        total_accts = worker_total
+        ratelimit_accts = worker_ratelimit
+    else:
+        total_accts = int(st.get("total_accounts", 0))
+        ratelimit_accts = int(st.get("ratelimit_accounts", 0))
     error_accts = int(st.get("error_accounts", 0))
-    ratelimit_accts = int(st.get("ratelimit_accounts", 0))
-    total_accts = int(st.get("total_accounts", 0))
+    normal_accts = total_accts - ratelimit_accts - error_accts
     active_keys = int(st.get("active_api_keys", 0))
+    # Percentage for donut legend
+    normal_pct = round(normal_accts / total_accts * 100) if total_accts > 0 else 0
+    rl_pct = round(ratelimit_accts / total_accts * 100) if total_accts > 0 else 0
 
     # Account health badge
     if error_accts == 0 and ratelimit_accts == 0:
@@ -3106,7 +3852,7 @@ def dashboard_page(
             })
         trend_data_js = _json_mod.dumps(chart_data)
     trend_chart = f"""<div class="dash-trend-wrap">
-  <div class="dash-trend-label">7-Day Token & Request Trend</div>
+  <div class="dash-trend-label">7-Day Token · Request · Cost Trend</div>
   <div class="dash-trend-chart-box"><canvas id="dash-trend-chart"></canvas></div>
 </div>"""
 
@@ -3116,19 +3862,19 @@ def dashboard_page(
         hero_cards = f"""<div class="dash-hero">
   <div class="dash-metric dash-metricPrimary dash-metricAccent">
     <div class="dash-num">{_format_tokens(today_tokens)}</div>
-    <div class="dash-label">今日 Tokens</div>
+    <div class="dash-label" data-i18n="dash_tokens">今日 Tokens</div>
   </div>
   <div class="dash-metric dash-metricSuccess">
     <div class="dash-num">{today_requests}</div>
-    <div class="dash-label">今日请求数</div>
+    <div class="dash-label" data-i18n="dash_requests">今日请求数</div>
   </div>
   <div class="dash-metric{' dash-metricWarning' if today_cost > 50 else ''}">
     <div class="dash-num">{_format_cost(today_cost)}</div>
-    <div class="dash-label">今日费用</div>
+    <div class="dash-label" data-i18n="dash_cost">今日费用</div>
   </div>
   <div class="dash-metric">
-    <div class="dash-num">{_format_cost(total_cost)}</div>
-    <div class="dash-label">API 累计费用</div>
+    <div class="dash-num">{_format_cost(weekly_cost)}</div>
+    <div class="dash-label" data-i18n="dash_week">本周费用</div>
   </div>
 </div>"""
     else:
@@ -3145,7 +3891,7 @@ def dashboard_page(
             health_cls = "dash-metricSuccess"
         api_section = f"""<div class="dash-api-section">
   <div class="dash-api-header">
-    <h2>⚡ API Gateway <span style="font-size:.72rem;color:var(--ink-dim);font-weight:400;margin-left:4px">{normal_accts}/{total_accts} accounts</span></h2>
+    <h2>⚡ API Gateway <span style="font-size:.72rem;color:var(--ink-dim);font-weight:400;margin-left:4px">{normal_accts}/{total_accts} workers</span>{f'<span style="font-size:.68rem;color:var(--ink-dim);margin-left:6px">({admin_accts} admin excl.)</span>' if admin_accts > 0 else ''}</h2>
     <div class="sec-api-status">
       <span class="dot {'dot-green' if error_accts == 0 and ratelimit_accts == 0 else 'dot-amber' if ratelimit_accts > 0 else 'dot-red'}"></span>
       <span style="color:{acct_status[1]}">{acct_status[0].replace('✅ ','').replace('⚠️ ','').replace('🔶 ','')}</span>
@@ -3156,28 +3902,35 @@ def dashboard_page(
   <div class="dash-api-grid">
     <div class="dash-api-card">
       <div class="dash-num" style="color:var(--primary)">{_format_tokens(int(st.get('total_tokens', 0)))}</div>
-      <div class="dash-label">累计 Tokens</div>
+      <div class="dash-label" data-i18n="dash_total_tokens">累计 Tokens</div>
     </div>
     <div class="dash-api-card">
       <div class="dash-num" style="color:var(--ink)">{int(st.get('total_requests', 0))}</div>
-      <div class="dash-label">累计请求数</div>
+      <div class="dash-label" data-i18n="dash_total_req">累计请求数</div>
     </div>
     <div class="dash-api-card">
       <div class="dash-num" style="color:var(--ink-muted)">{int(st.get('total_users', 0))}</div>
-      <div class="dash-label">用户数</div>
+      <div class="dash-label" data-i18n="dash_users">用户数</div>
     </div>
     <div class="dash-api-card">
       <div class="dash-num" style="color:var(--ink-dim)">{int(st.get('rpm', 0))}</div>
-      <div class="dash-label">RPM(请求/分)</div>
+      <div class="dash-label" data-i18n="dash_rpm">RPM(请求/分)</div>
     </div>
   </div>
   {trend_chart}
-  <div class="dash-donut-wrap">
-    <div class="dash-donut-canvas-wrap"><canvas id="dash-acct-donut" width="100" height="100"></canvas></div>
-    <div class="dash-donut-legend">
-      <div class="dash-donut-legend-item"><span class="dash-donut-legend-dot" style="background:var(--success)"></span><span>Normal</span><span class="dash-donut-legend-value">{normal_accts}</span></div>
-      <div class="dash-donut-legend-item"><span class="dash-donut-legend-dot" style="background:var(--warning)"></span><span>Rate-limited</span><span class="dash-donut-legend-value">{ratelimit_accts}</span></div>
-      <div class="dash-donut-legend-item"><span class="dash-donut-legend-dot" style="background:var(--danger)"></span><span>Errors</span><span class="dash-donut-legend-value">{error_accts}</span></div>
+  <div class="dash-charts-row">
+    <div class="dash-trend-wrap">
+      <div class="dash-trend-label">7-Day Cost Breakdown</div>
+      <div class="dash-trend-chart-box"><canvas id="dash-cost-bar"></canvas></div>
+    </div>
+    <div class="dash-donut-wrap" style="flex-direction:column;align-items:center;gap:var(--sp-sm)">
+      <div class="dash-trend-label" style="margin-bottom:0">Worker Status</div>
+      <div class="dash-donut-canvas-wrap"><canvas id="dash-acct-donut" width="120" height="120"></canvas></div>
+      <div class="dash-donut-legend">
+        <div class="dash-donut-legend-item"><span class="dash-donut-legend-dot" style="background:var(--success)"></span><span>Normal</span><span class="dash-donut-legend-value">{normal_accts} <span style="color:var(--ink-dim);font-weight:400;font-size:.72rem">({normal_pct}%)</span></span></div>
+        <div class="dash-donut-legend-item"><span class="dash-donut-legend-dot" style="background:var(--warning)"></span><span>Rate-limited</span><span class="dash-donut-legend-value">{ratelimit_accts} <span style="color:var(--ink-dim);font-weight:400;font-size:.72rem">({rl_pct}%)</span></span></div>
+        <div class="dash-donut-legend-item"><span class="dash-donut-legend-dot" style="background:var(--danger)"></span><span>Errors</span><span class="dash-donut-legend-value">{error_accts}</span></div>
+      </div>
     </div>
   </div>
 </div>"""
@@ -3192,26 +3945,19 @@ def dashboard_page(
   <h1>Dashboard</h1>
   <span class="sec-refresh" id="refresh-indicator">Live</span>
   <button class="sec-pause-btn" id="pause-btn" onclick="toggleRefresh()" title="Pause auto-refresh">⏸</button>
+  <span class="refresh-info" id="last-updated"></span>
 </div>
 
 {hero_cards}
 
-<div class="dash-health-strip" id="health-strip" style="margin-top:var(--sp-md)">
-  <div class="dash-health-item"><span class="dash-health-dot checking"></span><span class="dash-health-name">Hermes Chat</span></div>
-  <div class="dash-health-item"><span class="dash-health-dot checking"></span><span class="dash-health-name">Brain</span></div>
-  <div class="dash-health-item"><span class="dash-health-dot checking"></span><span class="dash-health-name">Grok2API</span></div>
-  <div class="dash-health-item"><span class="dash-health-dot checking"></span><span class="dash-health-name">Sub2API</span></div>
-  <div class="dash-health-item"><span class="dash-health-dot checking"></span><span class="dash-health-name">Uptime Kuma</span></div>
-</div>
-
 <div class="dash-uptime-section">
   <div class="dash-uptime-card">
     <div class="dash-uptime-header">
-      <h3>📊 服务监控</h3>
-      <a href="https://status.bioinforms.tech" target="_blank" rel="noopener" class="dash-uptime-link">打开 Uptime Kuma ↗</a>
+      <h3>📊 <span data-i18n="dash_monitor_title_inner">服务监控</span></h3>
+      <a href="#" target="_blank" rel="noopener" class="dash-uptime-link">打开 Uptime Kuma ↗</a>
     </div>
     <div class="dash-uptime-grid">
-      <a href="https://status.bioinforms.tech" target="_blank" rel="noopener" class="dash-uptime-item">
+      <a href="#" target="_blank" rel="noopener" class="dash-uptime-item">
         <div class="dash-uptime-icon">🟢</div>
         <div class="dash-uptime-info">
           <div class="dash-uptime-name">Uptime Kuma</div>
@@ -3219,19 +3965,11 @@ def dashboard_page(
         </div>
         <div class="dash-uptime-arrow">→</div>
       </a>
-      <a href="https://brain.bioinfo.pro/health" target="_blank" rel="noopener" class="dash-uptime-item">
-        <div class="dash-uptime-icon">🧠</div>
-        <div class="dash-uptime-info">
-          <div class="dash-uptime-name">Brain Health API</div>
-          <div class="dash-uptime-desc">服务健康检查 JSON 接口</div>
-        </div>
-        <div class="dash-uptime-arrow">→</div>
-      </a>
     </div>
   </div>
   <div class="dash-uptime-note">
     <span class="note-icon">🔗</span>
-    <span><strong>联合登录</strong> — status.bioinforms.tech 与本系统共享凭据 (用户名: <strong>lyc</strong>)</span>
+    <span><strong data-i18n="dash_auth_notice">联合登录</strong> — <span data-i18n="dash_auth_notice2">与本系统共享凭据</span></span>
   </div>
 </div>
 
@@ -3329,6 +4067,7 @@ function _initTrendChart() {{
   if (!el) return;
   var data = {trend_data_js};
   if (!data || data.length === 0) return;
+  var _cWarning = _cs.getPropertyValue('--warning').trim() || '#fbbf24';
   _trendChart = new Chart(el, {{
     type: 'line',
     data: {{
@@ -3357,6 +4096,19 @@ function _initTrendChart() {{
         pointBackgroundColor: _cSuccess,
         borderWidth: 1.5,
         yAxisID: 'y1'
+      }},{{
+        label: 'Cost ($)',
+        data: data.map(function(d){{ return d.cost; }}),
+        borderColor: _cWarning,
+        backgroundColor: 'rgba(251,191,36,.10)',
+        fill: false,
+        tension: 0.35,
+        pointRadius: 3,
+        pointHoverRadius: 6,
+        pointBackgroundColor: _cWarning,
+        borderWidth: 2,
+        borderDash: [4, 3],
+        yAxisID: 'y2'
       }}]
     }},
     options: {{
@@ -3365,12 +4117,21 @@ function _initTrendChart() {{
       interaction: {{ mode: 'index', intersect: false }},
       plugins: {{
         legend: {{ display: true, position: 'top', labels: {{ boxWidth: 12, padding: 12 }} }},
-        tooltip: {{ backgroundColor: _cBg, titleColor: _cInk, bodyColor: _cInkMuted, borderColor: _cPrimary, borderWidth: 1, padding: 10, cornerRadius: 8 }}
+        tooltip: {{
+          backgroundColor: _cBg, titleColor: _cInk, bodyColor: _cInkMuted, borderColor: _cPrimary, borderWidth: 1, padding: 10, cornerRadius: 8,
+          callbacks: {{
+            label: function(ctx) {{
+              if (ctx.dataset.label === 'Cost ($)') return 'Cost: $' + ctx.parsed.y.toFixed(2);
+              return ctx.dataset.label + ': ' + ctx.formattedValue;
+            }}
+          }}
+        }}
       }},
       scales: {{
         x: {{ grid: {{ display: false }}, ticks: {{ font: {{ size: 10 }} }} }},
-        y: {{ position: 'left', grid: {{ color: 'rgba(255,255,255,.04)' }}, ticks: {{ callback: function(v){{ return v >= 1e6 ? (v/1e6).toFixed(1)+'M' : v >= 1e3 ? (v/1e3).toFixed(0)+'K' : v; }} }} }},
-        y1: {{ position: 'right', grid: {{ display: false }}, ticks: {{ callback: function(v){{ return v >= 1e3 ? (v/1e3).toFixed(0)+'K' : v; }} }} }}
+        y: {{ type: 'linear', position: 'left', grid: {{ color: 'rgba(255,255,255,.04)' }}, ticks: {{ callback: function(v){{ return v >= 1e6 ? (v/1e6).toFixed(1)+'M' : v >= 1e3 ? (v/1e3).toFixed(0)+'K' : v; }} }} }},
+        y1: {{ type: 'linear', position: 'right', min: 0, grid: {{ display: false }}, ticks: {{ callback: function(v){{ return v >= 1e3 ? (v/1e3).toFixed(0)+'K' : v; }} }} }},
+        y2: {{ type: 'linear', position: 'right', min: 0, grid: {{ display: false }}, ticks: {{ callback: function(v){{ return '$'+v.toFixed(0); }} }} }}
       }}
     }}
   }});
@@ -3398,27 +4159,42 @@ function _initAcctDonut() {{
   }});
 }}
 
-function _checkHealth() {{
-  fetch('/api/dashboard/health').then(function(r){{ return r.json(); }}).then(function(data) {{
-    var strip = document.getElementById('health-strip');
-    if (!strip) return;
-    var items = strip.querySelectorAll('.dash-health-item');
-    var services = data.services || [];
-    for (var i = 0; i < items.length; i++) {{
-      var item = items[i];
-      var svc = services.find(function(s){{ return s.name === item.querySelector('.dash-health-name').textContent; }});
-      if (!svc) continue;
-      var dot = item.querySelector('.dash-health-dot');
-      dot.className = 'dash-health-dot ' + (svc.alive ? 'alive' : 'dead');
-      var existLat = item.querySelector('.dash-health-lat');
-      if (existLat) existLat.remove();
-      var lat = document.createElement('span');
-      lat.className = 'dash-health-lat';
-      lat.textContent = svc.alive ? svc.latency_ms + 'ms' : 'DOWN';
-      lat.style.color = svc.alive ? '' : 'var(--danger)';
-      item.appendChild(lat);
+function _initCostBar() {{
+  var el = document.getElementById('dash-cost-bar');
+  if (!el) return;
+  var data = {trend_data_js};
+  if (!data || data.length === 0) return;
+  var _cWarning = _cs.getPropertyValue('--warning').trim() || '#fbbf24';
+  var _cDanger = _cs.getPropertyValue('--danger').trim() || '#f87171';
+  var avgCost = data.reduce(function(s,d){{ return s + d.cost; }}, 0) / data.length;
+  new Chart(el, {{
+    type: 'bar',
+    data: {{
+      labels: data.map(function(d){{ return d.date; }}),
+      datasets: [{{
+        label: 'Daily Cost',
+        data: data.map(function(d){{ return d.cost; }}),
+        backgroundColor: data.map(function(d){{ return d.cost > avgCost * 1.5 ? _cDanger : d.cost > avgCost ? _cWarning : _cPrimary; }}),
+        borderRadius: 4,
+        maxBarThickness: 32
+      }}]
+    }},
+    options: {{
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {{
+        legend: {{ display: false }},
+        tooltip: {{
+          backgroundColor: _cBg, titleColor: _cInk, bodyColor: _cInkMuted, borderColor: _cPrimary, borderWidth: 1, cornerRadius: 8,
+          callbacks: {{ label: function(ctx){{ return 'Cost: $' + ctx.parsed.y.toFixed(2); }} }}
+        }}
+      }},
+      scales: {{
+        x: {{ grid: {{ display: false }}, ticks: {{ font: {{ size: 10 }} }} }},
+        y: {{ min: 0, grid: {{ color: 'rgba(255,255,255,.04)' }}, ticks: {{ callback: function(v){{ return '$' + v.toFixed(0); }} }} }}
+      }}
     }}
-  }}).catch(function() {{}});
+  }});
 }}
 
 function _checkResources() {{
@@ -3473,6 +4249,10 @@ function toggleRefresh() {{
 function checkRefresh() {{
   fetch('/api/dashboard/data').then(function(r){{ return r.json(); }}).then(function(data) {{
     var sig = JSON.stringify(data);
+    // Update "last updated" timestamp
+    var now = new Date();
+    var ts = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0')+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')+':'+String(now.getSeconds()).padStart(2,'0');
+    document.getElementById('last-updated').textContent = 'Updated ' + ts;
     if (_lastDashData && _lastDashData !== sig) {{
       location.reload();
     }} else {{
@@ -3484,10 +4264,10 @@ function checkRefresh() {{
 function scheduleRefresh() {{
   if (!_secPaused) _secTimer = setTimeout(checkRefresh, 30000);
 }}
-// Init charts and health check
+// Init charts and resources
 _initTrendChart();
 _initAcctDonut();
-_checkHealth();
+_initCostBar();
 _checkResources();
 checkRefresh();
 </script>"""
@@ -3691,15 +4471,15 @@ _secTimer = setTimeout(function(){{ location.reload(); }}, 30000);
 def services_page() -> str:
     """Render the Services portal page — AxonHub-style service status cards with live health check."""
     services = [
-        ("n8n", "自动化工作流", "可视化编排API与任务，连接500+服务", "https://work.bioinforms.tech", "#ef4444",
+        ("n8n", "自动化工作流", "可视化编排API与任务，连接500+服务", os.environ.get("BRAIN_SVC_N8N_URL", "#"), "#ef4444",
          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>',
-         "work.bioinforms.tech"),
-        ("Uptime Kuma", "服务监控", "实时状态监控、告警通知与SLA追踪", "https://status.bioinforms.tech", "#22c55e",
+         os.environ.get("BRAIN_SVC_N8N_HOST", "")),
+        ("Uptime Kuma", "服务监控", "实时状态监控、告警通知与SLA追踪", os.environ.get("BRAIN_SVC_UPTIME_URL", "#"), "#22c55e",
          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>',
-         "status.bioinforms.tech"),
-        ("File Browser", "文件管理", "浏览、上传与管理工作文件", "https://files.bioinforms.tech", "#3b82f6",
+         os.environ.get("BRAIN_SVC_UPTIME_HOST", "")),
+        ("File Browser", "文件管理", "浏览、上传与管理工作文件", os.environ.get("BRAIN_SVC_FILES_URL", "#"), "#3b82f6",
          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>',
-         "files.bioinforms.tech"),
+         os.environ.get("BRAIN_SVC_FILES_HOST", "")),
     ]
     cards = []
     for name, title, desc, url, color, icon, host in services:
@@ -3716,7 +4496,7 @@ def services_page() -> str:
   <div class="svc-card-footer">
     <div class="svc-health-indicator">
       <span class="svc-health-dot" data-host="{_html.escape(host)}"></span>
-      <span class="svc-health-status" data-host="{_html.escape(host)}">检测中...</span>
+      <span class="svc-health-status" data-host="{_html.escape(host)}" data-i18n-default="svc_detecting">检测中...</span>
     </div>
     <span class="svc-health-lat" data-host="{_html.escape(host)}">—</span>
   </div>
@@ -3727,8 +4507,8 @@ def services_page() -> str:
     body = f"""
 <div class="svc-wrap">
   <div class="svc-page-header">
-    <h1 class="svc-page-title">🔗 服务中心</h1>
-    <p class="svc-page-desc">所有外部服务运行在独立服务器上，点击卡片直接跳转</p>
+    <h1 class="svc-page-title" data-i18n="svc_title">🔗 服务中心</h1>
+    <p class="svc-page-desc" data-i18n="svc_desc">所有外部服务运行在独立服务器上，点击卡片直接跳转</p>
   </div>
   <div class="svc-grid">
     {''.join(cards)}
@@ -3790,7 +4570,7 @@ def services_page() -> str:
         if (alive) d.style.boxShadow = '0 0 8px rgba(52,211,153,.5)';
       }});
       document.querySelectorAll('.svc-health-status[data-host="'+h+'"]').forEach(function(s){{
-        s.textContent = alive ? '在线' : '离线';
+        s.textContent = alive ? _t('svc_online') : _t('svc_offline');
         s.style.color = alive ? 'var(--success)' : 'var(--danger)';
       }});
       document.querySelectorAll('.svc-health-lat[data-host="'+h+'"]').forEach(function(l){{
@@ -3803,7 +4583,7 @@ def services_page() -> str:
         d.classList.remove('checking'); d.style.background='var(--ink-dim)';
       }});
       document.querySelectorAll('.svc-health-status[data-host="'+h+'"]').forEach(function(s){{
-        s.textContent='未知';
+        s.textContent=_t('svc_unknown');
       }});
     }});
   }});
@@ -3829,10 +4609,10 @@ def profile_page(*, error: str = "", success: str = "") -> str:
     </div>
     <div class="pf-avatar-info">
       <h2 class="pf-avatar-name" id="profile-display-name">探索者</h2>
-      <p class="pf-avatar-role">Hermes Brain 用户</p>
+      <p class="pf-avatar-role" data-i18n="pf_brain_user">Hermes Brain 用户</p>
       <div class="pf-avatar-badges">
-        <span class="pf-badge pf-badge-primary">管理员</span>
-        <span class="pf-badge pf-badge-info">在线</span>
+        <span class="pf-badge pf-badge-primary" data-i18n="pf_admin">管理员</span>
+        <span class="pf-badge pf-badge-info" data-i18n="pf_online">在线</span>
       </div>
     </div>
   </div>
@@ -3842,27 +4622,38 @@ def profile_page(*, error: str = "", success: str = "") -> str:
     <div class="pf-section-head">
       <span class="pf-section-icon">🎨</span>
       <div>
-        <h3 class="pf-section-title">显示偏好</h3>
-        <p class="pf-section-desc">自定义界面显示</p>
+        <h3 class="pf-section-title" data-i18n="pf_prefs">显示偏好</h3>
+        <p class="pf-section-desc" data-i18n="pf_prefs_desc">自定义界面显示</p>
       </div>
     </div>
     <form class="pf-form" id="prefs-form">
       <div class="pf-field">
-        <label class="pf-label" for="display-name">显示名称</label>
-        <input type="text" name="display_name" class="pf-input" placeholder="你的名字" id="display-name">
+        <label class="pf-label" for="display-name" data-i18n="pf_name">显示名称</label>
+        <input type="text" name="display_name" class="pf-input" placeholder="你的名字" id="display-name" data-i18n-ph="pf_name_ph">
       </div>
       <div class="pf-field">
-        <label class="pf-label" for="avatar-url">头像链接</label>
-        <input type="url" name="avatar_url" class="pf-input" placeholder="输入头像图片URL" id="avatar-url">
+        <label class="pf-label" for="avatar-url" data-i18n="pf_avatar">头像链接</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="text" name="avatar_url" class="pf-input" placeholder="输入头像图片URL" id="avatar-url" data-i18n-ph="pf_avatar_ph" style="flex:1">
+          <label for="avatar-file-input" class="pf-btn pf-btn-secondary" style="cursor:pointer;white-space:nowrap;margin:0" data-i18n="pf_avatar_upload">上传图片</label>
+          <input type="file" id="avatar-file-input" accept="image/*" style="display:none">
+        </div>
       </div>
       <div class="pf-field">
-        <label class="pf-label" for="theme-select">主题</label>
+        <label class="pf-label" for="theme-select" data-i18n="pf_theme">主题</label>
         <select name="theme" class="pf-input" id="theme-select">
-          <option value="dark">深色 Dracula</option>
-          <option value="light">浅色 Light</option>
+          <option value="dark" data-i18n="pf_theme_dark">深色 Dracula</option>
+          <option value="light" data-i18n="pf_theme_light">浅色 Light</option>
         </select>
       </div>
-      <button type="button" class="pf-btn pf-btn-primary" onclick="savePrefs()">保存偏好</button>
+      <div class="pf-field">
+        <label class="pf-label" for="lang-select" data-i18n="pf_lang">语言</label>
+        <select name="lang" class="pf-input" id="lang-select" onchange="switchLang(this.value)">
+          <option value="zh" data-i18n="pf_lang_zh">中文</option>
+          <option value="en" data-i18n="pf_lang_en">English</option>
+        </select>
+      </div>
+      <button type="button" class="pf-btn pf-btn-primary" onclick="savePrefs()" data-i18n="pf_save">保存偏好</button>
     </form>
   </div>
 
@@ -3871,28 +4662,28 @@ def profile_page(*, error: str = "", success: str = "") -> str:
     <div class="pf-section-head">
       <span class="pf-section-icon">🔐</span>
       <div>
-        <h3 class="pf-section-title">修改密码</h3>
-        <p class="pf-section-desc">更新你的登录密码</p>
+        <h3 class="pf-section-title" data-i18n="pf_password">修改密码</h3>
+        <p class="pf-section-desc" data-i18n="pf_password_desc">更新你的登录密码</p>
       </div>
     </div>
     {error_html}
     {success_html}
-    <form method="POST" action="/settings/password" class="pf-form">
+    <form id="pw-form" class="pf-form" onsubmit="return changePassword(event)">
       <div class="pf-field">
-        <label class="pf-label" for="cur-pw">当前密码</label>
+        <label class="pf-label" for="cur-pw" data-i18n="pf_cur_pw">当前密码</label>
         <input type="password" name="current_password" class="pf-input" id="cur-pw" required autocomplete="current-password">
       </div>
       <div class="pf-field-row">
         <div class="pf-field">
-          <label class="pf-label" for="new-pw">新密码</label>
+          <label class="pf-label" for="new-pw" data-i18n="pf_new_pw">新密码</label>
           <input type="password" name="new_password" class="pf-input" id="new-pw" required autocomplete="new-password" minlength="6">
         </div>
         <div class="pf-field">
-          <label class="pf-label" for="confirm-pw">确认新密码</label>
+          <label class="pf-label" for="confirm-pw" data-i18n="pf_confirm_pw">确认新密码</label>
           <input type="password" name="confirm_password" class="pf-input" id="confirm-pw" required autocomplete="new-password">
         </div>
       </div>
-      <button type="submit" class="pf-btn pf-btn-primary">更新密码</button>
+      <button type="submit" class="pf-btn pf-btn-primary" data-i18n="pf_update_pw">更新密码</button>
     </form>
   </div>
 
@@ -3901,8 +4692,8 @@ def profile_page(*, error: str = "", success: str = "") -> str:
     <div class="pf-section-head">
       <span class="pf-section-icon">📊</span>
       <div>
-        <h3 class="pf-section-title">系统信息</h3>
-        <p class="pf-section-desc">运行状态概览</p>
+        <h3 class="pf-section-title" data-i18n="pf_system">系统信息</h3>
+        <p class="pf-section-desc" data-i18n="pf_system_desc">运行状态概览</p>
       </div>
     </div>
     <div class="pf-info-grid">
@@ -3912,7 +4703,7 @@ def profile_page(*, error: str = "", success: str = "") -> str:
         </div>
         <div class="pf-info-text">
           <span class="pf-info-label">Brain</span>
-          <span class="pf-info-value">正常运行</span>
+          <span class="pf-info-value" data-i18n="pf_status_run">正常运行</span>
         </div>
       </div>
       <div class="pf-info-card">
@@ -3921,7 +4712,7 @@ def profile_page(*, error: str = "", success: str = "") -> str:
         </div>
         <div class="pf-info-text">
           <span class="pf-info-label">API Gateway</span>
-          <span class="pf-info-value">在线</span>
+          <span class="pf-info-value" data-i18n="pf_online">在线</span>
         </div>
       </div>
     </div>
@@ -3932,11 +4723,11 @@ def profile_page(*, error: str = "", success: str = "") -> str:
     <div class="pf-section-head">
       <span class="pf-section-icon">🚪</span>
       <div>
-        <h3 class="pf-section-title pf-text-danger">退出登录</h3>
-        <p class="pf-section-desc">结束当前会话并返回登录页</p>
+        <h3 class="pf-section-title pf-text-danger" data-i18n="pf_logout">退出登录</h3>
+        <p class="pf-section-desc" data-i18n="pf_logout_desc">结束当前会话并返回登录页</p>
       </div>
     </div>
-    <a href="/logout" class="pf-btn pf-btn-danger">{_ICON_LOGOUT} 退出登录</a>
+    <a href="/logout" class="pf-btn pf-btn-danger" data-i18n="pf_logout">退出登录</a>
   </div>
 </div>
 
@@ -3979,6 +4770,8 @@ def profile_page(*, error: str = "", success: str = "") -> str:
 .pf-btn-primary:hover{{opacity:.85;transform:translateY(-1px)}}
 .pf-btn-danger{{border:1px solid var(--danger);background:rgba(248,113,113,.08);color:var(--danger)}}
 .pf-btn-danger:hover{{background:rgba(248,113,113,.18);transform:translateY(-1px)}}
+.pf-btn-secondary{{background:var(--surface);border:1px solid var(--border);color:var(--ink)}}
+.pf-btn-secondary:hover{{border-color:var(--primary);color:var(--primary);transform:translateY(-1px)}}
 .pf-btn svg{{width:16px;height:16px}}
 
 /* Alert */
@@ -4006,40 +4799,100 @@ def profile_page(*, error: str = "", success: str = "") -> str:
 (function(){{var n=localStorage.getItem('hermes_display_name');
 var t=localStorage.getItem('hermes_theme');
 var a=localStorage.getItem('hermes_avatar_url');
+var l=localStorage.getItem('hermes_lang')||'zh';
 if(n){{document.getElementById('display-name').value=n;document.getElementById('profile-display-name').textContent=n;
 var sb=document.getElementById('sidebar-username');if(sb)sb.textContent=n;}}
 if(t)document.getElementById('theme-select').value=t;
 if(a){{document.getElementById('avatar-url').value=a;applyAvatar(a);}}
+document.getElementById('lang-select').value=l;
+applyI18n(l);
 }})();
 
 function applyAvatar(url){{
   var els=['profile-avatar','sidebar-avatar'];
   els.forEach(function(id){{
     var el=document.getElementById(id);if(!el)return;
-    if(url){{el.innerHTML='<img src="'+url+'" style="width:100%;height:100%;border-radius:50%;object-fit:cover" onerror="this.parentNode.textContent=\\'👤\\'">';}}
+    if(url){{el.innerHTML='<img src="'+url+'" style="width:100%;height:100%;border-radius:50%;object-fit:cover" onerror="this.outerHTML=this.dataset.fallback" data-fallback="👤">';}}
     else{{el.textContent='👤';}}
   }});
+}}
+
+document.getElementById('avatar-file-input').addEventListener('change',function(e){{
+  var f=e.target.files[0];if(!f)return;
+  if(f.size>204800){{alert(_t('pf_avatar_too_large'));e.target.value='';return;}}
+  var r=new FileReader();
+  r.onload=function(ev){{
+    var b64=ev.target.result;
+    document.getElementById('avatar-url').value=b64;
+    applyAvatar(b64);
+  }};
+  r.readAsDataURL(f);
+}});
+document.querySelector('label[for="avatar-file-input"],label[data-i18n="pf_avatar_upload"]').addEventListener('click',function(){{document.getElementById('avatar-file-input').click();}});
+
+function changePassword(e){{
+  e.preventDefault();
+  var form=document.getElementById('pw-form');
+  var cur=encodeURIComponent(form.querySelector('[name=current_password]').value);
+  var npw=encodeURIComponent(form.querySelector('[name=new_password]').value);
+  var cpw=encodeURIComponent(form.querySelector('[name=confirm_password]').value);
+  fetch('/settings/password',{{
+    method:'POST',
+    headers:{{'Content-Type':'application/x-www-form-urlencoded'}},
+    body:'current_password='+cur+'&new_password='+npw+'&confirm_password='+cpw
+  }}).then(function(r){{
+    return r.text();
+  }}).then(function(html){{
+    var doc=new DOMParser().parseFromString(html,'text/html');
+    var err=doc.querySelector('.pf-alert-error');
+    var suc=doc.querySelector('.pf-alert-success');
+    var pwSection=form.parentElement;
+    var old=pwSection.querySelectorAll('.pf-alert');
+    old.forEach(function(el){{el.remove();}});
+    if(err){{
+      var div=document.createElement('div');
+      div.className='pf-alert pf-alert-error';
+      div.textContent=err.textContent;
+      form.insertBefore(div,form.firstChild);
+    }} else if(suc){{
+      var div=document.createElement('div');
+      div.className='pf-alert pf-alert-success';
+      div.textContent=_t('pf_pw_updated');
+      form.insertBefore(div,form.firstChild);
+      form.reset();
+    }}
+  }}).catch(function(){{
+    var div=document.createElement('div');
+    div.className='pf-alert pf-alert-error';
+    div.textContent=_t('toast_network_error');
+    form.insertBefore(div,form.firstChild);
+  }});
+  return false;
 }}
 
 function savePrefs(){{
   var n=document.getElementById('display-name').value;
   var t=document.getElementById('theme-select').value;
   var a=document.getElementById('avatar-url').value;
+  var l=document.getElementById('lang-select').value;
   localStorage.setItem('hermes_display_name',n);
   localStorage.setItem('hermes_theme',t);
   localStorage.setItem('hermes_avatar_url',a);
-  document.getElementById('profile-display-name').textContent=n||'探索者';
-  var sb=document.getElementById('sidebar-username');if(sb)sb.textContent=n||'用户';
+  localStorage.setItem('hermes_lang',l);
+  document.getElementById('profile-display-name').textContent=n||_t('pf_explorer');
+  var sb=document.getElementById('sidebar-username');if(sb)sb.textContent=n||_t('nav_user');
   if(t==='light')document.documentElement.setAttribute('data-theme','light');
   else document.documentElement.removeAttribute('data-theme');
   applyAvatar(a);
+  applyI18n(l);
   var toast=document.createElement('div');
-  toast.textContent='偏好已保存';
+  toast.textContent=_t('pf_saved');
   toast.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--success);color:var(--surface);padding:10px 24px;border-radius:9999px;font-size:.88rem;font-weight:600;z-index:9999;animation:pageEnter .3s var(--ease-out)';
   document.body.appendChild(toast);
   setTimeout(function(){{toast.style.opacity='0';toast.style.transition='opacity .3s';setTimeout(function(){{toast.remove()}},300)}},1800);
 }}
 </script>
+
 """
 
     return _page("My Profile", body, nav_active="profile")
@@ -4095,8 +4948,9 @@ _KN_CATEGORY_BADGE_MAP = {
 
 def _stage_badge(stage: str) -> str:
     cls = _STAGE_BADGE_MAP.get(stage, "badge-pending")
-    label = _STAGE_LABEL.get(stage, stage.title())
-    return f'<span class="badge {cls}">{_html.escape(label)}</span>'
+    i18n_key = f"stage_{stage}_short"
+    label = _pt(i18n_key)
+    return f'<span class="badge {cls}" data-i18n="{i18n_key}">{_html.escape(label)}</span>'
 
 
 def _kn_category_badge(category: str) -> str:
@@ -4137,12 +4991,12 @@ def knowledge_tree_page(
 
     # -- Stats bar (clickable filter cards — replaces tabs) --
     stat_cards = [
-        ("all", "Total", str(total), "var(--ink)"),
-        ("draft", "Draft", str(counts.get("draft", 0)), "var(--warning)"),
-        ("refined", "Refined", str(counts.get("refined", 0)), "var(--info)"),
-        ("verified", "Verified", str(counts.get("verified", 0)), "var(--success)"),
-        ("canonized", "Canonized", str(counts.get("canonized", 0)), "var(--primary)"),
-        ("deprecated", "Deprecated", str(counts.get("deprecated", 0)), "var(--ink-dim)"),
+        ("all", _pt("stage_all"), str(total), "var(--ink)"),
+        ("draft", _pt("stage_draft_short"), str(counts.get("draft", 0)), "var(--warning)"),
+        ("refined", _pt("stage_refined_short"), str(counts.get("refined", 0)), "var(--info)"),
+        ("verified", _pt("stage_verified_short"), str(counts.get("verified", 0)), "var(--success)"),
+        ("canonized", _pt("stage_canonized_short"), str(counts.get("canonized", 0)), "var(--primary)"),
+        ("deprecated", _pt("stage_deprecated_short"), str(counts.get("deprecated", 0)), "var(--ink-dim)"),
     ]
     trash_count = counts.get("deprecated", 0)
     stats_html = ""
@@ -4161,13 +5015,13 @@ def knowledge_tree_page(
         )
 
     # -- Category options for filter --
-    cat_options = '<option value="">All Categories</option>'
+    cat_options = f'<option value="">{_pt("kn_all_cat")}</option>'
     for cat in sorted(_KN_CATEGORY_BADGE_MAP):
         sel = ' selected' if cat == active_category else ''
         cat_options += f'<option value="{_html.escape(cat)}"{sel}>{_html.escape(cat.title())}</option>'
 
     # -- Domain options for filter --
-    dom_options = '<option value="">All Domains</option>'
+    dom_options = f'<option value="">{_pt("kn_all_dom")}</option>'
     for dom in sorted(domains):
         sel = ' selected' if dom == active_domain else ''
         dom_options += f'<option value="{_html.escape(dom)}"{sel}>{_html.escape(dom)}</option>'
@@ -4184,7 +5038,7 @@ def knowledge_tree_page(
 
     cards_html = ""
     if not nodes:
-        cards_html = '<div class="empty">No knowledge nodes match the current filters.</div>'
+        cards_html = f'<div class="empty" data-i18n="kn_no_nodes">{_pt("kn_no_nodes")}</div>'
     else:
         for domain in sorted(domain_groups, key=lambda d: _domain_order.get(d, 50)):
             group = domain_groups[domain]
@@ -4194,7 +5048,7 @@ def knowledge_tree_page(
             for n in group:
                 s = str(n.get("stage", "draft"))
                 stage_counts[s] = stage_counts.get(s, 0) + 1
-            stage_summary = " · ".join(f"{s}: {c}" for s, c in sorted(stage_counts.items()))
+            stage_summary = " · ".join(f"{_pt(f'stage_{s}_short')}: {c}" for s, c in sorted(stage_counts.items()))
 
             group_cards = ""
             for n in group:
@@ -4228,28 +5082,28 @@ def knowledge_tree_page(
     <span class="kn-domain-toggle">▼</span>
     <span class="kn-domain-icon">{icon}</span>
     <span class="kn-domain-name">{_html.escape(domain.title())}</span>
-    <span class="kn-domain-count">{len(group)} nodes</span>
+    <span class="kn-domain-count">{len(group)} {_pt('kn_nodes')}</span>
     <span class="kn-domain-stages">{_html.escape(stage_summary)}</span>
   </button>
   <div class="kn-domain-cards">{group_cards}</div>
 </div>"""
 
     body = f"""
-<h1 style="padding:16px 16px 0;font-size:1.2rem;font-weight:700;letter-spacing:-.02em;display:flex;align-items:center;gap:8px">🌳 Knowledge Tree <span class="kn-info-btn" onclick="showStageHelp()" title="Stage definitions">ⓘ</span></h1>
+<h1 style="padding:16px 16px 0;font-size:1.2rem;font-weight:700;letter-spacing:-.02em;display:flex;align-items:center;gap:8px">🌳 <span data-i18n="kn_title">{_pt("kn_title")}</span> <span class="kn-info-btn" onclick="showStageHelp()" title="Stage definitions">ⓘ</span></h1>
 <div class="dash-grid">{stats_html}</div>
 <div style="padding:0 16px 8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
   <form method="get" action="/knowledge" style="display:flex;gap:8px;flex-wrap:wrap;flex:1" id="kn-filter-form" onsubmit="return false">
     <input type="hidden" name="stage" value="{_html.escape(active_stage)}">
     <select name="category" class="kn-filter-select" onchange="this.form.submit()">{cat_options}</select>
     <select name="domain" class="kn-filter-select" onchange="this.form.submit()">{dom_options}</select>
-    <input type="text" name="q" placeholder="Search knowledge…" class="kn-search-input" id="kn-search">
+    <input type="text" name="q" data-i18n-ph="kn_search" placeholder="{_pt('kn_search')}" class="kn-search-input" id="kn-search">
   </form>
 </div>
 <div style="padding:0 16px 8px;display:flex;gap:8px;flex-wrap:wrap">
-  <button class="kn-action-btn" onclick="showAddModal()">+ Add Knowledge</button>
-  <button class="kn-action-btn secondary" onclick="exportKnowledge()">⬇ Export MD</button>
-  <button class="kn-action-btn secondary" onclick="retrospect()">🔄 Retrospect</button>
-  {f'<button class="kn-action-btn danger" onclick="emptyTrash()">🗑 Empty Trash ({trash_count})</button>' if trash_count > 0 else ''}
+  <button class="kn-action-btn" data-i18n="kn_add" onclick="showAddModal()">{_pt("kn_add")}</button>
+  <button class="kn-action-btn secondary" data-i18n="kn_export" onclick="exportKnowledge()">{_pt("kn_export")}</button>
+  <button class="kn-action-btn secondary" data-i18n="kn_retrospect" onclick="retrospect()">{_pt("kn_retrospect")}</button>
+  {f'<button class="kn-action-btn danger" onclick="emptyTrash()">{_pt("kn_empty_trash")} ({trash_count})</button>' if trash_count > 0 else ''}
 </div>
 <div id="kn-card-grid">{cards_html}</div>
 
@@ -4308,48 +5162,48 @@ def knowledge_tree_page(
 </style>
 <div id="add-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center">
   <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--sp-lg);max-width:480px;width:90%;max-height:80vh;overflow-y:auto">
-    <h2 style="margin-bottom:var(--sp-md);font-size:1.1rem">Add Knowledge</h2>
+    <h2 style="margin-bottom:var(--sp-md);font-size:1.1rem" data-i18n="kn_add">{_pt("kn_add")}</h2>
     <form class="kn-modal-form" id="add-knowledge-form" onsubmit="return submitKnowledge(event)">
-      <label>Content *</label>
-      <textarea id="kn-form-content" required placeholder="Enter knowledge content..."></textarea>
-      <label>Source</label>
-      <input type="text" id="kn-form-source" placeholder="e.g. conversation, manual, observation">
-      <label>Category</label>
+      <label data-i18n="kn_content_label">{_pt("kn_content_label")}</label>
+      <textarea id="kn-form-content" required data-i18n-ph="kn_content_ph" placeholder="{_pt('kn_content_ph')}"></textarea>
+      <label data-i18n="kn_source_label">{_pt("kn_source_label")}</label>
+      <input type="text" id="kn-form-source" data-i18n-ph="kn_source_ph" placeholder="{_pt('kn_source_ph')}">
+      <label data-i18n="kn_category_label">{_pt("kn_category_label")}</label>
       <select id="kn-form-category">
         <option value="fact">fact</option>
         <option value="rule">rule</option>
         <option value="workflow_hint">workflow_hint</option>
         <option value="preference">preference</option>
       </select>
-      <label>Domain</label>
-      <input type="text" id="kn-form-domain" value="general" placeholder="general">
+      <label data-i18n="kn_domain_label">{_pt("kn_domain_label")}</label>
+      <input type="text" id="kn-form-domain" value="general" data-i18n-ph="kn_domain_label" placeholder="general">
       <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
-        <button type="button" class="kn-action-btn secondary" onclick="hideAddModal()">Cancel</button>
-        <button type="submit" class="kn-action-btn">Submit</button>
+        <button type="button" class="kn-action-btn secondary" onclick="hideAddModal()" data-i18n="kn_cancel">{_pt("kn_cancel")}</button>
+        <button type="submit" class="kn-action-btn" data-i18n="kn_submit">{_pt("kn_submit")}</button>
       </div>
     </form>
   </div>
 </div>
 <div id="stage-help-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center" onclick="if(event.target===this)document.getElementById('stage-help-overlay').style.display='none'">
   <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--sp-lg);max-width:520px;width:90%;max-height:80vh;overflow-y:auto">
-    <h2 style="margin-bottom:var(--sp-md);font-size:1.1rem">Stage 生命周期</h2>
+    <h2 style="margin-bottom:var(--sp-md);font-size:1.1rem" data-i18n="kn_stage_lifecycle">{_pt("kn_stage_lifecycle")}</h2>
     <div style="font-size:.84rem;line-height:1.7;color:var(--ink)">
-      <div style="margin-bottom:12px"><span style="color:var(--warning);font-weight:700">Draft</span><br>原始知识条目。未经整理的observation或手动输入。3天无矛盾自动晋级Refined。</div>
-      <div style="margin-bottom:12px"><span style="color:var(--info);font-weight:700">Refined</span><br>Agent已整理的表述。去冗余、结构化完成，但尚未经事实核查。7天无矛盾自动晋级Canonized。</div>
-      <div style="margin-bottom:12px"><span style="color:var(--success);font-weight:700">Verified</span><br>经来源或用户确认的可信事实。手动Promote到达，确认后可继续晋级Canonized。</div>
-      <div style="margin-bottom:12px"><span style="color:var(--primary);font-weight:700">Canonized</span><br>核心知识。高置信度，导出至KNOWLEDGE.md。</div>
-      <div style="margin-bottom:12px"><span style="color:var(--ink-dim);font-weight:700">Deprecated</span><br>垃圾箱。过时、错误或被替代的知识。点击"Empty Trash"永久删除。</div>
-      <div style="margin-top:16px;padding:8px 12px;background:var(--surface);border-radius:var(--r-md);color:var(--ink-muted);font-size:.78rem">Confidence = category_base + source_bonus + evidence×0.05(上限0.2) − corrections×0.1 + retrieval_bonus + time_bonus − age_penalty<br>Clamped [0.0, 1.0]，Retrospect自动重算。</div>
+      <div style="margin-bottom:12px"><span style="color:var(--warning);font-weight:700">Draft</span><br><span data-i18n="kn_draft_desc">{_pt("kn_draft_desc")}</span></div>
+      <div style="margin-bottom:12px"><span style="color:var(--info);font-weight:700">Refined</span><br><span data-i18n="kn_refined_desc">{_pt("kn_refined_desc")}</span></div>
+      <div style="margin-bottom:12px"><span style="color:var(--success);font-weight:700">Verified</span><br><span data-i18n="kn_verified_desc">{_pt("kn_verified_desc")}</span></div>
+      <div style="margin-bottom:12px"><span style="color:var(--primary);font-weight:700">Canonized</span><br><span data-i18n="kn_canonized_desc">{_pt("kn_canonized_desc")}</span></div>
+      <div style="margin-bottom:12px"><span style="color:var(--ink-dim);font-weight:700">Deprecated</span><br><span data-i18n="kn_deprecated_desc">{_pt("kn_deprecated_desc")}</span></div>
+      <div style="margin-top:16px;padding:8px 12px;background:var(--surface);border-radius:var(--r-md);color:var(--ink-muted);font-size:.78rem" data-i18n="kn_confidence_formula">{_pt("kn_confidence_formula")}</div>
     </div>
-    <div style="margin-top:12px;text-align:right"><button class="kn-action-btn secondary" onclick="document.getElementById('stage-help-overlay').style.display='none'">Close</button></div>
+    <div style="margin-top:12px;text-align:right"><button class="kn-action-btn secondary" data-i18n="kn_close" onclick="document.getElementById('stage-help-overlay').style.display='none'">{_pt("kn_close")}</button></div>
   </div>
 </div>
 <div id="confirm-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(8px);z-index:200;justify-content:center;align-items:center" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--sp-lg);max-width:400px;text-align:center">
     <h3 id="confirm-title" style="margin-bottom:var(--sp-md)"></h3>
     <div style="display:flex;gap:8px;justify-content:center">
-      <button id="confirm-action-btn" style="padding:8px 20px;border-radius:var(--r-md);border:none;cursor:pointer;font-weight:600;background:var(--danger-muted);color:var(--danger)">Confirm</button>
-      <button style="padding:8px 20px;border-radius:var(--r-md);border:1px solid var(--border);background:var(--surface);color:var(--ink-muted);cursor:pointer" onclick="document.getElementById('confirm-overlay').style.display='none'">Cancel</button>
+      <button id="confirm-action-btn" style="padding:8px 20px;border-radius:var(--r-md);border:none;cursor:pointer;font-weight:600;background:var(--danger-muted);color:var(--danger)" data-i18n="rv_confirm">{_pt("rv_confirm")}</button>
+      <button style="padding:8px 20px;border-radius:var(--r-md);border:1px solid var(--border);background:var(--surface);color:var(--ink-muted);cursor:pointer" onclick="document.getElementById('confirm-overlay').style.display='none'" data-i18n="kn_cancel">{_pt("kn_cancel")}</button>
     </div>
   </div>
 </div>
@@ -4407,18 +5261,18 @@ function submitKnowledge(e) {{
   }})
     .then(function(r) {{ return r.json(); }})
     .then(function(d) {{
-      showToast(d.message || 'Knowledge added', 'approve');
+      showToast(d.message || _t('toast_added'), 'approve');
       hideAddModal();
       setTimeout(function(){{ location.reload(); }}, 800);
     }})
-    .catch(function(e) {{ showToast('Error: ' + e.message, 'reject'); }});
+    .catch(function(e) {{ showToast(_t('toast_error') + ': ' + e.message, 'reject'); }});
   return false;
 }}
 function exportKnowledge() {{
   fetch('/api/knowledge/export', {{method:'POST',headers:{{'Content-Type':'application/json'}}}})
     .then(function(r) {{ return r.json(); }})
-    .then(function(d) {{ showToast(d.message || 'Export complete', 'approve'); }})
-    .catch(function(e) {{ showToast('Error: ' + e.message, 'reject'); }});
+    .then(function(d) {{ showToast(d.message || _t('toast_export_done'), 'approve'); }})
+    .catch(function(e) {{ showToast(_t('toast_error') + ': ' + e.message, 'reject'); }});
 }}
 function showStageHelp() {{
   document.getElementById('stage-help-overlay').style.display = 'flex';
@@ -4426,21 +5280,21 @@ function showStageHelp() {{
 function retrospect() {{
   fetch('/api/knowledge/retrospect?dry_run=false', {{method:'POST',headers:{{'Content-Type':'application/json'}}}})
     .then(function(r) {{ return r.json(); }})
-    .then(function(d) {{ showToast(d.message || 'Retrospect complete', 'approve'); }})
-    .catch(function(e) {{ showToast('Error: ' + e.message, 'reject'); }});
+    .then(function(d) {{ showToast(d.message || _t('toast_retrospect_done'), 'approve'); }})
+    .catch(function(e) {{ showToast(_t('toast_error') + ': ' + e.message, 'reject'); }});
 }}
 function emptyTrash() {{
   var overlay = document.getElementById('confirm-overlay');
   var modal = document.getElementById('confirm-modal');
   var title = document.getElementById('confirm-title');
   var btn = document.getElementById('confirm-action-btn');
-  title.textContent = 'Permanently delete all deprecated nodes?';
+  title.textContent = _t('confirm_empty_trash');
   btn.onclick = function() {{
     overlay.style.display = 'none';
     fetch('/api/knowledge/trash/empty', {{method:'DELETE',headers:{{'Content-Type':'application/json'}}}})
       .then(function(r){{ return r.json(); }})
-      .then(function(d){{ showToast('Deleted ' + (d.deleted||0) + ' nodes', 'approve'); setTimeout(function(){{ location.reload(); }},800); }})
-      .catch(function(e){{ showToast('Error: ' + e.message, 'reject'); }});
+      .then(function(d){{ showToast(_t('toast_deleted').replace('{{count}}', (d.deleted||0)), 'approve'); setTimeout(function(){{ location.reload(); }},800); }})
+      .catch(function(e){{ showToast(_t('toast_error') + ': ' + e.message, 'reject'); }});
   }};
   overlay.style.display = 'flex';
 }}
@@ -4475,27 +5329,27 @@ function knAct(url, actionName, successMsg, body, method) {
     fetch(url, opts)
       .then(function(r){ return r.json(); })
       .then(function(data){
-        showToast(successMsg || 'Done', 'approve');
+        showToast(successMsg || _t('toast_done'), 'approve');
         setTimeout(function(){ location.reload(); }, 800);
       })
       .catch(function(e){
-        showToast('Error: ' + e.message, 'reject');
+        showToast(_t('toast_error') + ': ' + e.message, 'reject');
       });
   };
   overlay.style.display = 'flex';
   modalBtn.focus();
 }
 function knDeprecate(url) {
-  knAct(url, 'Deprecate this knowledge node', 'Node deprecated', {stage: 'deprecated'});
+  knAct(url, _t('kd_deprecate') + '?', _t('toast_done'), {stage: 'deprecated'});
 }
 function knPromote(url, nextStage) {
-  knAct(url, 'Promote to ' + nextStage, 'Stage updated', {stage: nextStage});
+  knAct(url, _t('kd_promote') + ' ' + nextStage + '?', _t('toast_done'), {stage: nextStage});
 }
 function knMerge(url, actionName) {
-  knAct(url, actionName || 'Merge nodes', 'Nodes merged');
+  knAct(url, actionName || _t('kd_merge_into'), _t('toast_done'));
 }
 function knDelete(url) {
-  knAct(url, 'Permanently delete this node', 'Node deleted', null, 'DELETE');
+  knAct(url, _t('confirm_delete_node'), _t('toast_done'), null, 'DELETE');
 }
 function showEditModal() {
   document.getElementById('edit-modal-overlay').style.display = 'flex';
@@ -4515,10 +5369,10 @@ function submitEdit(e) {
   fetch('/api/knowledge/' + nodeId, {method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)})
     .then(function(r){ return r.json(); })
     .then(function(d){
-      showToast('Node updated', 'approve');
+      showToast(_t('toast_node_updated'), 'approve');
       setTimeout(function(){ location.reload(); }, 800);
     })
-    .catch(function(e){ showToast('Error: ' + e.message, 'reject'); });
+    .catch(function(e){ showToast(_t('toast_error') + ': ' + e.message, 'reject'); });
   return false;
 }
 function hideConfirm() {
@@ -4620,7 +5474,7 @@ def knowledge_detail_page(
     for ev in evidence_list:
         evidence_html += f'<div style="padding:4px 0;font-size:.88rem;color:var(--ink);border-bottom:1px solid var(--border)">• {_html.escape(str(ev))}</div>'
     if not evidence_html:
-        evidence_html = '<div style="color:var(--ink-dim);font-style:italic">No evidence recorded</div>'
+        evidence_html = f'<div style="color:var(--ink-dim);padding:12px 0;text-align:center"><div style="font-size:1.5rem;margin-bottom:4px">📋</div><div style="font-style:italic" data-i18n="kd_no_evidence">{_pt("kd_no_evidence")}</div><div style="font-size:.78rem;margin-top:4px;color:var(--ink-muted)" data-i18n="kd_no_evidence_hint">{_pt("kd_no_evidence_hint")}</div></div>'
 
     # -- Merged from / Contradicts / Verified by --
     try:
@@ -4638,7 +5492,7 @@ def knowledge_detail_page(
 
     def _id_list_html(items: list, base_url: str = "/knowledge/") -> str:
         if not items:
-            return '<span style="color:var(--ink-dim);font-style:italic">None</span>'
+            return f'<span style="color:var(--ink-dim);font-style:italic" data-i18n="kd_none_yet">{_pt("kd_none_yet")}</span>'
         parts = []
         for item_id in items:
             sid = _html.escape(str(item_id))
@@ -4652,7 +5506,7 @@ def knowledge_detail_page(
         pid = str(parent_node.get("id", ""))[:16]
         psummary = str(parent_node.get("summary", ""))[:60]
         rel_cards += f"""<a href="/knowledge/{_html.escape(str(parent_node.get('id', '')))}" class="kn-rel-card">
-  <span class="kn-rel-type">⬆ Parent</span>
+  <span class="kn-rel-type">⬆ {_pt("kd_parent")}</span>
   <span class="kn-rel-summary">{_html.escape(psummary)}</span>
   <span class="kn-rel-id">{_html.escape(pid)}…</span>
 </a>"""
@@ -4661,7 +5515,7 @@ def knowledge_detail_page(
         sid = str(supersedes_node.get("id", ""))[:16]
         ssummary = str(supersedes_node.get("summary", ""))[:60]
         rel_cards += f"""<a href="/knowledge/{_html.escape(str(supersedes_node.get('id', '')))}" class="kn-rel-card">
-  <span class="kn-rel-type">⬅ Supersedes</span>
+  <span class="kn-rel-type">⬅ {_pt("kd_supersedes")}</span>
   <span class="kn-rel-summary">{_html.escape(ssummary)}</span>
   <span class="kn-rel-id">{_html.escape(sid)}…</span>
 </a>"""
@@ -4670,7 +5524,7 @@ def knowledge_detail_page(
         cid = str(child.get("id", ""))[:16]
         csummary = str(child.get("summary", ""))[:60]
         rel_cards += f"""<a href="/knowledge/{_html.escape(str(child.get('id', '')))}" class="kn-rel-card">
-  <span class="kn-rel-type">⬇ Child</span>
+  <span class="kn-rel-type">⬇ {_pt("kd_child")}</span>
   <span class="kn-rel-summary">{_html.escape(csummary)}</span>
   <span class="kn-rel-id">{_html.escape(cid)}…</span>
 </a>"""
@@ -4679,7 +5533,7 @@ def knowledge_detail_page(
         sid2 = str(sup.get("id", ""))[:16]
         ssummary2 = str(sup.get("summary", ""))[:60]
         rel_cards += f"""<a href="/knowledge/{_html.escape(str(sup.get('id', '')))}" class="kn-rel-card">
-  <span class="kn-rel-type">➡ Superseded by</span>
+  <span class="kn-rel-type">➡ {_pt("kd_superseded_by")}</span>
   <span class="kn-rel-summary">{_html.escape(ssummary2)}</span>
   <span class="kn-rel-id">{_html.escape(sid2)}…</span>
 </a>"""
@@ -4688,13 +5542,13 @@ def knowledge_detail_page(
         conid = str(con.get("id", ""))[:16]
         cons = str(con.get("summary", ""))[:60]
         rel_cards += f"""<a href="/knowledge/{_html.escape(str(con.get('id', '')))}" class="kn-rel-card">
-  <span class="kn-rel-type">⚡ Contradicts</span>
+  <span class="kn-rel-type">⚡ {_pt("kd_contradicts")}</span>
   <span class="kn-rel-summary">{_html.escape(cons)}</span>
   <span class="kn-rel-id">{_html.escape(conid)}…</span>
 </a>"""
 
     if not rel_cards:
-        rel_cards = '<div style="color:var(--ink-dim);font-style:italic;padding:8px 0">No relationships</div>'
+        rel_cards = f'<div style="color:var(--ink-dim);padding:12px 0;text-align:center"><div style="font-size:1.5rem;margin-bottom:4px">🔗</div><div style="font-style:italic" data-i18n="kd_no_relationships">{_pt("kd_no_relationships")}</div><div style="font-size:.78rem;margin-top:4px;color:var(--ink-muted)" data-i18n="kd_no_relationships_hint">{_pt("kd_no_relationships_hint")}</div></div>'
 
     # -- Thought chain timeline --
     _ACTION_ICON = {
@@ -4735,36 +5589,36 @@ def knowledge_detail_page(
     </div>
     <div class="kn-tl-reasoning">{_html.escape(tc_reasoning)}</div>
     <div class="kn-tl-meta">
-      <span>Decision: <strong style="color:{dec_color}">{_html.escape(tc_decision)}</strong></span>
-      <span>Confidence: {int(tc_conf * 100)}%</span>
+      <span>{_pt("kd_decision")}: <strong style="color:{dec_color}">{_html.escape(tc_decision)}</strong></span>
+      <span>{_pt("kd_tl_confidence")}: {int(tc_conf * 100)}%</span>
     </div>
   </div>
 </div>"""
 
     if not timeline_html:
-        timeline_html = '<div style="color:var(--ink-dim);font-style:italic;padding:16px 0;text-align:center">No thought chain entries</div>'
+        timeline_html = f'<div style="color:var(--ink-dim);padding:16px 0;text-align:center"><div style="font-size:1.5rem;margin-bottom:4px">🧠</div><div style="font-style:italic" data-i18n="kd_no_thought">{_pt("kd_no_thought")}</div><div style="font-size:.78rem;margin-top:4px;color:var(--ink-muted)" data-i18n="kd_no_thought_hint">{_pt("kd_no_thought_hint")}</div></div>'
 
     # -- Action buttons --
     btns = ""
     btns += (
-        f'<button class="btn" style="background:var(--surface);border:1px solid var(--border)" onclick="showEditModal()">✏️ Edit</button>'
+        f'<button class="btn" style="background:var(--surface);border:1px solid var(--border)" onclick="showEditModal()" data-i18n="kd_edit">{_pt("kd_edit")}</button>'
     )
     next_stage = {"draft": "refined", "refined": "verified", "verified": "canonized"}
     if stage in next_stage:
         nxt = next_stage[stage]
         btns += (
             f'<button class="btn btn-approve" onclick="knPromote(&apos;/api/knowledge/{_html.escape(nid)}/stage&apos;,&apos;{_html.escape(nxt)}&apos;)">'
-            f'⬆ Promote to {_html.escape(nxt.title())} <kbd>P</kbd></button>'
+            f'⬆ {_pt("kd_promote")} {_html.escape(nxt.title())} <kbd>P</kbd></button>'
         )
     if stage not in ("deprecated",):
         btns += (
             f'<button class="btn btn-reject" onclick="knDeprecate(&apos;/api/knowledge/{_html.escape(nid)}/stage&apos;)">'
-            f'🗑 Deprecate <kbd>D</kbd></button>'
+            f'🗑 {_pt("kd_deprecate")} <kbd>D</kbd></button>'
         )
     else:
         btns += (
             f'<button class="btn btn-reject" style="background:var(--danger-muted);color:var(--danger)" onclick="knDelete(&apos;/api/knowledge/{_html.escape(nid)}&apos;)">'
-            f'🗑 Delete Permanently</button>'
+            f'🗑 {_pt("kd_delete_perm")}</button>'
         )
     # Merge buttons for contradicted nodes
     if contradict_list:
@@ -4774,14 +5628,14 @@ def knowledge_detail_page(
                 f'<button class="btn" style="background:var(--primary);color:#fff" '
                 f'onclick="knMerge(&apos;/api/knowledge/{cid_esc}/merge/{_html.escape(nid)}&apos;, '
                 f'&apos;Merge this node into {cid_esc[:8]}…&apos;)">'
-                f'🔗 Merge into {cid_esc[:8]}… </button>'
+                f'🔗 {_pt("kd_merge_into")} {cid_esc[:8]}… </button>'
             )
     if not btns:
-        btns = f'<div class="empty" style="flex:1">Node is {stage} — no actions available.</div>'
+        btns = f'<div class="empty" style="flex:1">{_pt("kd_no_actions").replace("{stage}", _stage_badge(stage))}</div>'
 
     body = f"""
 <div class="detail-header">
-  <a href="/knowledge" class="back-link">← Knowledge Tree</a>
+  <a href="/knowledge" class="back-link" data-i18n="kd_back">{_pt("kd_back")}</a>
   <span class="detail-title">{_html.escape(summary[:60])}</span>
   {_stage_badge(stage)}
   {_kn_category_badge(category)}
@@ -4791,63 +5645,63 @@ def knowledge_detail_page(
 
   <!-- Summary & Confidence -->
   <div class="section">
-    <h3>Summary</h3>
+    <h3 data-i18n="kd_summary">{_pt("kd_summary")}</h3>
     <p style="font-size:1rem;font-weight:500">{_html.escape(summary)}</p>
   </div>
 
   <div class="section">
-    <h3>Confidence</h3>
+    <h3 data-i18n="kd_confidence">{_pt("kd_confidence")}</h3>
     {confidence_html}
   </div>
 
   <!-- Full content -->
   <div class="section">
-    <h3>Content</h3>
+    <h3 data-i18n="kd_content">{_pt("kd_content")}</h3>
     <p style="white-space:pre-wrap">{_html.escape(content)}</p>
   </div>
 
   <!-- Metadata grid -->
   <div class="meta-grid" style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);margin-bottom:var(--sp-lg)">
-    <span class="label">Node ID</span><span class="value" style="font-family:var(--font-mono);font-size:.78rem;word-break:break-all">{_html.escape(nid)}</span>
-    <span class="label">Category</span><span class="value">{_kn_category_badge(category)}</span>
-    <span class="label">Domain</span><span class="value">{_html.escape(domain)}</span>
-    <span class="label">Stage</span><span class="value">{_stage_badge(stage)}</span>
-    <span class="label">Operation</span><span class="value">{_html.escape(operation_label)}</span>
-    <span class="label">Source</span><span class="value" style="font-size:.82rem;word-break:break-all">{_html.escape(source)}</span>
-    <span class="label">Created</span><span class="value">{_html.escape(created_at)}</span>
-    {'<span class="label">Refined</span><span class="value">' + _html.escape(refined_at) + '</span>' if refined_at else ''}
-    {'<span class="label">Verified</span><span class="value">' + _html.escape(verified_at) + '</span>' if verified_at else ''}
-    {'<span class="label">Deprecated</span><span class="value">' + _html.escape(deprecated_at) + '</span>' if deprecated_at else ''}
-    <span class="label">Retrievals</span><span class="value">{retrieval_count}</span>
-    <span class="label">Last Used</span><span class="value">{_html.escape(last_used_at) if last_used_at else '—'}</span>
-    <span class="label">Corrections</span><span class="value">{correction_count}</span>
+    <span class="label" data-i18n="kd_node_id">{_pt("kd_node_id")}</span><span class="value" style="font-family:var(--font-mono);font-size:.78rem;word-break:break-all">{_html.escape(nid)}</span>
+    <span class="label" data-i18n="kd_category">{_pt("kd_category")}</span><span class="value">{_kn_category_badge(category)}</span>
+    <span class="label" data-i18n="kd_domain">{_pt("kd_domain")}</span><span class="value">{_html.escape(domain)}</span>
+    <span class="label" data-i18n="kd_stage">{_pt("kd_stage")}</span><span class="value">{_stage_badge(stage)}</span>
+    <span class="label" data-i18n="kd_operation">{_pt("kd_operation")}</span><span class="value">{_html.escape(operation_label)}</span>
+    <span class="label" data-i18n="kd_source_label">{_pt("kd_source_label")}</span><span class="value" style="font-size:.82rem;word-break:break-all">{_html.escape(source)}</span>
+    <span class="label" data-i18n="kd_created">{_pt("kd_created")}</span><span class="value">{_html.escape(created_at)}</span>
+    {f'<span class="label" data-i18n="kd_refined">{_pt("kd_refined")}</span><span class="value">' + _html.escape(refined_at) + '</span>' if refined_at else ''}
+    {f'<span class="label" data-i18n="kd_verified">{_pt("kd_verified")}</span><span class="value">' + _html.escape(verified_at) + '</span>' if verified_at else ''}
+    {f'<span class="label" data-i18n="kd_deprecated">{_pt("kd_deprecated")}</span><span class="value">' + _html.escape(deprecated_at) + '</span>' if deprecated_at else ''}
+    <span class="label" data-i18n="kd_retrievals">{_pt("kd_retrievals")}</span><span class="value">{retrieval_count}</span>
+    <span class="label" data-i18n="kd_last_used">{_pt("kd_last_used")}</span><span class="value">{_html.escape(last_used_at) if last_used_at else '—'}</span>
+    <span class="label" data-i18n="kd_corrections">{_pt("kd_corrections")}</span><span class="value">{correction_count}</span>
   </div>
 
   <!-- Evidence -->
   <div class="section">
-    <h3>Evidence</h3>
+    <h3 data-i18n="kd_evidence">{_pt("kd_evidence")}</h3>
     {evidence_html}
   </div>
 
   <!-- Provenance (merged/contradicts/verified) -->
   <div class="section">
-    <h3>Provenance</h3>
+    <h3 data-i18n="kd_provenance">{_pt("kd_provenance")}</h3>
     <div style="display:grid;gap:8px">
-      <div><span style="color:var(--ink-muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.04em">Merged From</span><div style="margin-top:2px">{_id_list_html(merged_list)}</div></div>
-      <div><span style="color:var(--ink-muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.04em">Contradicts</span><div style="margin-top:2px">{_id_list_html(contradict_list)}</div></div>
-      <div><span style="color:var(--ink-muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.04em">Verified By</span><div style="margin-top:2px">{_id_list_html(verified_list)}</div></div>
+      <div><span style="color:var(--ink-muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.04em" data-i18n="kd_merged_from">{_pt("kd_merged_from")}</span><div style="margin-top:2px">{_id_list_html(merged_list)}</div></div>
+      <div><span style="color:var(--ink-muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.04em" data-i18n="kd_contradicts_list">{_pt("kd_contradicts_list")}</span><div style="margin-top:2px">{_id_list_html(contradict_list)}</div></div>
+      <div><span style="color:var(--ink-muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.04em" data-i18n="kd_verified_by">{_pt("kd_verified_by")}</span><div style="margin-top:2px">{_id_list_html(verified_list)}</div></div>
     </div>
   </div>
 
   <!-- Relationships -->
   <div class="section">
-    <h3>Relationships</h3>
+    <h3 data-i18n="kd_relationships">{_pt("kd_relationships")}</h3>
     <div style="display:flex;flex-direction:column;gap:6px">{rel_cards}</div>
   </div>
 
   <!-- Thought Chain Timeline -->
   <div class="section">
-    <h3>Thought Chain Timeline</h3>
+    <h3 data-i18n="kd_thought_chain">{_pt("kd_thought_chain")}</h3>
     <div class="kn-timeline">{timeline_html}</div>
   </div>
 
@@ -4857,7 +5711,7 @@ def knowledge_detail_page(
 
 <div id="edit-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center" onclick="if(event.target===this)hideEditModal()">
   <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--sp-lg);max-width:600px;width:90%;max-height:80vh;overflow-y:auto">
-    <h2 style="margin-bottom:var(--sp-md);font-size:1.1rem">✏️ Edit Node</h2>
+    <h2 style="margin-bottom:var(--sp-md);font-size:1.1rem" data-i18n="kd_edit_title">{_pt("kd_edit_title")}</h2>
     <form id="edit-node-form" onsubmit="return submitEdit(event)">
       <label style="display:block;font-size:.78rem;color:var(--ink-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">Summary</label>
       <input type="text" id="edit-summary" value="{_html.escape(summary)}" style="width:100%;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);color:var(--ink);font-size:.9rem;margin-bottom:12px;outline:none" onfocus="this.style.borderColor='var(--border-focus)'" onblur="this.style.borderColor='var(--border)'">
@@ -4882,8 +5736,8 @@ def knowledge_detail_page(
         </div>
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
-        <button type="button" class="kn-action-btn secondary" onclick="hideEditModal()">Cancel</button>
-        <button type="submit" class="kn-action-btn">Save</button>
+        <button type="button" class="kn-action-btn secondary" onclick="hideEditModal()" data-i18n="kd_cancel">{_pt("kd_cancel")}</button>
+        <button type="submit" class="kn-action-btn" data-i18n="kd_save">{_pt("kd_save")}</button>
       </div>
     </form>
   </div>
@@ -4893,8 +5747,8 @@ def knowledge_detail_page(
   <div class="confirm-modal" id="confirm-modal">
     <h3 id="confirm-title"></h3>
     <div class="confirm-actions">
-      <button class="btn-yes" id="confirm-action-btn">Confirm</button>
-      <button class="btn-no" onclick="hideConfirm()">Cancel</button>
+      <button class="btn-yes" id="confirm-action-btn" data-i18n="rv_confirm">{_pt("rv_confirm")}</button>
+      <button class="btn-no" onclick="hideConfirm()" data-i18n="kd_cancel">{_pt("kd_cancel")}</button>
     </div>
   </div>
 </div>

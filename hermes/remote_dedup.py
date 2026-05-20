@@ -1,6 +1,6 @@
 """Hermes Brain V2: Remote dedup via Hugging Face Space.
 
-Offloads embedding computation to cupcake777/brain-dedup (16GB RAM, free CPU),
+Offloads embedding computation to a HuggingFace Space (16GB RAM, free CPU),
 since the VPS (2GB RAM) cannot run fastembed without OOM.
 
 Usage from watch cycle or CLI:
@@ -20,7 +20,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-HF_SPACE = "cupcake777/brain-dedup"
+HF_SPACE = os.environ.get("BRAIN_DEDUP_SPACE", "")
 
 
 @dataclass

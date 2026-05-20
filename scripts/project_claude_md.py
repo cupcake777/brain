@@ -14,7 +14,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-SYNC_ROOT = Path.home() / "hermes-sync"
+SYNC_ROOT = Path(os.environ.get("HERMES_SYNC_ROOT", str(Path.home() / "hermes-sync")))
 SOURCE = SYNC_ROOT / "exports" / "global" / "CLAUDE.md"
 TARGET = Path.home() / ".claude" / "CLAUDE.md"
 

@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 """Find duplicate knowledge nodes using text + embedding similarity."""
 
+import os
 import re
 import sys
 import sqlite3
 import gc
+from pathlib import Path
 
-sys.path.insert(0, '/root/ops/brain')
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from hermes.integrate import _text_similarity
 
 # --- Step 1: Load active nodes ---
-DB = '/root/hermes-sync/hermes.sqlite3'
+DB = os.environ.get('HERMES_DB_PATH', str(Path.home() / 'hermes-sync' / 'hermes.sqlite3'))
 conn = sqlite3.connect(DB)
 conn.row_factory = sqlite3.Row
 cur = conn.cursor()

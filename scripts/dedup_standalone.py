@@ -191,7 +191,7 @@ def run_dedup(db_path: str, merge_threshold: float, review_threshold: float,
 
 def main():
     parser = argparse.ArgumentParser(description="Brain knowledge dedup standalone script")
-    parser.add_argument("--db-path", default="/root/hermes-sync/hermes.sqlite3",
+    parser.add_argument("--db-path", default=str(Path.home() / "hermes-sync" / "hermes.sqlite3"),
                         help="Path to SQLite database")
     parser.add_argument("--merge-threshold", type=float, default=0.85,
                         help="Similarity threshold for merge (default: 0.85)")

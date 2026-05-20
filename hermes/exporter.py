@@ -203,13 +203,13 @@ class ExportCompiler:
             f"# CLAUDE.md\n\n"
             f"<!-- Hermes Brain sync: auto-generated from approved proposals. -->\n"
             f"<!-- Edits will be overwritten on next projection cycle. -->\n"
-            f"<!-- Source of truth: Hermes Brain VPS proposals DB + ~/hermes-sync/brain/ -->\n"
+            f"<!-- Source of truth: Hermes Brain proposals DB + sync root -->\n"
             f"<!-- Project: global | Updated: {now} | Entries: 0 -->\n\n"
             f"## Rules\n\n<!-- no entries -->\n\n"
             f"## Workflows\n\n<!-- no entries -->\n\n"
             f"---\n\n"
             f"*End of Hermes-managed rules. Do not edit above this line — changes will be overwritten.*\n"
-            f"*To propose a new rule: write a .md proposal to `~/hermes-sync/inbox/proposals/` and it will be reviewed via the Brain pipeline.*\n"
+            f"*To propose a new rule: write a .md proposal to the inbox directory and it will be reviewed via the Brain pipeline.*\n"
         )
 
     def _compile_claude_md(self, proposals: list[dict]) -> str:
@@ -242,7 +242,7 @@ class ExportCompiler:
             f"# CLAUDE.md\n\n"
             f"<!-- Hermes Brain sync: auto-generated from approved proposals. -->\n"
             f"<!-- Edits will be overwritten on next projection cycle. -->\n"
-            f"<!-- Source of truth: Hermes Brain VPS proposals DB + ~/hermes-sync/brain/ -->\n"
+            f"<!-- Source of truth: Hermes Brain proposals DB + sync root -->\n"
             f"<!-- Project: global | Updated: {now} | Entries: {len(entries)} -->\n\n"
         )
 
@@ -260,7 +260,7 @@ class ExportCompiler:
         footer = (
             "---\n\n"
             "*End of Hermes-managed rules. Do not edit above this line — changes will be overwritten.*\n"
-            "*To propose a new rule: write a .md proposal to `~/hermes-sync/inbox/proposals/` and it will be reviewed via the Brain pipeline.*\n"
+            "*To propose a new rule: write a .md proposal to the inbox directory and it will be reviewed via the Brain pipeline.*\n"
         )
 
         return header + "".join(sections) + footer
@@ -329,16 +329,16 @@ class ExportCompiler:
     def build_knowledge_export(self) -> Path:
         """Export canonized knowledge nodes to CLAUDE.md format.
 
-        Includes nodes at canonized and verified stages with confidence >= 0.5.
+        Includes nodes at canonized, verified, and refined stages with confidence >= 0.5.
         """
         nodes = self.repo.list_knowledge_nodes(
             limit=5000,
             order_by="confidence DESC, created_at ASC",
         )
-        # Only export active, high-confidence knowledge
+        # Only export active, high-confidence knowledge (canonized, verified, and refined)
         active = [
             n for n in nodes
-            if n.stage in ("canonized", "verified") and n.confidence >= 0.5
+            if n.stage in ("canonized", "verified", "refined") and n.confidence >= 0.5
         ]
         # Collapse superseded: if a node supersedes another, hide the superseded
         superseded_ids = {n.supersedes for n in active if n.supersedes}
