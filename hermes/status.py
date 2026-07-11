@@ -18,6 +18,8 @@ class StatusPublisher:
         counts = self.repo.counts_by_state()
         export_records = self.repo.list_export_records()
         oldest_pending = self.repo.oldest_pending_age_seconds()
+        knowledge_stats = self.repo.knowledge_stats_full()
+        top_nodes = self.repo.top_knowledge_nodes(limit=5)
         lines = [
             "# Hermes Status",
             "",
@@ -35,8 +37,31 @@ class StatusPublisher:
             f"- approved_for_export: {counts['approved_for_export']}",
             f"- Oldest pending: {oldest_pending if oldest_pending is not None else 'none'}",
             "",
-            "## Exports",
+            "## Knowledge",
+            f"- Total nodes: {knowledge_stats['total']}",
+            f"- By stage: {knowledge_stats['by_stage']}",
+            f"- Total retrievals: {knowledge_stats['total_retrievals']}",
+            f"- Total outcomes: {knowledge_stats['total_outcomes']}",
+            f"- Total corrections: {knowledge_stats['total_corrections']}",
+            f"- Avg confidence: {knowledge_stats['avg_confidence']}",
+            f"- Ever retrieved: {knowledge_stats['ever_retrieved']}",
+            f"- Ever with outcomes: {knowledge_stats['ever_outcome']}",
+            "",
+            "## Top knowledge",
         ]
+        if top_nodes:
+            for node in top_nodes:
+                lines.append(
+                    f"- [{node.stage}] {node.summary[:80]} | conf={node.confidence:.2f} | ret={node.retrieval_count} | out={node.outcome_count} | corr={node.correction_count}"
+                )
+        else:
+            lines.append("- none")
+        lines.extend(
+            [
+                "",
+                "## Exports",
+            ]
+        )
         if export_records:
             for record in export_records:
                 lines.append(f"- {record.file_name}: last rebuilt {record.rebuilt_at}, size {record.size_bytes}")

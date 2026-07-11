@@ -4,28 +4,17 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from hashlib import sha256
 from pathlib import Path
+import logging
 import re
 
 from hermes.proposals import load_front_matter
+from hermes.evidence import validate_evidence, extract_observations
 from hermes.repository import HermesRepository
 from hermes.notifier import NotificationRouter
 
 
-# All proposals auto-approve — manual review removed.
-# Knowledge Nodes (integrate.py) handle dedup, contradiction, and quality.
-AUTO_APPROVE_MATRIX = {
-    ("preference", "low"): "approved_for_export",
-    ("fact", "low"): "approved_for_export",
-    ("workflow_hint", "low"): "approved_for_export",
-    ("preference", "medium"): "approved_for_export",
-    ("fact", "medium"): "approved_for_export",
-    ("workflow_hint", "medium"): "approved_for_export",
-    ("preference", "high"): "approved_for_export",
-    ("fact", "high"): "approved_for_export",
-    ("workflow_hint", "high"): "approved_for_export",
-    ("rule", "low"): "approved_for_export",
-    ("rule", "medium"): "approved_for_export",
-    ("rule", "high"): "approved_for_export",
+ROUTE_MATRIX = {
+    ("preference", "low"): "approved_db_only",
 }
 
 
@@ -98,7 +87,36 @@ class IngestionService:
             }
         )
 
-        # -- best-effort notifications ----------------------------------------
+        # V3: Extract observations from evidence and insert into DB
+        evidence_entries = []
+        try:
+            from hermes.evidence import parse_evidence_section, extract_observations
+            evidence_entries = parse_evidence_section(sections.get("Evidence", ""))
+            observations = extract_observations(evidence_entries, proposal_id)
+            if observations:
+                self.repo.insert_observations(observations)
+        except Exception:
+            pass  # Non-fatal: proposal is already stored
+
+        # V3: Create memory edges for supersedes/contradicts
+        supersedes = front_matter.get("supersedes", "")
+        contradicts = front_matter.get("contradicts", "")
+        if supersedes:
+            try:
+                self.repo.insert_memory_edge(proposal_id, supersedes, "supersedes")
+            except Exception:
+                pass
+        if contradicts:
+            try:
+                self.repo.insert_memory_edge(proposal_id, contradicts, "contradicts")
+            except Exception:
+                pass
+        if duplicate_of:
+            try:
+                self.repo.insert_memory_edge(proposal_id, duplicate_of, "duplicates")
+            except Exception:
+                pass
+
         self._dispatch_ingest_notifications(
             route=route,
             duplicate_of=duplicate_of,
@@ -109,14 +127,14 @@ class IngestionService:
             suggested_memory=sections["Suggested durable memory"],
         )
 
-        # -- auto-integrate into Knowledge Nodes (V2 pipeline) ---------------
-        self._integrate_proposal(
-            category=front_matter["category"],
-            project_key=front_matter["project_key"],
-            suggested_memory=sections["Suggested durable memory"],
-            observation=sections["Observation"],
-            source=f"proposal:{proposal_id[:12]}",
-        )
+        if route in {"approved_db_only", "approved_for_export"}:
+            self._integrate_proposal(
+                category=front_matter["category"],
+                project_key=front_matter["project_key"],
+                suggested_memory=sections["Suggested durable memory"],
+                observation=sections["Observation"],
+                source=f"proposal:{proposal_id[:12]}",
+            )
 
         return IngestOutcome(proposal_id=proposal_id, route=route)
 
@@ -129,25 +147,19 @@ class IngestionService:
         observation: str,
         source: str,
     ) -> None:
-        """Push an approved proposal through the Knowledge Node integration pipeline.
-
-        Uses integrate() which provides semantic dedup, contradiction detection,
-        and auto-merge — all the quality control that the old pending state
-        relied on manual review for.
-        """
+        """Integrate already-approved proposals into knowledge nodes."""
         try:
             from hermes.integrate import integrate as _integrate
             content = f"{suggested_memory}"
             if observation:
                 content += f"\n\nObservation: {observation}"
-            domain_map = {
-                "apa": "apa",
-                "devops": "devops",
-                "network": "network",
-                "security": "security",
-                "study": "study",
-            }
-            domain = domain_map.get(project_key, "general")
+            known_domains = {"devops", "network", "security", "study", "general"}
+            if project_key and project_key in known_domains:
+                domain = project_key
+            elif project_key and project_key.strip():
+                domain = project_key.strip().lower()
+            else:
+                domain = "general"
             cat_map = {"workflow_hint": "workflow_hint"}
             cat = cat_map.get(category, category if category in ("rule", "preference", "fact") else "fact")
             _integrate(
@@ -161,12 +173,7 @@ class IngestionService:
             logging.warning("Knowledge Node integration failed for %s: %s", source, exc)
 
     def _route(self, category: str, risk_level: str) -> str:
-        # All proposals auto-approve — Knowledge Nodes handle quality control.
-        result = AUTO_APPROVE_MATRIX.get((category, risk_level))
-        if result:
-            return result
-        # Fallback: still auto-approve anything not in the matrix
-        return "approved_for_export"
+        return ROUTE_MATRIX.get((category, risk_level), "pending")
 
     def _dispatch_ingest_notifications(
         self,
@@ -190,11 +197,18 @@ class IngestionService:
                 "suggested_memory": suggested_memory,
             })
 
-        # All proposals are auto-approved now — notify accordingly
-        self._router.dispatch("auto_approved", {
-            "proposal_id": proposal_id,
-            "category": category,
-        })
+        event = {
+            "pending": "pending_new",
+            "approved_db_only": "approved_db_only",
+            "approved_for_export": "auto_approved",
+        }.get(route)
+        if event is not None:
+            self._router.dispatch(event, {
+                "proposal_id": proposal_id,
+                "category": category,
+                "project_key": project_key,
+                "summary": summary,
+            })
 
     def _write_rejected(self, candidate: Path, reason: str) -> Path:
         target_dir = self.sync_root / "review" / "rejected"
@@ -203,6 +217,51 @@ class IngestionService:
         target_path.write_text(candidate.read_text(encoding="utf-8"), encoding="utf-8")
         target_path.with_suffix(".reason").write_text(reason, encoding="utf-8")
         return target_path
+
+_UUID_PATTERN = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+_MIN_CONTENT_LENGTH = 10  # characters — below this, content is likely garbage
+
+
+def _is_garbage_content(text: str) -> bool:
+    """Return True if the text looks like garbage (bare UUID, empty, too short)."""
+    stripped = text.strip()
+    if not stripped:
+        return True
+    if len(stripped) < _MIN_CONTENT_LENGTH:
+        return True
+    if _UUID_PATTERN.match(stripped):
+        return True
+    return False
+
+
+def _validate_sections(sections: dict[str, str]) -> None:
+    """Validate proposal section content — reject proposals with garbage content."""
+    summary = sections.get("Summary", "")
+    observation = sections.get("Observation", "")
+    why = sections.get("Why it matters", "")
+    memory = sections.get("Suggested durable memory", "")
+
+    if _is_garbage_content(summary):
+        raise ValueError(
+            f"proposal Summary is empty, too short, or just a UUID: {summary!r}"
+        )
+
+    # At least one of Observation/Why it matters/Suggested memory must have real content
+    meaningful = [
+        s for s in (observation, why, memory)
+        if not _is_garbage_content(s)
+    ]
+    if not meaningful:
+        raise ValueError(
+            "proposal has no meaningful content in Observation, Why it matters, "
+            "or Suggested durable memory sections"
+        )
+
+    # V3: Validate evidence section
+    evidence_text = sections.get("Evidence", "")
+    evidence_quality, _evidence_entries = validate_evidence(evidence_text)
+    # Store quality in sections for downstream use
+    sections["_evidence_quality"] = evidence_quality
 
 
 def _parse_sections(body: str) -> dict[str, str]:
@@ -225,6 +284,7 @@ def _parse_sections(body: str) -> dict[str, str]:
     missing = required - sections.keys()
     if missing:
         raise ValueError(f"proposal body is missing sections: {sorted(missing)}")
+    _validate_sections(sections)
     return sections
 
 

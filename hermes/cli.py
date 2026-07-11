@@ -1,49 +1,80 @@
 from __future__ import annotations
 
 import argparse
+import json
+import logging
+import sys
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+    stream=sys.stderr,
+)
 import os
+from collections import defaultdict
+from dataclasses import asdict
+from datetime import datetime, timezone
 from pathlib import Path
 
 import uvicorn
 
 from hermes.app import create_app
 from hermes.auth import TLSConfig
-from hermes.config import HermesConfig
-from hermes.repository import HermesRepository
+from hermes.config import HermesConfig, build_config
+from hermes.exporter import ExportCompiler
+from hermes.ingest import IngestionService
 from hermes.runtime import HermesRuntime
+from hermes.status import StatusPublisher
 
 
-def build_config(*, sync_root: str | Path) -> HermesConfig:
-    """Build HermesConfig from sync_root plus optional env vars."""
-    root = Path(sync_root)
-    return HermesConfig(
-        sync_root=root,
-        db_path=root / "hermes.sqlite3",
-        auth_token=os.environ.get("HERMES_AUTH_TOKEN") or None,
-        auth_username=os.environ.get("HERMES_USERNAME") or None,
-        auth_password=os.environ.get("HERMES_PASSWORD") or None,
-        csrf_secret=os.environ.get("HERMES_CSRF_SECRET") or None,
-        tls_cert=os.environ.get("HERMES_TLS_CERT") or None,
-        tls_key=os.environ.get("HERMES_TLS_KEY") or None,
-        telegram_bot_token=os.environ.get("HERMES_TELEGRAM_BOT_TOKEN") or None,
-        telegram_chat_id=os.environ.get("HERMES_TELEGRAM_CHAT_ID") or None,
-    )
-
-
-def build_runtime(*, sync_root: str | Path) -> HermesRuntime:
+def build_runtime(sync_root: str | Path) -> HermesRuntime:
     config = build_config(sync_root=sync_root)
-    repo = HermesRepository(config.db_path)
-    return HermesRuntime(config=config, repo=repo)
+    return HermesRuntime(config=config)
 
 
-def build_app(*, sync_root: str | Path):
-    runtime = build_runtime(sync_root=sync_root)
+def build_app(sync_root: str | Path):
+    runtime = build_runtime(sync_root)
     return create_app(
         repo=runtime.repo,
         sync_root=runtime.config.sync_root,
         config=runtime.config,
         exporter=runtime.exporter,
     )
+
+
+def _iter_active_knowledge_nodes(repo):
+    nodes = repo.list_knowledge_nodes(limit=10000)
+    return [n for n in nodes if n.stage != "deprecated"]
+
+
+def _cmd_backfill_signals(config: HermesConfig, *, apply: bool) -> int:
+    from hermes.repository import HermesRepository as _HRepo
+    from hermes.integrate import recompute_confidence
+
+    repo = _HRepo(config.db_path)
+    nodes = _iter_active_knowledge_nodes(repo)
+    updated = 0
+    for node in nodes:
+        fields: dict[str, object] = {}
+        if node.last_used_at is None and node.retrieval_count > 0:
+            fields["last_used_at"] = node.created_at
+        if node.last_outcome_at is None and node.outcome_count > 0:
+            fields["last_outcome_at"] = node.created_at
+        recomputed = recompute_confidence(node, repo)
+        if abs(recomputed - node.confidence) > 1e-9:
+            fields["confidence"] = recomputed
+        if fields:
+            updated += 1
+            if apply:
+                repo.update_knowledge_node(node.id, **fields)
+            print(
+                f"{node.id[:8]}… ret={node.retrieval_count} out={node.outcome_count} "
+                f"conf={node.confidence:.3f}->{fields.get('confidence', node.confidence):.3f} "
+                f"last_used={fields.get('last_used_at', node.last_used_at) or '-'} "
+                f"last_out={fields.get('last_outcome_at', node.last_outcome_at) or '-'}"
+            )
+    print(f"Backfill {'applied' if apply else 'preview'}: updated {updated} nodes")
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -88,6 +119,13 @@ def main(argv: list[str] | None = None) -> int:
     export_v2_parser = subparsers.add_parser("export-v2", help="Export V2 knowledge nodes to KNOWLEDGE.md")
     export_v2_parser.add_argument("--dry-run", action="store_true", help="Show what would be exported without writing")
 
+    backfill_parser = subparsers.add_parser("backfill-signals", help="Backfill knowledge retrieval/outcome timestamps and recompute confidence")
+    backfill_parser.add_argument("--apply", action="store_true", help="Write backfilled values to the database")
+
+    embed_parser = subparsers.add_parser("embed-backfill", help="Persist missing/stale proposal and knowledge embeddings")
+    embed_parser.add_argument("--entity-type", choices=("all", "proposal", "knowledge"), default="all")
+    embed_parser.add_argument("--batch-size", type=int, default=32)
+
     serve_parser = subparsers.add_parser("serve", help="Run the Hermes FastAPI server")
     serve_parser.add_argument("--host", default="127.0.0.1")
     serve_parser.add_argument("--port", type=int, default=8080)
@@ -99,7 +137,6 @@ def main(argv: list[str] | None = None) -> int:
 
     args = parser.parse_args(argv)
 
-    # Build config, merging CLI args over env vars
     config = build_config(sync_root=args.sync_root)
     if getattr(args, "auth_token", None):
         object.__setattr__(config, "auth_token", args.auth_token)
@@ -127,10 +164,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "retrospect":
         from hermes.integrate import retrospect as _retrospect
-        if args.dry_run:
-            result = _retrospect(runtime.repo, dry_run=True)
-        else:
-            result = _retrospect(runtime.repo, dry_run=False)
+        result = _retrospect(runtime.repo, dry_run=bool(args.dry_run))
         print(f"Retrospect results: {result}", flush=True)
         if not args.dry_run:
             runtime.rebuild_exports()
@@ -156,13 +190,11 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "dedup":
         import sqlite3
-        from collections import defaultdict
         conn = sqlite3.connect(str(config.db_path))
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
         cur.execute("SELECT proposal_id, summary, semantic_hash, state, semantic_duplicate_of FROM proposals ORDER BY inserted_at")
         rows = cur.fetchall()
-        # Group by semantic_hash
         by_hash = defaultdict(list)
         for row in rows:
             h = row["semantic_hash"]
@@ -191,27 +223,16 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Found {dupes_found} duplicate groups (dry run, no changes)")
         conn.close()
         return 0
-
     if args.command == "dedup-v2":
-        """Find and deprecate duplicate knowledge nodes using embedding similarity.
-
-        Strategy:
-        1. Batch embed all active node summaries using bge-small-en-v1.5
-        2. Compute pairwise cosine similarity
-        3. Auto-deprecate pairs above --threshold (default 0.85)
-        4. Report pairs above --review-threshold (default 0.70) for manual review
-        """
         import os as _os
         _os.environ.setdefault("ORT_LOGGING_LEVEL", "3")
         import numpy as np
-        from datetime import datetime, timezone
         from hermes.repository import HermesRepository as _HRepo
         from hermes.embedding import embed_texts
         from hermes.integrate import _text_similarity
 
         v2_repo = _HRepo(config.db_path)
-        nodes = v2_repo.list_knowledge_nodes(limit=10000)
-        active = [n for n in nodes if n.stage != "deprecated"]
+        active = _iter_active_knowledge_nodes(v2_repo)
         merge_threshold = args.threshold
         review_threshold = args.review_threshold
 
@@ -221,8 +242,6 @@ def main(argv: list[str] | None = None) -> int:
 
         print(f"Scanning {len(active)} active nodes for duplicates...")
         summaries = [n.summary for n in active]
-
-# Embed all summaries
         print("Loading embedding model...")
         try:
             embs = embed_texts(summaries)
@@ -231,15 +250,12 @@ def main(argv: list[str] | None = None) -> int:
             embs = None
 
         if embs is not None:
-            # Embedding-based: compute full pairwise similarity matrix
             emb_matrix = np.array(embs)
             norms = np.linalg.norm(emb_matrix, axis=1, keepdims=True)
             norms[norms == 0] = 1
             emb_matrix = emb_matrix / norms
-
             merge_pairs = []
             review_pairs = []
-
             for i in range(len(active)):
                 for j in range(i + 1, len(active)):
                     sim = float(emb_matrix[i] @ emb_matrix[j])
@@ -248,13 +264,11 @@ def main(argv: list[str] | None = None) -> int:
                     elif sim > review_threshold:
                         review_pairs.append((sim, i, j))
         else:
-            # Text-only fallback: compute pairwise text similarity
-            merge_threshold = 0.55  # Lower thresholds for text-only mode
+            merge_threshold = 0.55
             review_threshold = 0.35
             print(f"Using text-only mode with lower thresholds: merge={merge_threshold}, review={review_threshold}")
             merge_pairs = []
             review_pairs = []
-
             for i in range(len(active)):
                 for j in range(i + 1, len(active)):
                     sim = max(
@@ -266,76 +280,47 @@ def main(argv: list[str] | None = None) -> int:
                     elif sim > review_threshold:
                         review_pairs.append((sim, i, j))
 
-        merge_pairs.sort(key=lambda x: x[0], reverse=True)
-        review_pairs.sort(key=lambda x: x[0], reverse=True)
-
-        # Auto-deprecate merge pairs (keep the one with higher confidence)
-        deprecated_count = 0
-        seen = set()  # Track already-deprecated IDs to avoid double-counting
-        now = datetime.now(timezone.utc).isoformat()
-
-        print(f"\n=== MERGE candidates (emb sim > {merge_threshold}): {len(merge_pairs)} ===")
-        for sim, i, j in merge_pairs:
-            a, b = active[i], active[j]
-            # Keep the node with higher confidence
-            keep, drop = (a, b) if a.confidence >= b.confidence else (b, a)
-            print(f"  sim={sim:.3f}  KEEP [{keep.stage}] c={keep.confidence:.2f} {keep.summary[:70]}")
-            print(f"  {'':14s}DROP [{drop.stage}] c={drop.confidence:.2f} {drop.summary[:70]}")
-            if drop.id not in seen:
-                seen.add(drop.id)
-                if not args.dry_run:
-                    v2_repo.update_knowledge_node(drop.id, stage="deprecated", deprecated_at=now)
-                deprecated_count += 1
-
-        print(f"\n=== REVIEW candidates (emb sim {review_threshold}-{merge_threshold}): {len(review_pairs)} ===")
-        for sim, i, j in review_pairs[:15]:
-            a, b = active[i], active[j]
-            print(f"  sim={sim:.3f}")
-            print(f"    [{a.stage}] c={a.confidence:.2f} {a.summary[:70]}")
-            print(f"    [{b.stage}] c={b.confidence:.2f} {b.summary[:70]}")
-
+        merge_pairs.sort(reverse=True)
+        review_pairs.sort(reverse=True)
+        print(f"Found {len(merge_pairs)} merge candidates, {len(review_pairs)} review candidates")
         if args.dry_run:
-            print(f"\nDry run: would deprecate {deprecated_count} nodes. No changes made.")
-        else:
-            print(f"\nDeprecated {deprecated_count} duplicate nodes.")
-            remaining = [n for n in v2_repo.list_knowledge_nodes(limit=10000) if n.stage != "deprecated"]
-            print(f"Remaining active nodes: {len(remaining)}")
+            for sim, i, j in merge_pairs[:20]:
+                print(f"MERGE {sim:.3f} | {active[i].id[:8]}… | {active[j].id[:8]}…")
+            for sim, i, j in review_pairs[:20]:
+                print(f"REVIEW {sim:.3f} | {active[i].id[:8]}… | {active[j].id[:8]}…")
+            return 0
+
+        now = datetime.now(timezone.utc).isoformat()
+        changed = 0
+        used = set()
+        for sim, i, j in merge_pairs:
+            if i in used or j in used:
+                continue
+            keep = active[i] if active[i].confidence >= active[j].confidence else active[j]
+            drop = active[j] if keep is active[i] else active[i]
+            v2_repo.update_knowledge_node(drop.id, stage="deprecated", deprecated_at=now)
+            used.add(i)
+            used.add(j)
+            changed += 1
+            print(f"DEPRECATED {drop.id[:8]}… -> kept {keep.id[:8]}… sim={sim:.3f}")
+        print(f"Applied {changed} deprecations")
         return 0
-
-    if args.command == "remote-dedup":
-        """Run embedding-based dedup on HuggingFace Space."""
-        from hermes.remote_dedup import remote_dedup
-
-        result = remote_dedup(
-            db_path=str(config.db_path),
-            merge_threshold=args.merge_threshold,
-            review_threshold=args.review_threshold,
-            apply=not args.no_apply,
-            timeout=300,
-        )
-        if result.error:
-            print(f"Remote dedup failed: {result.error}", flush=True)
-            return 1
-        print(f"Remote dedup complete.", flush=True)
-        print(f"  Merge pairs: {result.merge_count}", flush=True)
-        print(f"  Review pairs: {result.review_count}", flush=True)
-        print(f"  Deprecated: {result.deprecated_count} nodes", flush=True)
-        if result.log:
-            print(f"  Log (tail):\n{result.log[-500:]}", flush=True)
-        return 0
-
     if args.command == "migrate-v2":
-        from hermes.repository import HermesRepository
-        from hermes.integrate import compute_confidence
-        v2_repo = HermesRepository(config.db_path)
+        from hermes.repository import HermesRepository as _HRepo
+        v2_repo = _HRepo(config.db_path)
         if args.dry_run:
             import sqlite3
             conn = sqlite3.connect(str(config.db_path))
             conn.row_factory = sqlite3.Row
             cur = conn.cursor()
-            cur.execute("SELECT proposal_id, state, category, risk_level, weight, summary FROM proposals ORDER BY inserted_at")
+            cur.execute("SELECT proposal_id, summary, category, state, weight FROM proposals ORDER BY inserted_at")
             rows = cur.fetchall()
-            stage_map = {"approved_for_export": "canonized", "approved_db_only": "canonized", "pending": "draft", "superseded": "deprecated"}
+            stage_map = {
+                "pending": "draft",
+                "approved_db_only": "verified",
+                "approved_for_export": "canonized",
+                "superseded": "deprecated",
+            }
             for row in rows:
                 state = str(row["state"])
                 if state == "rejected":
@@ -351,24 +336,16 @@ def main(argv: list[str] | None = None) -> int:
         counts = v2_repo.count_knowledge_nodes_by_stage()
         print(f"Stage distribution: {counts}")
         return 0
-
     if args.command == "integrate":
-        # Integrate a new knowledge entry from CLI
-        import json as _json
         from hermes.repository import HermesRepository as _HRepo
         from hermes.integrate import integrate as _integrate
         v2_repo = _HRepo(config.db_path)
-        content = args.content
-        source = args.source
-        category = args.category
-        domain = args.domain
-        parent_id = args.parent
         result = _integrate(
-            content=content,
-            source=source,
-            category=category,
-            domain=domain,
-            parent_id=parent_id,
+            content=args.content,
+            source=args.source,
+            category=args.category,
+            domain=args.domain,
+            parent_id=args.parent,
             repo=v2_repo,
         )
         print(f"Action: {result.action}")
@@ -388,22 +365,31 @@ def main(argv: list[str] | None = None) -> int:
         path = exporter.build_knowledge_export()
         print(f"Exported to: {path}")
         if args.dry_run:
-            print(f"(dry-run mode — file was still written, check content)")
+            print("(dry-run mode — file was still written, check content)")
         print(f"Size: {path.stat().st_size} bytes")
         return 0
+    if args.command == "backfill-signals":
+        return _cmd_backfill_signals(config, apply=bool(args.apply))
+    if args.command == "embed-backfill":
+        from hermes.repository import HermesRepository as _HRepo
+        result = _HRepo(config.db_path).backfill_embeddings(
+            entity_type=args.entity_type,
+            batch_size=max(1, int(args.batch_size)),
+        )
+        print(json.dumps(result, ensure_ascii=False))
+        return 1 if int(result["failed"]) else 0
     if args.command == "serve":
         if args.reload:
-            # Dev mode: use uvicorn reload with factory pattern
             os.environ["HERMES_SYNC_ROOT"] = str(runtime.config.sync_root)
             uvicorn.run(
                 "hermes._app_factory:create_app",
-                host=args.host, port=args.port,
+                host=args.host,
+                port=args.port,
                 reload=True,
                 reload_dirs=[os.path.join(os.path.dirname(__file__))],
                 factory=True,
             )
         else:
-            # Production mode: create app directly
             app = create_app(
                 repo=runtime.repo,
                 sync_root=runtime.config.sync_root,

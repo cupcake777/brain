@@ -18,6 +18,20 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 _EVENT_TEMPLATES: dict[str, str] = {
+    "pending_new": (
+        "<b>📝 Pending Proposal</b>\n"
+        "Proposal: <code>{proposal_id}</code>\n"
+        "Project: <code>{project_key}</code>\n"
+        "Category: {category}\n"
+        "Summary: {summary}"
+    ),
+    "approved_db_only": (
+        "<b>📚 Approved (DB Only)</b>\n"
+        "Proposal: <code>{proposal_id}</code>\n"
+        "Project: <code>{project_key}</code>\n"
+        "Category: {category}\n"
+        "Summary: {summary}"
+    ),
     "auto_approved": (
         "<b>✅ Auto-Approved &amp; Integrated</b>\n"
         "Proposal: <code>{proposal_id}</code>\n"

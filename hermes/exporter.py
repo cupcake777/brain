@@ -212,6 +212,29 @@ class ExportCompiler:
             f"*To propose a new rule: write a .md proposal to the inbox directory and it will be reviewed via the Brain pipeline.*\n"
         )
 
+    @staticmethod
+    def _build_top_index(entries: list[dict], n: int = 20) -> str:
+        """Build a compact priority index of the most important rules.
+
+        Scores entries by weight × risk_level × (retrieval_count_30d + 1) to
+        surface high-impact, frequently-used rules at the top.
+        """
+        scored = []
+        for e in entries:
+            risk = _RISK_ORDER.get(e.get("risk_level", "medium"), 1)
+            weight = float(e.get("weight", 1.0))
+            retrievals = int(e.get("retrieval_count_30d", 0) or 0)
+            score = weight * (risk + 1) * (retrievals + 1)
+            summary = str(e.get("summary", ""))[:80]
+            cat = e.get("category", "rule")
+            scored.append((score, cat, summary))
+        scored.sort(key=lambda x: x[0], reverse=True)
+        lines = []
+        for i, (score, cat, summary) in enumerate(scored[:n], 1):
+            cat_icon = {"rule": "\U0001f4cf", "workflow_hint": "\U0001f4a1", "preference": "\u2b50", "fact": "\U0001f4cb"}.get(cat, "\u2022")
+            lines.append(f"{i:2d}. {cat_icon} {summary}")
+        return "\n".join(lines)
+
     def _compile_claude_md(self, proposals: list[dict]) -> str:
         # Deduplicate by semantic_hash, keeping higher risk level
         seen: dict[str, dict] = {}
@@ -244,6 +267,9 @@ class ExportCompiler:
             f"<!-- Edits will be overwritten on next projection cycle. -->\n"
             f"<!-- Source of truth: Hermes Brain proposals DB + sync root -->\n"
             f"<!-- Project: global | Updated: {now} | Entries: {len(entries)} -->\n\n"
+            f"## 📋 Priority Index (Top 20 by importance)\n\n"
+            f"{self._build_top_index(entries)}\n"
+            f"---\n\n"
         )
 
         sections: list[str] = []
@@ -326,10 +352,11 @@ class ExportCompiler:
     # V2: Knowledge Node export
     # -----------------------------------------------------------------------
 
-    def build_knowledge_export(self) -> Path:
-        """Export canonized knowledge nodes to CLAUDE.md format.
+    def build_knowledge_export(self, project_key: str | None = None) -> Path:
+        """Export active knowledge nodes to KNOWLEDGE.md format.
 
-        Includes nodes at canonized, verified, and refined stages with confidence >= 0.5.
+        Global export includes global/general nodes; project export includes nodes whose
+        domain matches the project key.
         """
         nodes = self.repo.list_knowledge_nodes(
             limit=5000,
@@ -340,6 +367,18 @@ class ExportCompiler:
             n for n in nodes
             if n.stage in ("canonized", "verified", "refined") and n.confidence >= 0.5
         ]
+        if project_key is None:
+            active = [n for n in active if (n.domain or "general") in ("global", "general")]
+            export_dir = self.sync_root / "exports" / "global"
+            file_name = "KNOWLEDGE.md"
+            scope_type = "global"
+            record_key = "knowledge"
+        else:
+            active = [n for n in active if (n.domain or "general") == project_key]
+            export_dir = self.sync_root / "exports" / "projects"
+            file_name = f"{project_key}-KNOWLEDGE.md"
+            scope_type = "project"
+            record_key = project_key
         # Collapse superseded: if a node supersedes another, hide the superseded
         superseded_ids = {n.supersedes for n in active if n.supersedes}
         active = [n for n in active if n.id not in superseded_ids]
@@ -350,17 +389,37 @@ class ExportCompiler:
             body = self._compile_knowledge_md(active)
 
         body = self._enforce_cap(body, hard_cap=self.budgets.claude_md_hard_cap)
-        export_dir = self.sync_root / "exports" / "global"
         export_dir.mkdir(parents=True, exist_ok=True)
-        path = export_dir / "KNOWLEDGE.md"
+        path = export_dir / file_name
         path.write_text(body, encoding="utf-8")
         self.repo.record_export(
-            scope_type="global",
-            project_key="knowledge",
-            file_name="KNOWLEDGE.md",
+            scope_type=scope_type,
+            project_key=record_key,
+            file_name=file_name,
             size_bytes=path.stat().st_size,
         )
         return path
+
+    def export_brain_context(self) -> Path | None:
+        """Copy ~/.hermes/brain-context.md to exports so agents can pull it via HTTP.
+
+        Returns the export path, or None if brain-context.md doesn't exist.
+        """
+        source = Path.home() / ".hermes" / "brain-context.md"
+        if not source.exists():
+            return None
+        export_dir = self.sync_root / "exports" / "global"
+        export_dir.mkdir(parents=True, exist_ok=True)
+        dest = export_dir / "brain-context.md"
+        content = source.read_text(encoding="utf-8")
+        dest.write_text(content, encoding="utf-8")
+        self.repo.record_export(
+            scope_type="global",
+            project_key="brain-context",
+            file_name=dest.name,
+            size_bytes=dest.stat().st_size,
+        )
+        return dest
 
     def _build_empty_knowledge_md(self) -> str:
         now = datetime.now(timezone.utc).isoformat()
@@ -374,6 +433,8 @@ class ExportCompiler:
     def _compile_knowledge_md(self, nodes: list) -> str:
         # Group by domain, then category
         _domain_order = {"devops": 0, "network": 1, "study": 2, "security": 3, "general": 99}
+        # Project domains (apa, easycoloc, braingvex, etc.) get priority 50
+        # Unknown domains also get 50 so they appear between infra and general
         _stage_icons = {"canonized": "✅", "verified": "🔒", "refined": "🔧", "draft": "📝", "deprecated": "❌"}
         _category_labels = {"rule": "Rule", "workflow_hint": "Workflow Hint", "preference": "Preference", "fact": "Fact"}
 
@@ -398,7 +459,17 @@ class ExportCompiler:
                 icon = _stage_icons.get(n.stage, "•")
                 conf_bar = "█" * int(n.confidence * 10) + "░" * (10 - int(n.confidence * 10))
                 section += f"### {icon} {cat}: {n.summary[:80]}\n"
-                section += f"Confidence: {n.confidence:.2f} [{conf_bar}] | Stage: {n.stage} | Source: {n.source.split(':')[0]}\n\n"
+                section += f"Confidence: {n.confidence:.2f} [{conf_bar}] | Stage: {n.stage} | Source: {n.source.split(':')[0]}\n"
+                # Show signal metrics if non-zero
+                signals = []
+                if n.retrieval_count > 0:
+                    signals.append(f"retrieved {n.retrieval_count}x")
+                if n.outcome_count > 0:
+                    signals.append(f"outcomes {n.outcome_count}x")
+                if n.correction_count > 0:
+                    signals.append(f"corrected {n.correction_count}x")
+                if signals:
+                    section += f"Signals: {' | '.join(signals)}\n"
                 # Split content into readable lines
                 for line in n.content.split("\n"):
                     line = line.strip()

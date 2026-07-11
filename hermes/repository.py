@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -42,6 +43,27 @@ class KnowledgeNode:
     retrieval_count: int
     last_used_at: str | None
     correction_count: int
+    outcome_count: int
+    last_outcome_at: str | None
+    kind: str
+    trigger_terms: str
+    use_when: str
+    avoid_when: str
+    success_signal: str
+    failure_signal: str
+
+
+
+
+@dataclass(frozen=True)
+class KnowledgeRetrievalEvent:
+    id: str
+    query: str
+    agent: str
+    host: str
+    node_ids: str
+    created_at: str
+    outcome_recorded_at: str | None = None
 
 
 @dataclass(frozen=True)
@@ -131,7 +153,15 @@ class HermesRepository:
                     deprecated_at TEXT,
                     retrieval_count INTEGER NOT NULL DEFAULT 0,
                     last_used_at TEXT,
-                    correction_count INTEGER NOT NULL DEFAULT 0
+                    correction_count INTEGER NOT NULL DEFAULT 0,
+                    outcome_count INTEGER NOT NULL DEFAULT 0,
+                    last_outcome_at TEXT,
+                    kind TEXT NOT NULL DEFAULT 'fact',
+                    trigger_terms TEXT NOT NULL DEFAULT '[]',
+                    use_when TEXT NOT NULL DEFAULT '',
+                    avoid_when TEXT NOT NULL DEFAULT '',
+                    success_signal TEXT NOT NULL DEFAULT '',
+                    failure_signal TEXT NOT NULL DEFAULT ''
                 );
 
                 CREATE INDEX IF NOT EXISTS idx_kn_stage ON knowledge_nodes(stage);
@@ -153,15 +183,134 @@ class HermesRepository:
                 );
 
                 CREATE INDEX IF NOT EXISTS idx_tc_node ON thought_chains(node_id);
+                CREATE INDEX IF NOT EXISTS idx_tc_node ON thought_chains(node_id);
                 CREATE INDEX IF NOT EXISTS idx_tc_action ON thought_chains(action);
+
+                CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_nodes_fts USING fts5(
+                    id UNINDEXED,
+                    summary,
+                    content,
+                    category,
+                    domain
+                );
+
+                CREATE TABLE IF NOT EXISTS entity_embeddings (
+                    entity_type TEXT NOT NULL,
+                    entity_id TEXT NOT NULL,
+                    text_hash TEXT NOT NULL,
+                    model TEXT NOT NULL,
+                    dimension INTEGER NOT NULL DEFAULT 0,
+                    vector BLOB,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    error TEXT NOT NULL DEFAULT '',
+                    updated_at TEXT NOT NULL,
+                    PRIMARY KEY (entity_type, entity_id)
+                );
+                CREATE INDEX IF NOT EXISTS idx_embeddings_status
+                    ON entity_embeddings(entity_type, status);
+
+                CREATE TABLE IF NOT EXISTS proposal_knowledge_links (
+                    proposal_id TEXT PRIMARY KEY,
+                    knowledge_id TEXT NOT NULL,
+                    sync_action TEXT NOT NULL DEFAULT 'created',
+                    synced_at TEXT NOT NULL,
+                    FOREIGN KEY (proposal_id) REFERENCES proposals(proposal_id),
+                    FOREIGN KEY (knowledge_id) REFERENCES knowledge_nodes(id)
+                );
+                CREATE INDEX IF NOT EXISTS idx_pkl_knowledge
+                    ON proposal_knowledge_links(knowledge_id);
+                """
+
+            )
+            # -- V3 tables: observations, memory_edges, retrieval_log, outcome_log --
+            connection.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS observations (
+                    id TEXT PRIMARY KEY,
+                    content TEXT NOT NULL,
+                    source_type TEXT NOT NULL,
+                    source_uri TEXT NOT NULL,
+                    source_span TEXT NOT NULL DEFAULT '',
+                    quoted_excerpt TEXT NOT NULL DEFAULT '',
+                    content_hash TEXT NOT NULL DEFAULT '',
+                    proposal_id TEXT,
+                    created_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_obs_proposal ON observations(proposal_id);
+                CREATE INDEX IF NOT EXISTS idx_obs_hash ON observations(content_hash);
+
+                CREATE TABLE IF NOT EXISTS memory_edges (
+                    from_id TEXT NOT NULL,
+                    to_id TEXT NOT NULL,
+                    edge_type TEXT NOT NULL,
+                    evidence_id TEXT,
+                    created_at TEXT NOT NULL,
+                    PRIMARY KEY (from_id, to_id, edge_type)
+                );
+                CREATE INDEX IF NOT EXISTS idx_me_from ON memory_edges(from_id);
+                CREATE INDEX IF NOT EXISTS idx_me_to ON memory_edges(to_id);
+                CREATE INDEX IF NOT EXISTS idx_me_type ON memory_edges(edge_type);
+
+                CREATE TABLE IF NOT EXISTS knowledge_retrieval_events (
+                    id TEXT PRIMARY KEY,
+                    query TEXT NOT NULL,
+                    agent TEXT NOT NULL DEFAULT '',
+                    host TEXT NOT NULL DEFAULT '',
+                    node_ids TEXT NOT NULL DEFAULT '[]',
+                    created_at TEXT NOT NULL,
+                    outcome_recorded_at TEXT
+                );
+                CREATE INDEX IF NOT EXISTS idx_kre_created ON knowledge_retrieval_events(created_at);
+
+                CREATE TABLE IF NOT EXISTS retrieval_log (
+                    id TEXT PRIMARY KEY,
+                    query TEXT NOT NULL,
+                    retrieval_mode TEXT NOT NULL DEFAULT 'fts5',
+                    candidate_ids TEXT NOT NULL DEFAULT '[]',
+                    selected_ids TEXT NOT NULL DEFAULT '[]',
+                    used_ids TEXT NOT NULL DEFAULT '[]',
+                    agent TEXT NOT NULL DEFAULT '',
+                    session_id TEXT NOT NULL DEFAULT '',
+                    task_context TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_rl_agent ON retrieval_log(agent);
+                CREATE INDEX IF NOT EXISTS idx_rl_session ON retrieval_log(session_id);
+                CREATE INDEX IF NOT EXISTS idx_rl_created ON retrieval_log(created_at);
+
+                CREATE TABLE IF NOT EXISTS outcome_log (
+                    id TEXT PRIMARY KEY,
+                    retrieval_log_id TEXT NOT NULL,
+                    memory_id TEXT NOT NULL,
+                    used INTEGER NOT NULL DEFAULT 0,
+                    helpfulness TEXT NOT NULL DEFAULT 'unknown',
+                    user_validated INTEGER,
+                    task_success TEXT NOT NULL DEFAULT 'unknown',
+                    notes TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_ol_retrieval ON outcome_log(retrieval_log_id);
+                CREATE INDEX IF NOT EXISTS idx_ol_memory ON outcome_log(memory_id);
+                CREATE INDEX IF NOT EXISTS idx_ol_helpfulness ON outcome_log(helpfulness);
                 """
             )
 
-            # -- Migration: add weight column if missing (pre-existing DBs) --
-            try:
-                connection.execute("ALTER TABLE proposals ADD COLUMN weight REAL NOT NULL DEFAULT 1.0")
-            except Exception:
-                pass  # Column already exists
+            # -- Migrations: add columns if missing (pre-existing DBs) --
+            for sql in (
+                "ALTER TABLE proposals ADD COLUMN weight REAL NOT NULL DEFAULT 1.0",
+                "ALTER TABLE knowledge_nodes ADD COLUMN outcome_count INTEGER NOT NULL DEFAULT 0",
+                "ALTER TABLE knowledge_nodes ADD COLUMN last_outcome_at TEXT",
+                "ALTER TABLE knowledge_nodes ADD COLUMN kind TEXT NOT NULL DEFAULT 'fact'",
+                "ALTER TABLE knowledge_nodes ADD COLUMN trigger_terms TEXT NOT NULL DEFAULT '[]'",
+                "ALTER TABLE knowledge_nodes ADD COLUMN use_when TEXT NOT NULL DEFAULT ''",
+                "ALTER TABLE knowledge_nodes ADD COLUMN avoid_when TEXT NOT NULL DEFAULT ''",
+                "ALTER TABLE knowledge_nodes ADD COLUMN success_signal TEXT NOT NULL DEFAULT ''",
+                "ALTER TABLE knowledge_nodes ADD COLUMN failure_signal TEXT NOT NULL DEFAULT ''",
+            ):
+                try:
+                    connection.execute(sql)
+                except Exception:
+                    pass  # Column already exists
 
     def has_proposal(self, proposal_id: str) -> bool:
         with self._connect() as connection:
@@ -202,6 +351,14 @@ class HermesRepository:
                 f"INSERT INTO proposals ({columns}) VALUES ({placeholders})",
                 tuple(payload.values()),
             )
+        proposal_id = str(payload.get("proposal_id") or "")
+        if proposal_id:
+            self.refresh_entity_embedding(
+                "proposal",
+                proposal_id,
+                self._proposal_embedding_text(payload),
+                raise_errors=False,
+            )
 
     def get_proposal(self, proposal_id: str) -> dict[str, str | int | float | None]:
         with self._connect() as connection:
@@ -212,6 +369,34 @@ class HermesRepository:
         if row is None:
             raise KeyError(proposal_id)
         return dict(row)
+
+    def insert_observations(self, observations: list[dict]) -> None:
+        """Insert observation rows (immutable evidence for proposals)."""
+        if not observations:
+            return
+        with self._connect() as connection:
+            connection.executemany(
+                """INSERT OR IGNORE INTO observations
+                   (id, content, source_type, source_uri, source_span,
+                    quoted_excerpt, content_hash, proposal_id, created_at)
+                   VALUES (:id, :content, :source_type, :source_uri, :source_span,
+                           :quoted_excerpt, :content_hash, :proposal_id, :created_at)""",
+                observations,
+            )
+
+    def insert_memory_edge(
+        self, from_id: str, to_id: str, edge_type: str,
+        evidence_id: str | None = None,
+    ) -> None:
+        """Create a lineage edge between two memory nodes."""
+        now = datetime.now(timezone.utc).isoformat()
+        with self._connect() as connection:
+            connection.execute(
+                """INSERT OR IGNORE INTO memory_edges
+                   (from_id, to_id, edge_type, evidence_id, created_at)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (from_id, to_id, edge_type, evidence_id, now),
+            )
 
     def list_proposals_by_state(self, state: str) -> list[dict[str, str | int | float | None]]:
         with self._connect() as connection:
@@ -233,6 +418,67 @@ class HermesRepository:
                     "UPDATE proposals SET state = ?, supersedes = ? WHERE proposal_id = ?",
                     (state, supersedes, proposal_id),
                 )
+
+    def get_proposal_knowledge_link(self, proposal_id: str) -> dict[str, str] | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT proposal_id, knowledge_id, sync_action, synced_at FROM proposal_knowledge_links WHERE proposal_id = ?",
+                (proposal_id,),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def link_proposal_knowledge(self, proposal_id: str, knowledge_id: str, *, action: str) -> None:
+        now = datetime.now(timezone.utc).isoformat()
+        with self._connect() as connection:
+            connection.execute(
+                """INSERT INTO proposal_knowledge_links (proposal_id, knowledge_id, sync_action, synced_at)
+                   VALUES (?, ?, ?, ?)
+                   ON CONFLICT(proposal_id) DO UPDATE SET
+                     knowledge_id=excluded.knowledge_id,
+                     sync_action=excluded.sync_action,
+                     synced_at=excluded.synced_at""",
+                (proposal_id, knowledge_id, action, now),
+            )
+
+    def find_legacy_proposal_knowledge(self, proposal_id: str) -> str | None:
+        """Resolve V2 nodes created before explicit Proposal↔Knowledge links."""
+        with self._connect() as connection:
+            exact = connection.execute(
+                "SELECT id FROM knowledge_nodes WHERE id = ?",
+                (proposal_id,),
+            ).fetchone()
+            if exact:
+                return str(exact["id"])
+            source = connection.execute(
+                "SELECT id FROM knowledge_nodes WHERE source = ? ORDER BY created_at LIMIT 1",
+                (f"proposal:{proposal_id[:12]}",),
+            ).fetchone()
+        return str(source["id"]) if source else None
+
+    def proposal_sync_status(self) -> dict[str, object]:
+        """Return approved Proposal→Knowledge materialization coverage."""
+        with self._connect() as connection:
+            approved = int(connection.execute(
+                "SELECT COUNT(*) FROM proposals WHERE state IN ('approved_db_only','approved_for_export')"
+            ).fetchone()[0])
+            linked = int(connection.execute(
+                """SELECT COUNT(*) FROM proposal_knowledge_links pkl
+                   JOIN proposals p ON p.proposal_id = pkl.proposal_id
+                   JOIN knowledge_nodes kn ON kn.id = pkl.knowledge_id
+                   WHERE p.state IN ('approved_db_only','approved_for_export')"""
+            ).fetchone()[0])
+            latest = connection.execute(
+                "SELECT MAX(synced_at) FROM proposal_knowledge_links"
+            ).fetchone()[0]
+        missing = max(0, approved - linked)
+        return {
+            "approved": approved,
+            "linked": linked,
+            "missing": missing,
+            "coverage": round((linked / approved * 100.0) if approved else 100.0, 1),
+            "last_synced_at": str(latest or ""),
+            "state": "healthy" if missing == 0 else "syncing",
+        }
 
     def list_exportable(self, project_key: str | None = None) -> list[dict[str, str | int | float | None]]:
         query = "SELECT * FROM proposals WHERE state = 'approved_for_export'"
@@ -404,6 +650,8 @@ class HermesRepository:
         "supersedes", "merged_from", "contradicts", "verified_by",
         "created_at", "refined_at", "verified_at", "deprecated_at",
         "retrieval_count", "last_used_at", "correction_count",
+        "outcome_count", "last_outcome_at", "kind", "trigger_terms",
+        "use_when", "avoid_when", "success_signal", "failure_signal",
     })
 
     def insert_knowledge_node(self, node: KnowledgeNode) -> None:
@@ -431,6 +679,14 @@ class HermesRepository:
             "retrieval_count": node.retrieval_count,
             "last_used_at": node.last_used_at,
             "correction_count": node.correction_count,
+            "outcome_count": node.outcome_count,
+            "last_outcome_at": node.last_outcome_at,
+            "kind": node.kind,
+            "trigger_terms": node.trigger_terms,
+            "use_when": node.use_when,
+            "avoid_when": node.avoid_when,
+            "success_signal": node.success_signal,
+            "failure_signal": node.failure_signal,
         }
         payload = {k: v for k, v in row.items() if k in self._KN_COLUMNS}
         columns = ", ".join(payload)
@@ -440,6 +696,19 @@ class HermesRepository:
                 f"INSERT INTO knowledge_nodes ({columns}) VALUES ({placeholders})",
                 tuple(payload.values()),
             )
+            try:
+                connection.execute(
+                    "INSERT OR REPLACE INTO knowledge_nodes_fts (id, summary, content, category, domain) VALUES (?, ?, ?, ?, ?)",
+                    (node.id, node.summary, node.content, node.category, node.domain),
+                )
+            except sqlite3.OperationalError:
+                pass
+        self.refresh_entity_embedding(
+            "knowledge",
+            node.id,
+            self._knowledge_embedding_text(node.summary, node.content),
+            raise_errors=False,
+        )
 
     def get_knowledge_node(self, node_id: str) -> KnowledgeNode | None:
         """Get a single knowledge node by ID."""
@@ -464,6 +733,15 @@ class HermesRepository:
                 f"UPDATE knowledge_nodes SET {set_clause} WHERE id = ?",
                 tuple(values),
             )
+        if "summary" in valid_fields or "content" in valid_fields:
+            node = self.get_knowledge_node(node_id)
+            if node is not None:
+                self.refresh_entity_embedding(
+                    "knowledge",
+                    node.id,
+                    self._knowledge_embedding_text(node.summary, node.content),
+                    raise_errors=False,
+                )
 
     def delete_knowledge_node(self, node_id: str) -> bool:
         """Delete a knowledge node. Returns True if deleted."""
@@ -471,11 +749,246 @@ class HermesRepository:
             cursor = connection.execute(
                 "DELETE FROM knowledge_nodes WHERE id = ?", (node_id,)
             )
-            # Also delete thought chains
+            # Also delete thought chains and its persisted vector.
             connection.execute(
                 "DELETE FROM thought_chains WHERE node_id = ?", (node_id,)
             )
+            connection.execute(
+                "DELETE FROM entity_embeddings WHERE entity_type = 'knowledge' AND entity_id = ?",
+                (node_id,),
+            )
             return cursor.rowcount > 0
+
+    # -----------------------------------------------------------------------
+    # Persistent embeddings (proposals + knowledge nodes)
+    # -----------------------------------------------------------------------
+
+    @staticmethod
+    def _knowledge_embedding_text(summary: object, content: object) -> str:
+        return "\n\n".join(part for part in (str(summary or "").strip(), str(content or "").strip()) if part)
+
+    @staticmethod
+    def _proposal_embedding_text(proposal: dict[str, object]) -> str:
+        return "\n\n".join(
+            str(proposal.get(key) or "").strip()
+            for key in ("summary", "observation", "why_it_matters", "suggested_memory")
+            if str(proposal.get(key) or "").strip()
+        )
+
+    @staticmethod
+    def _embedding_hash(text: str) -> str:
+        import hashlib
+        return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+    def _store_embedding(
+        self,
+        entity_type: str,
+        entity_id: str,
+        text_hash: str,
+        model: str,
+        *,
+        vector: list[float] | None,
+        status: str,
+        error: str = "",
+    ) -> None:
+        from hermes.embedding import vector_to_blob
+
+        now = datetime.now(timezone.utc).isoformat()
+        blob = vector_to_blob(vector) if vector is not None else None
+        dimension = len(vector) if vector is not None else 0
+        with self._connect() as connection:
+            connection.execute(
+                """INSERT INTO entity_embeddings
+                   (entity_type, entity_id, text_hash, model, dimension, vector, status, error, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(entity_type, entity_id) DO UPDATE SET
+                     text_hash=excluded.text_hash, model=excluded.model,
+                     dimension=excluded.dimension, vector=excluded.vector,
+                     status=excluded.status, error=excluded.error,
+                     updated_at=excluded.updated_at""",
+                (entity_type, entity_id, text_hash, model, dimension, blob, status, error[:500], now),
+            )
+
+    def refresh_entity_embedding(
+        self,
+        entity_type: str,
+        entity_id: str,
+        text: str,
+        *,
+        raise_errors: bool = False,
+    ) -> bool:
+        """Create or refresh one persisted embedding; never break primary writes."""
+        from hermes.embedding import embed_text, provider_config
+
+        config = provider_config()
+        model = str(config["model"])
+        text_hash = self._embedding_hash(text)
+        with self._connect() as connection:
+            existing = connection.execute(
+                "SELECT text_hash, model, status FROM entity_embeddings WHERE entity_type = ? AND entity_id = ?",
+                (entity_type, entity_id),
+            ).fetchone()
+        if existing and existing["text_hash"] == text_hash and existing["model"] == model and existing["status"] == "ready":
+            return True
+        if not config["enabled"]:
+            self._store_embedding(entity_type, entity_id, text_hash, model, vector=None, status="pending")
+            return False
+        try:
+            vector = embed_text(text)
+            if vector is None:
+                self._store_embedding(entity_type, entity_id, text_hash, model, vector=None, status="pending")
+                return False
+            self._store_embedding(entity_type, entity_id, text_hash, model, vector=vector, status="ready")
+            return True
+        except Exception as exc:
+            self._store_embedding(entity_type, entity_id, text_hash, model, vector=None, status="failed", error=str(exc))
+            if raise_errors:
+                raise
+            return False
+
+    def backfill_embeddings(self, *, entity_type: str = "all", batch_size: int = 32) -> dict[str, object]:
+        """Backfill missing/stale proposal and knowledge vectors in provider batches."""
+        from hermes.embedding import embed_texts, provider_config
+
+        if entity_type not in {"all", "proposal", "knowledge"}:
+            raise ValueError("entity_type must be all, proposal, or knowledge")
+        config = provider_config()
+        if not config["enabled"]:
+            raise RuntimeError("embedding provider is disabled or incomplete")
+        model = str(config["model"])
+        candidates: list[tuple[str, str, str]] = []
+        with self._connect() as connection:
+            if entity_type in {"all", "proposal"}:
+                rows = connection.execute("SELECT * FROM proposals ORDER BY inserted_at").fetchall()
+                candidates.extend(("proposal", str(row["proposal_id"]), self._proposal_embedding_text(dict(row))) for row in rows)
+            if entity_type in {"all", "knowledge"}:
+                rows = connection.execute("SELECT id, summary, content FROM knowledge_nodes ORDER BY created_at").fetchall()
+                candidates.extend(("knowledge", str(row["id"]), self._knowledge_embedding_text(row["summary"], row["content"])) for row in rows)
+            existing = {
+                (str(row["entity_type"]), str(row["entity_id"])): (str(row["text_hash"]), str(row["model"]), str(row["status"]))
+                for row in connection.execute("SELECT entity_type, entity_id, text_hash, model, status FROM entity_embeddings").fetchall()
+            }
+        pending = [
+            item for item in candidates
+            if existing.get((item[0], item[1])) != (self._embedding_hash(item[2]), model, "ready")
+        ]
+        embedded = failed = 0
+        errors: list[str] = []
+        for start in range(0, len(pending), max(1, batch_size)):
+            batch = pending[start:start + max(1, batch_size)]
+            try:
+                vectors = embed_texts([item[2] for item in batch])
+                if vectors is None:
+                    raise RuntimeError("embedding provider became unavailable")
+                for (kind, entity_id, text), vector in zip(batch, vectors):
+                    self._store_embedding(kind, entity_id, self._embedding_hash(text), model, vector=vector, status="ready")
+                    embedded += 1
+            except Exception as exc:
+                message = str(exc)[:500]
+                errors.append(message)
+                for kind, entity_id, text in batch:
+                    self._store_embedding(kind, entity_id, self._embedding_hash(text), model, vector=None, status="failed", error=message)
+                    failed += 1
+        return {"total": len(candidates), "needed": len(pending), "embedded": embedded, "failed": failed, "errors": errors[:5], "model": model}
+
+    def embedding_status(self) -> dict[str, object]:
+        """Return provider and per-entity coverage without exposing credentials."""
+        from hermes.embedding import provider_config
+
+        with self._connect() as connection:
+            source = {
+                "proposal": int(connection.execute("SELECT COUNT(*) FROM proposals").fetchone()[0]),
+                "knowledge": int(connection.execute("SELECT COUNT(*) FROM knowledge_nodes").fetchone()[0]),
+            }
+            rows = connection.execute(
+                "SELECT entity_type, status, COUNT(*) AS total, MAX(updated_at) AS updated_at FROM entity_embeddings GROUP BY entity_type, status"
+            ).fetchall()
+            latest_error = connection.execute(
+                "SELECT error FROM entity_embeddings WHERE status = 'failed' AND error != '' ORDER BY updated_at DESC LIMIT 1"
+            ).fetchone()
+        by_type: dict[str, dict[str, object]] = {}
+        for kind in ("proposal", "knowledge"):
+            by_type[kind] = {"total": source[kind], "ready": 0, "pending": 0, "failed": 0, "coverage": 0.0, "updated_at": ""}
+        for row in rows:
+            kind = str(row["entity_type"])
+            if kind not in by_type:
+                continue
+            status = str(row["status"])
+            by_type[kind][status] = int(row["total"])
+            by_type[kind]["updated_at"] = str(row["updated_at"] or by_type[kind]["updated_at"])
+        for values in by_type.values():
+            total = int(values["total"])
+            ready = int(values.get("ready", 0))
+            recorded_pending = int(values.get("pending", 0))
+            failed = int(values.get("failed", 0))
+            unrecorded = max(0, total - ready - recorded_pending - failed)
+            values["pending"] = recorded_pending + unrecorded
+            values["coverage"] = round((ready / total * 100.0) if total else 100.0, 1)
+        provider = provider_config()
+        provider.pop("base_url", None)
+        total = sum(source.values())
+        ready = sum(int(str(item.get("ready", 0) or 0)) for item in by_type.values())
+        pending = sum(int(str(item.get("pending", 0) or 0)) for item in by_type.values())
+        failed = sum(int(str(item.get("failed", 0) or 0)) for item in by_type.values())
+        if provider.get("disabled"):
+            state = "disabled"
+        elif not provider.get("configured"):
+            state = "not_configured"
+        elif failed:
+            state = "degraded"
+        elif pending:
+            state = "syncing"
+        else:
+            state = "healthy"
+        return {
+            "state": state,
+            "provider": provider,
+            "entities": by_type,
+            "total": total,
+            "ready": ready,
+            "pending": pending,
+            "failed": failed,
+            "latest_error": str(latest_error["error"] if latest_error else ""),
+        }
+
+    def _semantic_knowledge_scores(
+        self,
+        query: str,
+        *,
+        category: str | None = None,
+        domain: str | None = None,
+    ) -> dict[str, float]:
+        from hermes.embedding import blob_to_vector, cosine_similarity, embed_text
+
+        try:
+            query_vector = embed_text(query)
+        except Exception:
+            return {}
+        if query_vector is None:
+            return {}
+        filters = ["ee.entity_type = 'knowledge'", "ee.status = 'ready'", "kn.stage IN ('canonized', 'verified', 'refined')"]
+        params: list[object] = []
+        if category:
+            filters.append("kn.category = ?")
+            params.append(category)
+        if domain:
+            filters.append("kn.domain = ?")
+            params.append(domain)
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"""SELECT ee.entity_id, ee.vector, ee.dimension
+                    FROM entity_embeddings ee JOIN knowledge_nodes kn ON kn.id = ee.entity_id
+                    WHERE {' AND '.join(filters)}""",
+                tuple(params),
+            ).fetchall()
+        scores: dict[str, float] = {}
+        for row in rows:
+            try:
+                vector = blob_to_vector(bytes(row["vector"]), int(row["dimension"]))
+                scores[str(row["entity_id"])] = cosine_similarity(query_vector, vector)
+            except Exception:
+                continue
+        return scores
 
     def list_knowledge_nodes(
         self,
@@ -585,6 +1098,443 @@ class HermesRepository:
     # V2: Migration from proposals → knowledge_nodes
     # -----------------------------------------------------------------------
 
+    # ------------------------------------------------------------------
+    # Knowledge search (FTS5)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _fts_query(query: str) -> str:
+        """Build an FTS5 query from a human search string."""
+        terms = [t for t in query.strip().split() if t]
+        if not terms:
+            return ""
+        quoted = []
+        for t in terms:
+            t_clean = t.strip('"').strip("'")
+            if " " in t_clean:
+                quoted.append(f'"{t_clean}"')
+            else:
+                quoted.append(t_clean + "*")
+        return " AND ".join(quoted)
+
+    def search_knowledge_nodes(
+        self,
+        query: str,
+        *,
+        limit: int = 10,
+        category: str | None = None,
+        domain: str | None = None,
+    ) -> list[dict[str, object]]:
+        """Search active knowledge nodes with FTS5 and tokenized fallback."""
+        clean_query = (query or "").strip()
+        if limit <= 0:
+            return []
+        filters = ["kn.stage IN ('canonized', 'verified', 'refined')"]
+        filter_params: list[object] = []
+        if category:
+            filters.append("kn.category = ?")
+            filter_params.append(category)
+        if domain:
+            filters.append("kn.domain = ?")
+            filter_params.append(domain)
+        where_filter = " AND ".join(filters)
+        fts_query = self._fts_query(clean_query)
+        rows = []
+        with self._connect() as connection:
+            if fts_query:
+                try:
+                    rows = connection.execute(
+                        f"""SELECT kn.*, bm25(knowledge_nodes_fts) * -1 AS search_score
+                           FROM knowledge_nodes_fts
+                           JOIN knowledge_nodes kn ON kn.id = knowledge_nodes_fts.id
+                           WHERE knowledge_nodes_fts MATCH ? AND {where_filter}
+                           ORDER BY search_score DESC LIMIT ?""",
+                        tuple([fts_query] + filter_params + [limit]),
+                    ).fetchall()
+                except sqlite3.OperationalError:
+                    rows = []
+            if not rows:
+                rows = connection.execute(
+                    f"""SELECT kn.*, 0.0 AS search_score FROM knowledge_nodes kn
+                       WHERE {where_filter}
+                       ORDER BY confidence DESC, retrieval_count DESC LIMIT ?""",
+                    tuple(filter_params + [limit]),
+                ).fetchall()
+        semantic_scores = self._semantic_knowledge_scores(
+            clean_query, category=category, domain=domain,
+        ) if clean_query else {}
+        if semantic_scores:
+            semantic_ids = [
+                node_id for node_id, _score in
+                sorted(semantic_scores.items(), key=lambda item: item[1], reverse=True)[: max(limit * 3, 20)]
+            ]
+            with self._connect() as connection:
+                placeholders = ",".join("?" for _ in semantic_ids)
+                semantic_rows = connection.execute(
+                    f"SELECT kn.*, 0.0 AS search_score FROM knowledge_nodes kn WHERE kn.id IN ({placeholders})",
+                    tuple(semantic_ids),
+                ).fetchall()
+            by_id = {str(row["id"]): row for row in rows}
+            for row in semantic_rows:
+                by_id.setdefault(str(row["id"]), row)
+            rows = list(by_id.values())
+
+        terms = [t.lower() for t in re.findall(r"[A-Za-z0-9_\-]+|[一-鿿]{2,}", clean_query)]
+        scored = []
+        for row in rows:
+            d = dict(row)
+            hay = " ".join(str(d.get(k, "")) for k in ("summary", "content", "category", "domain", "trigger_terms")).lower()
+            lexical_score = float(d.get("search_score") or 0)
+            if terms:
+                lexical_score += sum(1 for term in terms if term in hay)
+            semantic_score = semantic_scores.get(str(d.get("id")), 0.0)
+            if semantic_score > 0:
+                d["semantic_score"] = round(semantic_score, 6)
+                d["retrieval_mode"] = "hybrid"
+                score = semantic_score * 10.0 + max(0.0, lexical_score)
+            else:
+                d["retrieval_mode"] = "fts5"
+                score = lexical_score
+            if score > 0 or not terms:
+                d["score"] = score if score > 0 else float(d.get("confidence") or 0)
+                scored.append(d)
+        scored.sort(key=lambda d: (float(d.get("score") or 0), float(d.get("confidence") or 0)), reverse=True)
+        return scored[:limit]
+
+    # ------------------------------------------------------------------
+    # Retrieval tracking (V3)
+    # ------------------------------------------------------------------
+
+    def record_retrieval_for_query(
+        self,
+        query: str,
+        agent: str = "",
+        host: str = "",
+        *,
+        limit: int = 10,
+        category: str | None = None,
+        domain: str | None = None,
+        session_id: str = "",
+    ) -> dict[str, object]:
+        """Search nodes, increment retrieval_count, store retrieval_log."""
+        import logging
+        now = datetime.now(timezone.utc).isoformat()
+        results = self.search_knowledge_nodes(query, limit=limit, category=category, domain=domain)
+        node_ids = [str(item["id"]) for item in results]
+        retrieval_mode = "hybrid" if any(item.get("retrieval_mode") == "hybrid" for item in results) else "fts5"
+        event_id = str(uuid.uuid4()) if node_ids else ""
+        with self._connect() as connection:
+            if node_ids:
+                ph = ",".join("?" * len(node_ids))
+                connection.execute(
+                    f"UPDATE knowledge_nodes SET retrieval_count = retrieval_count + 1, last_used_at = ? WHERE id IN ({ph})",
+                    tuple([now] + node_ids),
+                )
+                connection.execute(
+                    """INSERT INTO knowledge_retrieval_events (id, query, agent, host, node_ids, created_at)
+                       VALUES (?, ?, ?, ?, ?, ?)""",
+                    (event_id, query, agent, host, json.dumps(node_ids), now),
+                )
+                connection.execute(
+                    """INSERT INTO retrieval_log (id, query, retrieval_mode, candidate_ids, selected_ids, used_ids, agent, session_id, task_context, created_at)
+                       VALUES (?, ?, ?, ?, '[]', '[]', ?, ?, '', ?)""",
+                    (event_id, query, retrieval_mode, json.dumps(node_ids), agent or "unknown", session_id or "", now),
+                )
+                for node_id in node_ids:
+                    updated_row = connection.execute(
+                        "SELECT retrieval_count FROM knowledge_nodes WHERE id = ?", (node_id,)
+                    ).fetchone()
+                    if updated_row:
+                        connection.execute(
+                            "UPDATE proposals SET retrieval_count_30d = ? WHERE proposal_id = ?",
+                            (int(updated_row["retrieval_count"] or 0), node_id),
+                        )
+                logging.info("retrieval: +1 for %d nodes matching '%s'", len(node_ids), query[:60])
+        return {"updated": len(node_ids), "event_id": event_id, "node_ids": node_ids, "results": results}
+
+    def get_retrieval_event(self, event_id: str) -> "KnowledgeRetrievalEvent | None":
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT * FROM knowledge_retrieval_events WHERE id = ?", (event_id,)
+            ).fetchone()
+        return KnowledgeRetrievalEvent(**dict(row)) if row else None
+
+    # ------------------------------------------------------------------
+    # Outcome recording (V3)
+    # ------------------------------------------------------------------
+
+    def record_outcome(self, node_id: str, *, success: bool = True, note: str = "", event_id: str | None = None) -> bool:
+        """Legacy outcome recording."""
+        now = datetime.now(timezone.utc).isoformat()
+        with self._connect() as connection:
+            if success:
+                connection.execute(
+                    "UPDATE knowledge_nodes SET outcome_count = outcome_count + 1, last_outcome_at = ?, confidence = MIN(1.0, confidence + 0.05) WHERE id = ?",
+                    (now, node_id),
+                )
+            else:
+                connection.execute(
+                    "UPDATE knowledge_nodes SET outcome_count = outcome_count + 1, last_outcome_at = ?, confidence = MAX(0.1, confidence - 0.05) WHERE id = ?",
+                    (now, node_id),
+                )
+            if event_id:
+                connection.execute(
+                    "UPDATE knowledge_retrieval_events SET outcome_recorded_at = ? WHERE id = ?",
+                    (now, event_id),
+                )
+            connection.execute(
+                """INSERT INTO thought_chains (id, node_id, action, reasoning, evidence_used, decision, confidence_in_decision, created_at)
+                   VALUES (?, ?, 'outcome_recorded', ?, '[]', ?, NULL, ?)""",
+                (str(uuid.uuid4()), node_id, f"success={success}; note={note[:500]}", "reinforce" if success else "penalize", now),
+            )
+        return True
+
+    def record_outcome_v3(self, retrieval_log_id: str, outcomes: list[dict]) -> int:
+        """Record per-memory outcomes (v3 protocol)."""
+        if not outcomes:
+            return 0
+        import logging
+        now = datetime.now(timezone.utc).isoformat()
+        recorded = 0
+        with self._connect() as connection:
+            for outcome in outcomes:
+                oid = str(uuid.uuid4())
+                memory_id = str(outcome.get("memory_id", ""))
+                used = 1 if outcome.get("used") else 0
+                helpfulness = str(outcome.get("helpfulness", "unknown"))
+                user_validated = outcome.get("user_validated")
+                task_success = str(outcome.get("task_success", "unknown"))
+                notes = str(outcome.get("notes", ""))[:1000]
+                if not memory_id:
+                    continue
+                connection.execute(
+                    """INSERT INTO outcome_log (id, retrieval_log_id, memory_id, used, helpfulness, user_validated, task_success, notes, created_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (oid, retrieval_log_id, memory_id, used, helpfulness, user_validated, task_success, notes, now),
+                )
+                connection.execute(
+                    "UPDATE knowledge_nodes SET outcome_count = outcome_count + 1, last_outcome_at = ? WHERE id = ?",
+                    (now, memory_id),
+                )
+                if used and helpfulness == "helpful" and user_validated:
+                    connection.execute("UPDATE knowledge_nodes SET confidence = MIN(1.0, confidence + 0.05) WHERE id = ?", (memory_id,))
+                    connection.execute("UPDATE proposals SET weight = weight * 1.05 WHERE proposal_id = ?", (memory_id,))
+                elif helpfulness == "harmful":
+                    connection.execute("UPDATE knowledge_nodes SET confidence = MAX(0.1, confidence - 0.1) WHERE id = ?", (memory_id,))
+                    connection.execute("UPDATE proposals SET weight = weight * 0.5 WHERE proposal_id = ?", (memory_id,))
+                    # Quarantine: 3+ harmful outcomes -> mark as quarantined
+                    total_harmful = connection.execute(
+                        "SELECT COUNT(*) FROM outcome_log WHERE memory_id = ? AND helpfulness = 'harmful'",
+                        (memory_id,),
+                    ).fetchone()[0]
+                    if total_harmful >= 3:
+                        connection.execute(
+                            "UPDATE knowledge_nodes SET stage = 'quarantined' WHERE id = ? AND stage != 'quarantined'",
+                            (memory_id,),
+                        )
+                recorded += 1
+            used_ids = [str(o["memory_id"]) for o in outcomes if o.get("used") and o.get("memory_id")]
+            if used_ids:
+                connection.execute("UPDATE retrieval_log SET used_ids = ? WHERE id = ?", (json.dumps(used_ids), retrieval_log_id))
+            connection.execute("UPDATE knowledge_retrieval_events SET outcome_recorded_at = ? WHERE id = ?", (now, retrieval_log_id))
+        logging.info("outcome_v3: recorded %d outcomes for retrieval %s", recorded, retrieval_log_id[:8])
+        return recorded
+
+    # ------------------------------------------------------------------
+    # Knowledge stats + graph
+    # ------------------------------------------------------------------
+
+    def top_knowledge_nodes(self, limit: int = 10) -> list["KnowledgeNode"]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT * FROM knowledge_nodes WHERE stage != 'deprecated' ORDER BY confidence DESC, retrieval_count DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [KnowledgeNode(**dict(r)) for r in rows]
+
+    def knowledge_stats_full(self) -> dict:
+        with self._connect() as connection:
+            stages = {r["stage"]: r["cnt"] for r in connection.execute("SELECT stage, COUNT(*) as cnt FROM knowledge_nodes GROUP BY stage")}
+            cats = {r["category"]: r["cnt"] for r in connection.execute("SELECT category, COUNT(*) as cnt FROM knowledge_nodes GROUP BY category")}
+            total_retrievals = connection.execute("SELECT SUM(retrieval_count) FROM knowledge_nodes").fetchone()[0] or 0
+            total_outcomes = connection.execute("SELECT SUM(outcome_count) FROM knowledge_nodes").fetchone()[0] or 0
+            total_corrections = connection.execute("SELECT SUM(correction_count) FROM knowledge_nodes").fetchone()[0] or 0
+            avg_conf = connection.execute("SELECT AVG(confidence) FROM knowledge_nodes WHERE stage != 'deprecated'").fetchone()[0] or 0
+            ever_retrieved = connection.execute("SELECT COUNT(*) FROM knowledge_nodes WHERE retrieval_count > 0").fetchone()[0]
+            ever_outcome = connection.execute("SELECT COUNT(*) FROM knowledge_nodes WHERE outcome_count > 0").fetchone()[0]
+        return {
+            "total": sum(stages.values()),
+            "by_stage": stages,
+            "categories": cats,
+            "total_retrievals": total_retrievals,
+            "total_outcomes": total_outcomes,
+            "total_corrections": total_corrections,
+            "avg_confidence": round(float(avg_conf), 2),
+            "ever_retrieved": ever_retrieved,
+            "ever_outcome": ever_outcome,
+        }
+
+    def knowledge_health_report(self) -> dict:
+        """Full health report: pending, conflicts, quarantined, stale, dirty."""
+        stats = self.knowledge_stats_full()
+        with self._connect() as connection:
+            pending = connection.execute("SELECT COUNT(*) FROM proposals WHERE state='pending'").fetchone()[0]
+            no_evidence = connection.execute("SELECT COUNT(*) FROM knowledge_nodes WHERE (evidence='[]' OR evidence='' OR evidence IS NULL) AND stage != 'deprecated'").fetchone()[0]
+            stale = connection.execute("SELECT COUNT(*) FROM knowledge_nodes WHERE last_used_at IS NULL AND stage IN ('canonized','verified','refined')").fetchone()[0]
+            quarantined = connection.execute("SELECT COUNT(*) FROM knowledge_nodes WHERE stage='quarantined'").fetchone()[0]
+            # Conflict signals: nodes with contradicts edges
+            conflict_count = connection.execute(
+                "SELECT COUNT(DISTINCT from_id) FROM memory_edges WHERE edge_type='contradicts'"
+            ).fetchone()[0]
+            # Dirty: chat_session category or empty summary
+            dirty = connection.execute(
+                "SELECT COUNT(*) FROM knowledge_nodes WHERE category='chat_session' OR summary='' OR summary IS NULL OR length(summary) < 10"
+            ).fetchone()[0]
+            # Top stale nodes (for surfacing)
+            stale_nodes = connection.execute(
+                "SELECT id, summary, last_used_at, retrieval_count FROM knowledge_nodes WHERE last_used_at IS NULL AND stage IN ('canonized','verified','refined') ORDER BY created_at ASC LIMIT 20"
+            ).fetchall()
+            # Top harmful (quarantined candidates)
+            harmful = connection.execute(
+                """SELECT kn.id, kn.summary, COUNT(ol.id) as harmful_count
+                   FROM knowledge_nodes kn
+                   JOIN outcome_log ol ON ol.memory_id = kn.id
+                   WHERE ol.helpfulness = 'harmful'
+                   GROUP BY kn.id HAVING harmful_count >= 2
+                   ORDER BY harmful_count DESC LIMIT 10"""
+            ).fetchall()
+        status = "attention" if (pending or no_evidence or stale or quarantined or conflict_count or dirty) else "ok"
+        return {
+            **stats,
+            "status": status,
+            "stats": stats,
+            "missing_metadata": 0,
+            "pending_proposals": pending,
+            "nodes_without_evidence": no_evidence,
+            "stale_nodes": stale,
+            "quarantined": quarantined,
+            "conflict_count": conflict_count,
+            "dirty_nodes": dirty,
+            "stale_top": [{"id": r["id"], "summary": (r["summary"] or "")[:80], "last_used": r["last_used_at"]} for r in stale_nodes],
+            "harmful_top": [{"id": r["id"], "summary": (r["summary"] or "")[:80], "count": r["harmful_count"]} for r in harmful],
+        }
+
+    def proposal_lifecycle_overview(self, limit: int = 40) -> dict:
+        """Return lightweight read-only proposal lifecycle signals for the web UI."""
+        with self._connect() as connection:
+            stage_rows = connection.execute("SELECT stage, COUNT(*) AS total FROM knowledge_nodes GROUP BY stage").fetchall()
+            operation_rows = connection.execute("SELECT operation, COUNT(*) AS total FROM knowledge_nodes GROUP BY operation ORDER BY total DESC").fetchall()
+            active_rows = connection.execute(
+                "SELECT id, summary, stage, operation, confidence, retrieval_count, outcome_count, parent_id, supersedes, merged_from, refined_at, last_used_at, created_at FROM knowledge_nodes WHERE stage != 'deprecated' ORDER BY (retrieval_count + outcome_count * 2) DESC, confidence DESC, created_at DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+            timeline_rows = connection.execute(
+                "SELECT id, summary, stage, operation, confidence, retrieval_count, outcome_count, parent_id, supersedes, merged_from, refined_at, last_used_at, created_at FROM knowledge_nodes ORDER BY COALESCE(refined_at, verified_at, deprecated_at, created_at) DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+            thought_rows = connection.execute(
+                "SELECT tc.id, tc.node_id, tc.action, tc.decision, tc.confidence_in_decision, tc.created_at, kn.summary, kn.stage FROM thought_chains tc LEFT JOIN knowledge_nodes kn ON kn.id = tc.node_id ORDER BY tc.created_at DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+            decision_rows = connection.execute(
+                "SELECT tc.id AS thought_id, tc.node_id, tc.action, tc.reasoning, tc.evidence_used, tc.decision, tc.confidence_in_decision, tc.created_at AS decision_at, kn.id, kn.summary, kn.stage, kn.operation, kn.confidence, kn.parent_id, kn.supersedes, kn.merged_from, kn.retrieval_count, kn.outcome_count, kn.created_at, kn.refined_at, kn.verified_at, kn.deprecated_at FROM thought_chains tc LEFT JOIN knowledge_nodes kn ON kn.id = tc.node_id WHERE tc.action IN ('dedup_check', 'merge', 'refine', 'contradiction_detect', 'canonize', 'outcome_recorded') ORDER BY tc.created_at DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+            retrieval_rows = connection.execute(
+                "SELECT id, query, agent, host, node_ids, created_at, outcome_recorded_at FROM knowledge_retrieval_events ORDER BY created_at DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+            merge_count = connection.execute("SELECT COUNT(*) AS total FROM knowledge_nodes WHERE merged_from IS NOT NULL AND merged_from != '' AND merged_from != '[]'").fetchone()
+            supersede_count = connection.execute("SELECT COUNT(*) AS total FROM knowledge_nodes WHERE supersedes IS NOT NULL AND supersedes != ''").fetchone()
+        def _short_text(value, limit_chars=96):
+            text = str(value or "").strip().replace("\\n", " ")
+            return text[:limit_chars] + ("…" if len(text) > limit_chars else "")
+        def _json_list(value):
+            if not value: return []
+            if isinstance(value, list): return [str(item) for item in value]
+            try: return [str(item) for item in json.loads(str(value))]
+            except: return []
+        def _dict_row(row):
+            d = dict(row)
+            for k in ("summary", "observation", "why_it_matters", "suggested_memory"):
+                if k in d: d[k] = _short_text(d.get(k, ""))
+            return d
+        return {
+            "stages": {r["stage"]: r["total"] for r in stage_rows},
+            "operations": {r["operation"]: r["total"] for r in operation_rows},
+            "active": [_dict_row(r) for r in active_rows],
+            "timeline": [_dict_row(r) for r in timeline_rows],
+            "thought_chains": [_dict_row(r) for r in thought_rows],
+            "decision_chains": [_dict_row(r) for r in decision_rows],
+            "retrieval_events": [_dict_row(r) for r in retrieval_rows],
+            "merge_count": merge_count["total"] if merge_count else 0,
+            "supersede_count": supersede_count["total"] if supersede_count else 0,
+            "proposal_sync": self.proposal_sync_status(),
+            "embeddings": self.embedding_status(),
+        }
+
+    def get_knowledge_graph(self, limit: int = 200) -> dict:
+        """Return nodes+edges for knowledge graph visualization (v3)."""
+        with self._connect() as connection:
+            edge_rows = connection.execute(
+                "SELECT from_id, to_id, edge_type, evidence_id, created_at FROM memory_edges ORDER BY created_at DESC"
+            ).fetchall()
+            edge_ids = set()
+            for row in edge_rows:
+                edge_ids.add(row["from_id"])
+                edge_ids.add(row["to_id"])
+            edge_kn, edge_props = [], []
+            if edge_ids:
+                ph = ",".join(["?"] * len(edge_ids))
+                edge_kn = connection.execute(
+                    f"SELECT id, summary, content, category, domain, stage, confidence, retrieval_count, outcome_count, source, created_at, refined_at, last_used_at FROM knowledge_nodes WHERE id IN ({ph})",
+                    tuple(edge_ids),
+                ).fetchall()
+                edge_props = connection.execute(
+                    f"SELECT proposal_id, summary, category, project_key, state, risk_level, retrieval_count_30d, created_at, source_agent FROM proposals WHERE proposal_id IN ({ph})",
+                    tuple(edge_ids),
+                ).fetchall()
+            remaining = limit - len(edge_kn) if edge_ids else limit
+            extra_rows = []
+            if remaining > 0 and edge_ids:
+                extra_rows = connection.execute(
+                    f"SELECT id, summary, content, category, domain, stage, confidence, retrieval_count, outcome_count, source, created_at, refined_at, last_used_at FROM knowledge_nodes WHERE stage != 'deprecated' AND id NOT IN ({ph}) ORDER BY retrieval_count DESC, confidence DESC LIMIT ?",
+                    tuple(edge_ids) + (remaining,),
+                ).fetchall()
+            elif remaining > 0:
+                extra_rows = connection.execute(
+                    "SELECT id, summary, content, category, domain, stage, confidence, retrieval_count, outcome_count, source, created_at, refined_at, last_used_at FROM knowledge_nodes WHERE stage != 'deprecated' ORDER BY retrieval_count DESC, confidence DESC LIMIT ?",
+                    (remaining,),
+                ).fetchall()
+        nodes = []
+        seen = set()
+        for row in list(edge_kn) + list(extra_rows):
+            nid = row["id"]
+            if nid in seen: continue
+            seen.add(nid)
+            is_dirty = (row["category"] or "") == "chat_session" or not (row["summary"] or "").strip() or len((row["summary"] or "").strip()) < 10
+            nodes.append({"id": nid, "type": "knowledge", "summary": (row["summary"] or "")[:120], "category": row["category"] or "fact", "domain": row["domain"] or "general", "stage": row["stage"] or "draft", "confidence": round(float(row["confidence"] or 0.3), 2), "retrieval_count": int(row["retrieval_count"] or 0), "outcome_count": int(row["outcome_count"] or 0), "source": (row["source"] or "")[:80], "created_at": row["created_at"] or "", "refined_at": row["refined_at"] or "", "last_used_at": row["last_used_at"] or "", "dirty": is_dirty})
+        for row in edge_props:
+            pid = row["proposal_id"]
+            state = row["state"] if row["state"] else ""
+            if pid in seen: continue
+            if state in ("rejected", "superseded"): continue
+            seen.add(pid)
+            nodes.append({"id": pid, "type": "proposal", "summary": (row["summary"] or "")[:120], "category": row["category"] or "fact", "domain": row["project_key"] or "general", "stage": state or "pending", "confidence": 0.5, "retrieval_count": int(row["retrieval_count_30d"] or 0), "outcome_count": 0, "source": row["source_agent"] or "", "created_at": row["created_at"] or "", "refined_at": "", "last_used_at": ""})
+        edges = [{"from_id": r["from_id"], "to_id": r["to_id"], "edge_type": r["edge_type"], "evidence_id": r["evidence_id"] or "", "created_at": r["created_at"] or ""} for r in edge_rows]
+        sc = {}
+        for n in nodes: s = n["stage"]; sc[s] = sc.get(s, 0) + 1
+        return {"nodes": nodes, "edges": edges, "stats": {"total_nodes": len(nodes), "total_edges": len(edges), "stage_counts": sc}}
+
+    def list_proposals_ordered(self) -> list[dict]:
+        with self._connect() as connection:
+            rows = connection.execute("SELECT * FROM proposals ORDER BY inserted_at DESC").fetchall()
+        return [dict(r) for r in rows]
+
+    # ------------------------------------------------------------------
+    # Legacy migration
+    # ------------------------------------------------------------------
+
     def migrate_proposals_to_knowledge_nodes(self) -> dict[str, int]:
         """Migrate existing proposals to knowledge_nodes table.
 
@@ -608,7 +1558,7 @@ class HermesRepository:
 
         for row in proposals:
             p = dict(row)
-            state = str(p.get("state", ""))
+            state = str(p["state"] or "")
             # Skip rejected proposals
             if state == "rejected":
                 skipped += 1
@@ -653,7 +1603,7 @@ class HermesRepository:
                 stage=stage,
                 operation=operation,
                 confidence=round(confidence, 2),
-                source=f"migration:{p.get('source_agent', 'unknown')}@{p.get('source_host', 'unknown')}",
+                source=f"migration:{p['source_agent'] or 'unknown'}@{p['source_host'] or 'unknown'}",
                 evidence=str(p.get("evidence", "[]")) if p.get("evidence") else "[]",
                 supersedes=str(supersedes_id) if supersedes_id else None,
                 merged_from="[]",

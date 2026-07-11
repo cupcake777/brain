@@ -45,17 +45,29 @@ async def require_bearer(
 # ---------------------------------------------------------------------------
 
 # Paths that never require authentication.
-# Paths that never require authentication.
 # Note: /exports/projects/ and /exports/global/ are public for file downloads,
 # but /exports/ (the list page) requires auth.
-_PUBLIC_PREFIXES = ("/health", "/api/dashboard/health", "/api/dashboard/resources", "/exports/projects/", "/exports/global/", "/login", "/favicon")
+_PUBLIC_PREFIXES = ("/health", "/api/dashboard/health", "/api/dashboard/resources", "/api/dashboard/data", "/exports/projects/", "/exports/global/", "/login", "/favicon", "/api/knowledge/record-query")
 _PUBLIC_EXACT = frozenset({"/health", "/login", "/logout"})
+_PAGE_EXTENSIONS = ("", ".html", ".htm")
 
 
 def _is_public(path: str) -> bool:
     if path in _PUBLIC_EXACT:
         return True
     return any(path.startswith(p) for p in _PUBLIC_PREFIXES)
+
+
+def _is_page_request(request: Request) -> bool:
+    """Return True for browser-style page requests that should go to /login."""
+    path = request.url.path
+    if request.method != "GET" or path.startswith("/api/"):
+        return False
+    suffix = Path(path).suffix
+    if suffix and suffix not in _PAGE_EXTENSIONS:
+        return False
+    accept = request.headers.get("accept", "")
+    return not accept or "text/html" in accept or "*/*" in accept
 
 
 class TokenAuthMiddleware(BaseHTTPMiddleware):
@@ -107,9 +119,10 @@ class TokenAuthMiddleware(BaseHTTPMiddleware):
             if cookie_val == self._session_cookie_value:
                 return await call_next(request)
 
-        # For browser HTML requests, redirect to login instead of returning JSON
-        accept = request.headers.get("accept", "")
-        if "text/html" in accept:
+        # For browser/page requests, redirect to login instead of returning JSON.
+        # curl and some monitors use Accept: */*, so classify non-API GET pages
+        # by path as well; API endpoints must keep fail-closed 401 JSON.
+        if _is_page_request(request):
             from starlette.responses import RedirectResponse
             return RedirectResponse(url="/login", status_code=303)
 
@@ -167,8 +180,8 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         if request.method not in _MUTATING_METHODS:
             return await call_next(request)
 
-        # Login form POST is always allowed (no auth yet)
-        if request.url.path in ("/login",):
+        # Login form POST and public query endpoints are always allowed (no auth/CSRF needed)
+        if request.url.path in ("/login", "/api/knowledge/record-query"):
             return await call_next(request)
 
         # 1) Valid bearer token → pass (API client, not browser form)

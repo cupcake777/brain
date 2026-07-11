@@ -41,7 +41,7 @@ def _write_proposal(
         why_it_matters="Because it matters.",
         suggested_memory=suggested_memory,
         scope=scope,
-        evidence="Test evidence.",
+        evidence='[{"source_type":"test","source_uri":"tests/test_production.py","quoted_excerpt":"Test proposal evidence for production route coverage."}]',
     )
 
 
@@ -83,9 +83,13 @@ class TestTokenAuth:
         # Public routes still accessible
         assert client.get("/health").status_code == 200
 
-        # Protected routes require auth
+        # Protected API routes require auth and keep JSON 401.
         assert client.get("/api/review/pending").status_code == 401
-        assert client.get("/review").status_code == 401
+
+        # Protected page routes redirect unauthenticated browsers/tools to login.
+        page_resp = client.get("/review", follow_redirects=False)
+        assert page_resp.status_code == 303
+        assert page_resp.headers["location"] == "/login"
 
     def test_auth_token_allows_with_bearer(self, tmp_path: Path) -> None:
         _, repo, writer, ingest, _, client = _make_stack(tmp_path, auth_token="secret123")
@@ -95,6 +99,15 @@ class TestTokenAuth:
         headers = {"Authorization": "Bearer secret123"}
         assert client.get("/api/review/pending", headers=headers).status_code == 200
         assert client.get("/review", headers=headers).status_code == 200
+
+    def test_html_responses_are_not_cached(self, tmp_path: Path) -> None:
+        _, _, _, _, _, client = _make_stack(tmp_path, auth_token="secret123")
+
+        resp = client.get("/login")
+        assert resp.status_code == 200
+        assert resp.headers["cache-control"] == "no-store, no-cache, must-revalidate, max-age=0"
+        assert resp.headers["pragma"] == "no-cache"
+        assert resp.headers["expires"] == "0"
 
     def test_wrong_token_rejected(self, tmp_path: Path) -> None:
         _, repo, writer, ingest, _, client = _make_stack(tmp_path, auth_token="secret123")

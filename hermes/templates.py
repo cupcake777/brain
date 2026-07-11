@@ -9,7 +9,9 @@ import html as _html
 # ── i18n translations ──────────────────────────────────────────────────────
 _I18N_DICT = {
     "zh": {
-        "nav_home": "首页", "nav_knowledge": "知识", "nav_gallery": "绘图", "nav_services": "服务",
+        "nav_workbench": "工作台", "nav_knowledge": "知识", "nav_hub": "中枢",
+        "nav_control": "控制", "nav_settings": "设置", "nav_brain_map": "脑图谱",
+        "nav_resources": "资源", "nav_gallery": "图库", "nav_ops": "运维",
         "nav_profile": "我的", "nav_label": "导航", "nav_user": "用户",
         "dash_greeting": "你好，探索者", "dash_total": "总节点", "dash_canonized": "正典",
         "dash_refined": "精炼", "dash_draft": "草稿", "dash_recent": "📋 最近更新",
@@ -25,7 +27,7 @@ _I18N_DICT = {
         "pf_prefs": "显示偏好", "pf_prefs_desc": "自定义界面显示", "pf_name": "显示名称",
         "pf_name_ph": "你的名字", "pf_avatar": "头像链接", "pf_avatar_ph": "输入头像图片URL",
         "pf_avatar_upload": "上传图片", "pf_avatar_too_large": "图片不能超过 200KB",
-        "pf_theme": "主题", "pf_theme_dark": "深色 Dracula", "pf_theme_light": "浅色 Light",
+        "pf_theme": "主题", "pf_theme_dark": "现代暗色", "pf_theme_light": "浅色 Light",
         "pf_lang": "语言", "pf_lang_zh": "中文", "pf_lang_en": "English",
         "pf_save": "保存偏好", "pf_password": "修改密码", "pf_password_desc": "更新你的登录密码",
         "pf_cur_pw": "当前密码", "pf_new_pw": "新密码", "pf_confirm_pw": "确认新密码",
@@ -36,11 +38,6 @@ _I18N_DICT = {
         "pf_admin": "管理员",
         "pf_pw_wrong": "当前密码不正确", "pf_pw_mismatch": "两次输入的新密码不一致",
         "pf_pw_short": "密码至少6个字符", "pf_pw_updated": "密码已更新",
-        "svc_title": "🔗 服务中心", "svc_desc": "所有外部服务运行在独立服务器上，点击卡片直接跳转",
-        "svc_detecting": "检测中...", "svc_online": "在线", "svc_offline": "离线", "svc_unknown": "未知",
-        "svc_n8n": "自动化工作流", "svc_n8n_desc": "可视化编排API与任务，连接500+服务",
-        "svc_kuma": "服务监控", "svc_kuma_desc": "实时状态监控、告警通知与SLA追踪",
-        "svc_files": "文件管理", "svc_files_desc": "浏览、上传与管理工作文件",
         "greeting_morning": "早上好", "greeting_afternoon": "下午好", "greeting_evening": "晚上好",
         "time_sun": "星期日", "time_mon": "星期一", "time_tue": "星期二", "time_wed": "星期三",
         "time_thu": "星期四", "time_fri": "星期五", "time_sat": "星期六",
@@ -115,7 +112,7 @@ _I18N_DICT = {
         "kd_corrections": "修正次数", "kd_save": "保存", "kd_cancel": "取消",
         "kd_edit_title": "✏️ 编辑节点",
         "kd_decision": "决策", "kd_tl_confidence": "置信度",
-        "gl_title": "Sci-Fig 绘图库",
+        "gl_title": "Sci-Fig Gallery",
         "gl_subtitle": "科研图表模板库 — 查看、审核与贡献",
         "gl_search": "搜索图表…", "gl_showing": "显示", "gl_of": "/",
         "gl_submit": "+ 提交", "gl_image_url": "图片链接",
@@ -149,7 +146,9 @@ _I18N_DICT = {
         "confirm_delete_node": "确定永久删除此节点？",
     },
     "en": {
-        "nav_home": "Home", "nav_knowledge": "Knowledge", "nav_gallery": "Gallery", "nav_services": "Services",
+        "nav_workbench": "Workbench", "nav_knowledge": "Knowledge", "nav_hub": "Hub",
+        "nav_control": "Control", "nav_settings": "Settings", "nav_brain_map": "Proposals",
+        "nav_resources": "Resources", "nav_gallery": "Gallery", "nav_ops": "Ops",
         "nav_profile": "Profile", "nav_label": "Navigation", "nav_user": "User",
         "dash_greeting": "Hello, Explorer", "dash_total": "Total Nodes", "dash_canonized": "Canonized",
         "dash_refined": "Refined", "dash_draft": "Draft", "dash_recent": "📋 Recent Updates",
@@ -165,7 +164,7 @@ _I18N_DICT = {
         "pf_prefs": "Display Preferences", "pf_prefs_desc": "Customize the interface", "pf_name": "Display Name",
         "pf_name_ph": "Your name", "pf_avatar": "Avatar URL", "pf_avatar_ph": "Enter avatar image URL",
         "pf_avatar_upload": "Upload Image", "pf_avatar_too_large": "Image must not exceed 200KB",
-        "pf_theme": "Theme", "pf_theme_dark": "Dark Dracula", "pf_theme_light": "Light",
+        "pf_theme": "Theme", "pf_theme_dark": "Modern Dark", "pf_theme_light": "Light",
         "pf_lang": "Language", "pf_lang_zh": "中文", "pf_lang_en": "English",
         "pf_save": "Save Preferences", "pf_password": "Change Password", "pf_password_desc": "Update your login password",
         "pf_cur_pw": "Current Password", "pf_new_pw": "New Password", "pf_confirm_pw": "Confirm New Password",
@@ -176,11 +175,6 @@ _I18N_DICT = {
         "pf_admin": "Admin",
         "pf_pw_wrong": "Current password is incorrect", "pf_pw_mismatch": "New passwords don't match",
         "pf_pw_short": "Password must be at least 6 characters", "pf_pw_updated": "Password updated",
-        "svc_title": "🔗 Service Center", "svc_desc": "All services run on independent servers. Click cards to navigate.",
-        "svc_detecting": "Detecting...", "svc_online": "Online", "svc_offline": "Offline", "svc_unknown": "Unknown",
-        "svc_n8n": "Automation Workflows", "svc_n8n_desc": "Visual API & task orchestration, 500+ integrations",
-        "svc_kuma": "Service Monitoring", "svc_kuma_desc": "Real-time status monitoring, alerts & SLA tracking",
-        "svc_files": "File Manager", "svc_files_desc": "Browse, upload & manage work files",
         "greeting_morning": "Good morning", "greeting_afternoon": "Good afternoon", "greeting_evening": "Good evening",
         "time_sun": "Sun", "time_mon": "Mon", "time_tue": "Tue", "time_wed": "Wed",
         "time_thu": "Thu", "time_fri": "Fri", "time_sat": "Sat",
@@ -319,6 +313,12 @@ _SHAPE_TAGS = {
     "numeric_vector": ["分布", "直方图"],
     "embedding_with_loadings": ["散点", "降维", "载荷"],
     "aligned_event_matrix": ["热图", "神经信号", "事件对齐"],
+    "mean_difference_table": ["散点", "差异表达"],
+    "paired_feature_values": ["散点", "配对比较"],
+    "regional_association_table": ["散点", "GWAS/QTL"],
+    "interval_table": ["基因组", "区间标注"],
+    "circular_track_table": ["特殊图", "基因组"],
+    "paired_interval_table": ["特殊图", "比较基因组"],
     "time_aligned_events": ["线图/曲线", "神经信号", "事件对齐"],
 }
 
@@ -350,6 +350,13 @@ _ID_DESC = {
     "fiber_photometry": "光纤光度计热图：多trial z-score比较vehicle与drug",
     "syllable_frequency": "音节/行为频率比较：分组点图+SEM误差棒",
     "peri_event_raster": "事件对齐栅格图：per-trial轨迹+均值+热图",
+    "precision_recall_curve": "精确率-召回率曲线：不平衡数据集分类器评估",
+    "ma_plot": "MA图：差异表达与平均表达量的关系，检测系统偏差",
+    "paired_scatter": "配对散点图：前后/配对条件对比，连线显示配对关系",
+    "regional_association": "区域关联图(Locus Zoom)：GWAS区域信号与LD着色",
+    "genomic_segments": "基因组区间轨道：多类型特征的线性坐标标注",
+    "circos_plot": "圈图：多轨道圆形基因组概览",
+    "synteny_links": "共线性链接图：比较基因组学同源区段可视化",
 }
 
 
@@ -381,6 +388,7 @@ def _normalize_catalog(raw: dict) -> dict:
             "tags": tpl.get("tags", _SHAPE_TAGS.get(_shape, [])),
             "template": tpl.get("template", ""),
             "demo": tpl.get("demo_png", tpl.get("demo", "")),
+            "visual_grammar": tpl.get("visual_grammar", ""),
         })
     return {"charts": charts}
 
@@ -390,36 +398,37 @@ def _normalize_catalog(raw: dict) -> dict:
 
 _DARK_CSS = """\
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{
-  /* 3-layer depth: bg → surface → card */
-  --bg:oklch(.13 .01 270);
-  --surface:oklch(.16 .01 270);
-  --card:oklch(.20 .02 275);
-  --card-hover:oklch(.25 .025 275);
-  /* Borders */
-  --border:oklch(1 0 0 / 10%);
-  --border-hover:oklch(1 0 0 / 18%);
-  --border-focus:#a78bfa;
+/* Modern Dark (default) — x-UI inspired */
+html[data-theme="modern-dark"]{
+  /* 3-layer depth: bg → surface → card — visible contrast between layers */
+  --bg:#09090b;
+  --surface:#131316;
+  --card:#1a1a1f;
+  --card-hover:#222228;
+  /* Borders — visible in dark mode */
+  --border:rgba(255,255,255,.08);
+  --border-hover:rgba(255,255,255,.14);
+  --border-focus:#C4A35A;
   /* Text */
-  --ink:#e2e4ed;
-  --ink-muted:#8b90a5;
-  --ink-dim:#5c6078;
-  /* Semantic colors */
-  --primary:#a78bfa;--primary-muted:rgba(167,139,250,.12);
-  --success:#34d399;--success-muted:rgba(52,211,153,.12);
-  --warning:#fbbf24;--warning-muted:rgba(251,191,36,.12);
-  --danger:#f87171;--danger-muted:rgba(248,113,113,.12);
-  --info:#67e8f9;--info-muted:rgba(103,232,249,.12);
-  /* Radius scale */
-  --r-sm:6px;--r-md:10px;--r-lg:14px;--r-xl:18px;--r-pill:999px;
-  /* Shadows */
-  --shadow-xs:0 1px 2px rgba(0,0,0,.2);
-  --shadow-sm:0 2px 4px rgba(0,0,0,.25);
-  --shadow-md:0 4px 12px rgba(0,0,0,.3);
-  --shadow-lg:0 8px 24px rgba(0,0,0,.4);
-  --shadow-xl:0 12px 40px rgba(0,0,0,.5);
+  --ink:#fafafa;
+  --ink-muted:#a1a1aa;
+  --ink-dim:#71717a;
+  /* Semantic */
+  --primary:#C4A35A;--primary-muted:rgba(196,163,90,.12);--primary-hover:#B8923E;--glow:rgba(196,163,90,.25);
+  --success:#10b981;--success-muted:rgba(16,185,129,.14);
+  --warning:#f59e0b;--warning-muted:rgba(245,158,11,.14);
+  --danger:#ef4444;--danger-muted:rgba(239,68,68,.14);
+  --info:#4a9ec9;--info-muted:rgba(74,158,201,.14);
+  /* Radius — restrained, shadcn-style */
+  --r-sm:6px;--r-md:8px;--r-lg:10px;--r-xl:12px;--r-pill:999px;
+  /* Shadows — subtle and visible on dark bg */
+  --shadow-xs:0 0 0 1px rgba(255,255,255,.06);
+  --shadow-sm:0 1px 3px rgba(0,0,0,.3),0 0 0 1px rgba(255,255,255,.05);
+  --shadow-md:0 4px 6px rgba(0,0,0,.35),0 0 0 1px rgba(255,255,255,.06);
+  --shadow-lg:0 8px 24px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.03);
+  --shadow-xl:0 12px 40px rgba(0,0,0,.6);
   /* Spacing */
-  --sp-xs:4px;--sp-sm:8px;--sp-md:16px;--sp-lg:24px;--sp-xl:32px;
+  --sp-xs:4px;--sp-sm:8px;--sp-md:16px;--sp-lg:24px;--sp-xl:32px;--sp-2xl:48px;
   /* Font */
   --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
   --font-mono:"JetBrains Mono","Fira Code","SF Mono",monospace;
@@ -427,40 +436,81 @@ _DARK_CSS = """\
   --ease-out:cubic-bezier(.16,1,.3,1);
   --duration:150ms;
   /* Sidebar */
-  --sidebar-w:224px;
-  --sidebar-w-collapsed:48px;
-  --sidebar-bg:oklch(.14 .01 270);
+  --sidebar-w:240px;
+  --sidebar-w-collapsed:56px;
+  --sidebar-bg:#0c0c0e;
   --sidebar-fg:var(--ink);
   --sidebar-muted:var(--ink-muted);
   --sidebar-primary:var(--primary);
-  --sidebar-accent:oklch(.18 .02 275);
-  --sidebar-border:var(--border);
+  --sidebar-accent:rgba(59,130,246,.08);
+  --sidebar-border:rgba(255,255,255,.06);
   /* Header */
   --header-h:56px;
 }
-html[data-theme="light"]{
-  --bg:oklch(.97 .005 270);
-  --surface:oklch(.94 .005 270);
-  --card:oklch(1 .003 275);
-  --card-hover:oklch(.98 .006 275);
-  --border:oklch(0 0 0 / 12%);
-  --border-hover:oklch(0 0 0 / 20%);
-  --border-focus:#7c3aed;
-  --ink:#1a1a2e;
-  --ink-muted:#5c6078;
-  --ink-dim:#8b90a5;
-  --sidebar-bg:oklch(.96 .005 270);
-  --sidebar-accent:oklch(.93 .01 275);
+html[data-theme="light"],html:not([data-theme]){
+  --bg:#FAF7F2;
+  --surface:#F5F0E8;
+  --card:#FFFFFF;
+  --card-hover:#F8F5EE;
+  --border:#D4C8B0;
+  --border-hover:#B8A88A;
+  --border-focus:#C4A35A;
+  --ink:#2D2A26;
+  --ink-muted:#7A7066;
+  --ink-dim:#A89E92;
+  --primary:#C4A35A;--primary-muted:rgba(196,163,90,.12);--primary-hover:#B8923E;--glow:rgba(196,163,90,.2);
+  --success:#5A9E6F;--success-muted:rgba(90,158,111,.1);
+  --warning:#D4A03A;--warning-muted:rgba(212,160,58,.1);
+  --danger:#C45A5A;--danger-muted:rgba(196,90,90,.1);
+  --info:#5A8EAE;--info-muted:rgba(90,142,174,.1);
+  --r-sm:4px;--r-md:6px;--r-lg:8px;--r-xl:10px;--r-pill:999px;
+  --shadow-xs:none;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.04);
+  --shadow-md:0 2px 4px rgba(0,0,0,.06);
+  --shadow-lg:0 4px 12px rgba(0,0,0,.08);
+  --shadow-xl:0 8px 24px rgba(0,0,0,.1);
+  --sp-xs:4px;--sp-sm:8px;--sp-md:16px;--sp-lg:24px;--sp-xl:32px;--sp-2xl:48px;
+  --sidebar-w:240px;
+  --sidebar-w-collapsed:56px;
+  --sidebar-bg:#F0EAE0;
+  --sidebar-fg:var(--ink);
+  --sidebar-muted:var(--ink-muted);
+  --sidebar-primary:var(--primary);
+  --sidebar-accent:rgba(196,163,90,.1);
+  --sidebar-border:#D4C8B0;
 }
+/* Light theme: disable glassmorphism */
+html[data-theme="light"] .dash-stat-card,
+html[data-theme="light"] .dash-table-wrap,
+html[data-theme="light"] .dash-quick-tile,
+html[data-theme="light"] .sidebar,
+html[data-theme="light"] .kn-search-input{backdrop-filter:none;-webkit-backdrop-filter:none}
+html[data-theme="light"] .dash-stat-card,html:not([data-theme]) .dash-stat-card{background:var(--card);border:1px solid var(--border)}
+html[data-theme="light"] .dash-table-wrap,html:not([data-theme]) .dash-table-wrap{background:var(--card);border:1px solid var(--border)}
+html[data-theme="light"] .dash-quick-tile,html:not([data-theme]) .dash-quick-tile{background:var(--card);border:1px solid var(--border)}
+html[data-theme="light"] .sidebar,html:not([data-theme]) .sidebar{background:var(--sidebar-bg);backdrop-filter:none}
+html[data-theme="light"] .kn-search-input,html:not([data-theme]) .kn-search-input{background:var(--card);border:1px solid var(--border)}
+html[data-theme="light"] .dash-section::before{opacity:.3}
+html[data-theme="light"] .card,html:not([data-theme]) .card{background:var(--card)}
+html[data-theme="light"] .card:hover,html:not([data-theme]) .card:hover{background:var(--card-hover)}
+
+/* ---- Marvis-style panel headers ---- */
+.marvis-panel{border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden;background:var(--card);margin-bottom:var(--sp-md)}
+.marvis-header{background:linear-gradient(135deg,#E8D5A0,#D4C5A0);padding:10px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+.marvis-header h3{margin:0;font-size:.88rem;font-weight:700;color:#3D3830;display:flex;align-items:center;gap:8px}
+.marvis-header .marvis-badge{font-size:.72rem;font-weight:500;color:#6B5D4A;background:rgba(255,255,255,.5);padding:2px 8px;border-radius:var(--r-pill)}
+.marvis-body{padding:16px}
+.marvis-body-empty{padding:24px 16px;color:var(--ink-dim);text-align:center;font-size:.85rem}
+
 html{font-family:var(--font);background:var(--surface);color:var(--ink);line-height:1.6;-webkit-text-size-adjust:100%;font-synthesis-weight:none;text-rendering:optimizeLegibility}
-body{min-height:100vh;display:flex;min-height:100dvh}
+body{min-height:100vh;min-height:100dvh}
 a{color:var(--primary);text-decoration:none;transition:color var(--duration)}
 a:hover{color:var(--ink)}
 ::selection{background:var(--primary);color:var(--bg)}
-::-webkit-scrollbar{width:6px;height:6px}
-::-webkit-scrollbar-track{background:var(--surface)}
-::-webkit-scrollbar-thumb{background:var(--card);border-radius:3px}
-::-webkit-scrollbar-thumb:hover{background:var(--ink-muted)}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:var(--surface);border-radius:4px}
+::-webkit-scrollbar-thumb{background:linear-gradient(180deg,rgba(196,163,90,.3),rgba(196,163,90,.1));border-radius:4px}
+::-webkit-scrollbar-thumb:hover{background:linear-gradient(180deg,rgba(196,163,90,.45),rgba(196,163,90,.25))}
 
 /* ---- Animations ---- */
 @keyframes fadeIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
@@ -472,17 +522,18 @@ a:hover{color:var(--ink)}
 @keyframes sidebarSlideIn{from{transform:translateX(-100%)}to{transform:translateX(0)}}
 @keyframes dotPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.6);opacity:.4}}
 @keyframes toastSlideUp{from{opacity:0;transform:translateX(-50%) translateY(20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
-body{animation:pageEnter .35s var(--ease-out)}
+@keyframes meshGradient{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+@keyframes glowPulse{0%,100%{box-shadow:0 0 8px rgba(196,163,90,.15)}50%{box-shadow:0 0 16px rgba(196,163,90,.25)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+body{animation:pageEnter .35s var(--ease-out);background:var(--surface);background-image:radial-gradient(ellipse at 20% 50%,rgba(196,163,90,.04) 0%,transparent 50%),radial-gradient(ellipse at 80% 20%,rgba(168,139,62,.03) 0%,transparent 50%);background-size:200% 200%;animation:pageEnter .35s var(--ease-out),meshGradient 20s ease infinite}
+.glow-border{border:1px solid rgba(196,163,90,.3);box-shadow:0 0 10px rgba(196,163,90,.08)}
 /* Sidebar nav micro-interaction */
-.sidebar-nav-item:hover{background:var(--sidebar-accent);color:var(--sidebar-fg);transform:translateX(2px)}
-.sidebar-nav-item:active{transform:translateX(0) scale(.98)}
+.sidebar-nav-item:hover{background:rgba(196,163,90,.08);color:var(--sidebar-fg)}
+.sidebar-nav-item:active{background:var(--sidebar-accent)}
 /* Button micro-interactions */
-.pf-btn:active,.settings-btn:active{transform:translateY(0) scale(.97)}
-.svc-card:active{transform:translateY(0) scale(.995)}
-.dash-quick-tile:active{transform:scale(.97);box-shadow:none}
+.pf-btn:active,.settings-btn:active{opacity:.9}
+.dash-quick-tile:active{box-shadow:none}
 /* Health dot animation */
-.svc-health-dot.checking{animation:pulse 1.5s infinite}
-.svc-health-dot.alive{animation:dotPulse 2s ease-out 1}
 /* Toast animation */
 .pf-toast{animation:toastSlideUp .3s var(--ease-out)}
 .tabs{animation:staggerFade .3s var(--ease-out) .05s both}
@@ -503,10 +554,11 @@ body{animation:pageEnter .35s var(--ease-out)}
   position:fixed;top:0;left:0;bottom:0;
   width:var(--sidebar-w);
   background:var(--sidebar-bg);
+
   border-right:1px solid var(--sidebar-border);
   display:flex;flex-direction:column;
   z-index:60;
-  transition:width .25s var(--ease-out),transform .25s var(--ease-out);
+  transition:width .35s var(--ease-out),transform .35s var(--ease-out);
   overflow:hidden;
 }
 .sidebar.collapsed{width:var(--sidebar-w-collapsed)}
@@ -519,9 +571,10 @@ body{animation:pageEnter .35s var(--ease-out)}
 }
 .sidebar-brand .brand-logo{
   width:28px;height:28px;border-radius:var(--r-sm);
-  background:linear-gradient(135deg,var(--primary),var(--info));
+  background:linear-gradient(135deg,#C4A35A,#A88B3E);
   display:flex;align-items:center;justify-content:center;
   font-weight:800;font-size:.8rem;color:var(--bg);flex-shrink:0;
+  animation:glowPulse 3s ease-in-out infinite;
 }
 .sidebar-brand .brand-name{
   font-size:1.05rem;font-weight:700;color:var(--sidebar-fg);
@@ -567,13 +620,15 @@ body{animation:pageEnter .35s var(--ease-out)}
 .sidebar.collapsed .sidebar-nav-item span{opacity:0;width:0}
 .sidebar.collapsed .sidebar-nav-item{justify-content:center;padding:8px 0;margin:1px var(--sp-xs)}
 .sidebar-nav-item.active{
-  background:var(--primary-muted);color:var(--primary);
-  font-weight:600;
+  background:rgba(196,163,90,.15);color:var(--primary);
+  font-weight:600;box-shadow:0 0 8px rgba(196,163,90,.1);
 }
 .sidebar-nav-item.active::before{
-  content:'';position:absolute;left:0;top:6px;bottom:6px;
-  width:3px;border-radius:0 3px 3px 0;background:var(--primary);
+  content:'';position:absolute;left:0;top:8px;bottom:8px;
+  width:3px;border-radius:0 3px 3px 0;background:linear-gradient(180deg,#C4A35A,#A88B3E);
 }
+.sidebar.collapsed .sidebar-nav-item.active::before{display:none}
+.sidebar.collapsed .sidebar-nav-item{padding:8px}
 /* User block at bottom */
 .sidebar-user{
   border-top:1px solid var(--sidebar-border);
@@ -598,14 +653,14 @@ body{animation:pageEnter .35s var(--ease-out)}
 
 /* ---- Top Header Bar ---- */
 .top-header{
-  position:fixed;top:0;right:0;height:var(--header-h);
+  position:sticky;top:0;height:var(--header-h);
   display:flex;align-items:center;gap:var(--sp-sm);
   padding:0 var(--sp-lg);z-index:55;
-  background:oklch(.14 .01 270 / 80%);
-  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  background:var(--card);
   border-bottom:1px solid var(--border);
-  transition:left .25s var(--ease-out);
-  left:var(--sidebar-w);
+  margin-left:var(--sidebar-w);
+  width:calc(100% - var(--sidebar-w));
+  transition:margin-left .25s var(--ease-out),width .25s var(--ease-out);
 }
 .top-header .header-left{display:flex;align-items:center;gap:var(--sp-sm);flex:1}
 .top-header .header-right{display:flex;align-items:center;gap:var(--sp-sm)}
@@ -630,15 +685,24 @@ body{animation:pageEnter .35s var(--ease-out)}
 
 /* ---- Main content area ---- */
 .main-wrap{
-  flex:1;display:flex;flex-direction:column;
+  flex:1 1 auto;display:flex;flex-direction:column;
   margin-left:var(--sidebar-w);
-  padding-top:var(--header-h);
-  min-height:100vh;min-height:100dvh;
-  transition:margin-left .25s var(--ease-out);
+  width:calc(100% - var(--sidebar-w));
+  max-width:calc(100% - var(--sidebar-w));
+  padding-top:0;
+  min-height:100vh;
+  transition:margin-left .25s var(--ease-out),width .25s var(--ease-out),max-width .25s var(--ease-out);
   overflow-x:hidden;
 }
-.sidebar.collapsed ~ .main-wrap{margin-left:var(--sidebar-w-collapsed)}
-.sidebar.collapsed ~ .top-header{left:var(--sidebar-w-collapsed)}
+/* Constrain content width + center — prevent screen-filling */
+.dash-section,.dash-grid,.dash-hero,.dash-health-strip,.dash-uptime-section,.dash-resource-section,
+.card-grid,.kn-content,.gallery-wrap,.review-content,.dash-charts-row,.dash-api-section,
+.sec-kanban,.sec-header,.dash-health-bar,.dash-stat-grid,.dash-quick-row {
+  max-width:960px;width:100%;
+  margin-left:auto;margin-right:auto;
+}
+.sidebar.collapsed ~ .main-wrap{margin-left:var(--sidebar-w-collapsed);width:calc(100% - var(--sidebar-w-collapsed));max-width:calc(100% - var(--sidebar-w-collapsed))}
+.sidebar.collapsed ~ .top-header{margin-left:var(--sidebar-w-collapsed);width:calc(100% - var(--sidebar-w-collapsed))}
 .sidebar-toggle svg{transition:transform .25s var(--ease-out)}
 
 /* ---- Mobile sidebar overlay ---- */
@@ -654,10 +718,10 @@ body{animation:pageEnter .35s var(--ease-out)}
   .sidebar.collapsed{width:var(--sidebar-w)}
   .sidebar.mobile-open{transform:translateX(0)}
   .sidebar-overlay.open{display:block}
-  .main-wrap{margin-left:0 !important}
-  .top-header{left:0}
+  .main-wrap{margin-left:0 !important;width:100% !important;max-width:100% !important}
+  .top-header{margin-left:0;width:100%}
   .header-mobile-toggle{display:flex}
-  .sidebar.collapsed ~ .main-wrap{margin-left:0}
+  .sidebar.collapsed ~ .main-wrap{margin-left:0;width:100%;max-width:100%}
 }
 /* Desktop: hide mobile toggle */
 @media(min-width:768px){
@@ -665,34 +729,35 @@ body{animation:pageEnter .35s var(--ease-out)}
 }
 
 /* ---- Filter tabs ---- */
-.tabs{display:flex;gap:6px;padding:var(--sp-md) var(--sp-md) var(--sp-sm);overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.tabs{display:flex;gap:0;padding:var(--sp-md) var(--sp-md) 0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;border-bottom:1px solid var(--border)}
 .tabs::-webkit-scrollbar{display:none}
 .tabs a,.tabs button{
   display:inline-flex;align-items:center;gap:6px;
-  padding:8px 16px;border:1px solid var(--border);border-radius:var(--r-pill);
+  padding:8px 16px;border:none;border-bottom:2px solid transparent;
   background:transparent;color:var(--ink-muted);font-size:.84rem;font-weight:500;cursor:pointer;
-  min-height:44px;white-space:nowrap;transition:all var(--duration)
+  min-height:40px;white-space:nowrap;transition:all var(--duration);
+  border-radius:var(--r-sm) var(--r-sm) 0 0;
+  margin-bottom:-1px;
 }
-.tabs a.active,.tabs button.active{background:var(--primary-muted);color:var(--ink);border-color:var(--primary);box-shadow:0 0 0 1px var(--primary)}
-.tabs a:hover,.tabs button:hover{background:var(--border-hover);color:var(--ink)}
+.tabs a.active,.tabs button.active{background:transparent;color:var(--ink);border-bottom-color:var(--primary);font-weight:600;box-shadow:none}
+.tabs a:hover,.tabs button:hover{background:var(--card-hover);color:var(--ink);border-bottom-color:var(--border-hover)}
 .tab-count{font-size:.72rem;background:var(--border-hover);border-radius:var(--r-pill);padding:1px 7px;color:var(--ink-dim);font-weight:600;margin-left:2px}
 
 /* ---- Card grid ---- */
-.card-grid{display:grid;grid-template-columns:1fr;gap:var(--sp-md);padding:0 var(--sp-md) var(--sp-md)}
-@media(min-width:720px){.card-grid{grid-template-columns:repeat(auto-fill,minmax(380px,1fr))}}
+.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:var(--sp-md);padding:0 var(--sp-md) var(--sp-md)}
 
-.card{display:block;background:var(--card);border-radius:var(--r-lg);padding:var(--sp-md);border:1px solid var(--border);text-decoration:none;color:var(--ink);min-height:44px;transition:all var(--duration) var(--ease-out);box-shadow:var(--shadow-xs)}
-.card:hover{border-color:var(--primary);background:var(--card-hover);text-decoration:none;transform:translateY(-2px) scale(1.02);box-shadow:var(--shadow-lg),0 0 0 1px var(--primary)}
+.card{display:block;background:var(--card);border-radius:var(--r-md);padding:var(--sp-lg);border:1px solid var(--border);text-decoration:none;color:var(--ink);min-height:44px;transition:border-color var(--duration),box-shadow var(--duration),transform .25s var(--ease-out);box-shadow:var(--shadow-xs)}
+.card:hover{border-color:rgba(196,163,90,.25);background:rgba(34,34,40,.8);text-decoration:none;box-shadow:0 0 20px rgba(196,163,90,.12),0 4px 12px rgba(0,0,0,.3);transform:translateY(-2px)}
 .card-top{display:flex;align-items:center;gap:var(--sp-sm);flex-wrap:wrap;margin-bottom:var(--sp-sm)}
 .card-preview{font-size:.9rem;color:var(--ink);overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;max-width:100%;line-height:1.5}
 .card-meta{display:flex;gap:var(--sp-sm);margin-top:var(--sp-sm);font-size:.78rem;color:var(--ink-muted)}
 
 /* ---- Badges ---- */
-.badge{display:inline-flex;align-items:center;height:22px;padding:2px 10px;border-radius:var(--r-pill);font-size:.7rem;font-weight:600;letter-spacing:.02em;white-space:nowrap;transition:all var(--duration);box-shadow:0 1px 2px rgba(0,0,0,.15)}
-.badge-pending{background:var(--warning-muted);color:var(--warning)}
-.badge-approved_db_only{background:var(--success-muted);color:var(--success)}
-.badge-approved_for_export{background:rgba(52,211,153,.22);color:var(--success)}
-.badge-rejected{background:var(--danger-muted);color:var(--danger)}
+.badge{display:inline-flex;align-items:center;height:22px;padding:var(--sp-xs) 10px;border-radius:var(--r-pill);font-size:.7rem;font-weight:600;letter-spacing:.02em;white-space:nowrap;transition:all var(--duration);box-shadow:0 1px 2px rgba(0,0,0,.15)}
+.badge-pending{background:linear-gradient(135deg,rgba(245,158,11,.2),rgba(245,158,11,.08));color:var(--warning)}
+.badge-approved_db_only{background:linear-gradient(135deg,rgba(16,185,129,.2),rgba(16,185,129,.08));color:var(--success)}
+.badge-approved_for_export{background:linear-gradient(135deg,rgba(52,211,153,.25),rgba(52,211,153,.1));color:var(--success)}
+.badge-rejected{background:linear-gradient(135deg,rgba(239,68,68,.2),rgba(239,68,68,.08));color:var(--danger)}
 .badge-superseded{background:var(--border-hover);color:var(--ink-dim)}
 .badge-rule{background:var(--primary-muted);color:var(--primary)}
 .badge-pattern{background:var(--info-muted);color:var(--info)}
@@ -708,9 +773,9 @@ body{animation:pageEnter .35s var(--ease-out)}
 .back-link:hover{color:var(--primary)}
 .detail-title{font-size:1.1rem;font-weight:700;word-break:break-all;color:var(--ink)}
 .detail-body{padding:0 var(--sp-md) var(--sp-md)}
-.section{margin-bottom:var(--sp-lg);background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--sp-md);position:relative;padding-left:calc(var(--sp-md) + 4px);transition:border-color var(--duration)}
-.section::before{content:'';position:absolute;left:0;top:var(--r-lg);bottom:var(--r-lg);width:4px;border-radius:0 4px 4px 0;background:var(--primary);opacity:.6;transition:opacity var(--duration)}
-.section:hover{border-color:var(--border-hover)}
+.section{margin-bottom:var(--sp-lg);background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);padding:var(--sp-lg);position:relative;transition:border-color var(--duration),box-shadow var(--duration);box-shadow:var(--shadow-xs)}
+.section::before{content:'';position:absolute;left:0;top:var(--r-lg);bottom:var(--r-lg);width:3px;border-radius:0 3px 3px 0;background:var(--primary);opacity:.6;transition:opacity var(--duration)}
+.section:hover{border-color:rgba(196,163,90,.2);box-shadow:0 0 20px rgba(196,163,90,.12),0 4px 12px rgba(0,0,0,.3)}
 .section:hover::before{opacity:1}
 .section h3{color:var(--primary);font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:var(--sp-sm);font-weight:600}
 .section p{color:var(--ink);font-size:.9rem;white-space:pre-wrap;word-break:break-word;line-height:1.6}
@@ -727,42 +792,45 @@ body{animation:pageEnter .35s var(--ease-out)}
 }
 body:has(.action-bar){padding-bottom:76px}
 .action-bar .btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:12px var(--sp-sm);border:none;border-radius:var(--r-md);font-size:.9rem;font-weight:600;cursor:pointer;min-height:48px;transition:all var(--duration) var(--ease-out);position:relative;overflow:hidden}
-.action-bar .btn:active{transform:translateY(1px)}
-.btn-approve{background:var(--success-muted);color:var(--success);transition:all var(--duration) var(--ease-out)}
-.btn-approve:hover{background:rgba(52,211,153,.25);box-shadow:var(--shadow-sm),0 0 12px rgba(52,211,153,.15)}
-.btn-export{background:var(--primary-muted);color:var(--primary);transition:all var(--duration) var(--ease-out)}
-.btn-export:hover{background:rgba(167,139,250,.25);box-shadow:var(--shadow-sm),0 0 12px rgba(167,139,250,.15)}
-.btn-reject{background:var(--danger-muted);color:var(--danger);transition:all var(--duration) var(--ease-out)}
-.btn-reject:hover{background:rgba(248,113,113,.25);box-shadow:var(--shadow-sm),0 0 12px rgba(248,113,113,.15)}
+.action-bar .btn:active{opacity:.85}
+.btn-approve{background:linear-gradient(135deg,rgba(52,211,153,.2),rgba(16,185,129,.1));color:var(--success);transition:all var(--duration) var(--ease-out)}
+.btn-approve:hover{background:rgba(52,211,153,.3);box-shadow:var(--shadow-sm),0 0 16px rgba(52,211,153,.2)}
+.btn-export{background:linear-gradient(135deg,rgba(196,163,90,.2),rgba(196,163,90,.08));color:var(--primary);transition:all var(--duration) var(--ease-out)}
+.btn-export:hover{background:rgba(196,163,90,.3);box-shadow:var(--shadow-sm),0 0 16px rgba(196,163,90,.2)}
+.btn-reject{background:linear-gradient(135deg,rgba(248,113,113,.2),rgba(248,113,113,.08));color:var(--danger);transition:all var(--duration) var(--ease-out)}
+.btn-reject:hover{background:rgba(248,113,113,.3);box-shadow:var(--shadow-sm),0 0 16px rgba(248,113,113,.2)}
 .btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
-.btn:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(167,139,250,.3)}
+.btn:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(196,163,90,.3)}
 kbd{font-family:var(--font-mono);font-size:.68rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);padding:1px 5px;margin-left:4px;color:var(--ink-dim);font-weight:500}
 
 /* ---- Dashboard ---- */
-.dash-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;padding:0 var(--sp-md) var(--sp-md)}
-@media(min-width:720px){.dash-grid{grid-template-columns:repeat(4,1fr)}}
-.dash-card{background:var(--card);border-radius:var(--r-lg);padding:var(--sp-lg) var(--sp-md);border:1px solid var(--border);text-align:center;box-shadow:var(--shadow-xs);transition:all var(--duration) var(--ease-out);position:relative;overflow:hidden}
-.dash-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--primary),var(--info));opacity:0;transition:opacity var(--duration)}
-.dash-card:hover{border-color:var(--border-focus);box-shadow:var(--shadow-md);transform:translateY(-2px)}
+.dash-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:var(--sp-md);padding:0 var(--sp-md) var(--sp-md)}
+.dash-card{background:var(--card);border-radius:var(--r-lg);padding:var(--sp-lg);border:1px solid var(--border);text-align:center;box-shadow:var(--shadow-xs);transition:border-color var(--duration),box-shadow var(--duration),transform .25s var(--ease-out);position:relative;overflow:hidden}
+.dash-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--primary);opacity:0;transition:opacity var(--duration)}
+.dash-card:hover{border-color:rgba(196,163,90,.2);box-shadow:0 0 16px rgba(196,163,90,.12),0 4px 12px rgba(0,0,0,.3);transform:translateY(-2px)}
 .dash-card:hover::after{opacity:1}
 .dash-card .num{font-size:2rem;font-weight:700;line-height:1}
 .dash-card .label{font-size:.75rem;color:var(--ink-muted);margin-top:4px;text-transform:uppercase;letter-spacing:.06em}
-.dash-section{padding:0 var(--sp-md) var(--sp-md)}
+.dash-section{padding:var(--sp-2xl) var(--sp-lg) var(--sp-md)}
 .dash-section h3{color:var(--primary);font-size:.88rem;margin-bottom:var(--sp-sm);font-weight:600}
-.dash-table{width:100%;border-collapse:collapse;font-size:.84rem}
-.dash-table th,.dash-table td{padding:var(--sp-sm) 12px;text-align:left;border-bottom:1px solid var(--border)}
-.dash-table th{color:var(--ink-muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+.dash-table{width:100%;border-collapse:separate;border-spacing:0;font-size:.84rem;border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden}
+.dash-table th,.dash-table td{padding:10px 14px;text-align:left;border-bottom:1px solid var(--border)}
+.dash-table tr:last-child td{border-bottom:none}
+.dash-table th{color:var(--ink-muted);font-weight:600;font-size:.76rem;text-transform:uppercase;letter-spacing:.04em;background:var(--surface)}
+.dash-table tr:nth-child(even) td{background:rgba(255,255,255,.02)}
+.dash-table tr:hover td{background:var(--card-hover)}
 .dash-table td{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px}
 .dash-details{padding:0 var(--sp-md) var(--sp-sm)}
+.dash-details[open]{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);margin-bottom:var(--sp-sm)}
 .dash-details-header{display:flex;align-items:center;gap:var(--sp-sm);padding:var(--sp-sm) var(--sp-md);cursor:pointer;font-size:.92rem;font-weight:600;color:var(--ink);user-select:none;border-bottom:1px solid var(--border);background:var(--card);border-radius:var(--r-lg);margin:var(--sp-sm) 0;transition:background var(--duration)}
 .dash-details-header:hover{background:var(--card-hover)}
-.dash-details-count{font-size:.72rem;background:var(--border-hover);border-radius:var(--r-pill);padding:2px 8px;color:var(--ink-dim);margin-left:auto}
+.dash-details-count{font-size:.72rem;background:var(--border-hover);border-radius:var(--r-pill);padding:var(--sp-xs) 8px;color:var(--ink-dim);margin-left:auto}
 .dash-details[open] .dash-details-header{border-radius:var(--r-lg) var(--r-lg) 0 0}
 
 /* ---- Exports list ---- */
 .export-list{padding:0 var(--sp-md) var(--sp-md)}
-.export-item{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-sm) var(--sp-md);background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);margin-bottom:var(--sp-sm);min-height:44px;gap:var(--sp-sm);text-decoration:none;color:var(--ink);transition:all var(--duration);box-shadow:var(--shadow-xs)}
-.export-item:hover{border-color:var(--border-focus);background:var(--card-hover);text-decoration:none;box-shadow:var(--shadow-sm)}
+.export-item{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-sm) var(--sp-md);background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);margin-bottom:var(--sp-sm);min-height:44px;gap:var(--sp-sm);text-decoration:none;color:var(--ink);transition:border-color var(--duration),box-shadow var(--duration);box-shadow:var(--shadow-xs)}
+.export-item:hover{border-color:rgba(196,163,90,.2);background:rgba(34,34,40,.8);text-decoration:none;box-shadow:0 0 16px rgba(196,163,90,.1),0 4px 12px rgba(0,0,0,.3)}
 .export-item .file-name{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
 .export-item .file-meta{font-size:.78rem;color:var(--ink-muted);display:flex;gap:var(--sp-sm);flex-shrink:0}
 .export-item .download-icon{color:var(--primary);font-size:1.2rem;flex-shrink:0}
@@ -789,8 +857,8 @@ kbd{font-family:var(--font-mono);font-size:.68rem;background:var(--surface);bord
 .quota-row{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:var(--sp-sm);align-items:center;padding:10px 12px;border-bottom:1px solid var(--border);font-size:.84rem;transition:background var(--duration)}
 .quota-row:hover{background:var(--card)}
 .quota-row .qr-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
-.quota-row .qr-bar{height:6px;border-radius:3px;background:var(--border-hover);overflow:hidden;min-width:60px}
-.quota-row .qr-bar-fill{height:100%;border-radius:3px;transition:width .3s}
+.quota-row .qr-bar{height:6px;border-radius:var(--r-sm);background:var(--border-hover);overflow:hidden;min-width:60px}
+.quota-row .qr-bar-fill{height:100%;border-radius:var(--r-sm);transition:width .3s}
 .quota-row .qr-status{font-size:.78rem;font-weight:600}
 .quota-col-section{padding:var(--sp-md) var(--sp-md) var(--sp-xs);font-size:.84rem;font-weight:600;color:var(--primary);display:flex;align-items:center;gap:6px}
 .quota-col-section .qcs-count{font-size:.72rem;color:var(--ink-dim);font-weight:400}
@@ -819,18 +887,17 @@ kbd{font-family:var(--font-mono);font-size:.68rem;background:var(--surface);bord
 /* ---- Search bar ---- */
 .search-bar{display:flex;gap:var(--sp-sm);padding:var(--sp-sm) var(--sp-md) 0}
 .search-bar input{flex:1;padding:10px 14px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);color:var(--ink);font-size:.88rem;outline:none;transition:border-color var(--duration),box-shadow var(--duration);min-height:44px}
-.search-bar input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(167,139,250,.25),0 0 0 1px var(--primary)}
+.search-bar input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(196,163,90,.25),0 0 0 1px var(--primary)}
 .search-bar input::placeholder{color:var(--ink-dim)}
 
 /* ---- Dashboard Hero ---- */
-.dash-hero{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--sp-md);padding:var(--sp-lg) var(--sp-lg) 0}
-@media(max-width:720px){.dash-hero{grid-template-columns:repeat(2,1fr);gap:var(--sp-sm);padding:var(--sp-md) var(--sp-md) 0}.dash-health-strip{padding:0 var(--sp-md);gap:var(--sp-sm)}.dash-health-item{padding:4px 10px;font-size:.72rem}}
-.dash-metric{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--sp-lg) var(--sp-md);display:flex;flex-direction:column;gap:2px;transition:border-color var(--duration)}
-.dash-metric:hover{border-color:var(--border-hover)}
+.dash-hero{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--sp-md);padding:var(--sp-md) 0}
+@media(max-width:720px){.dash-hero{grid-template-columns:repeat(2,1fr);gap:var(--sp-sm);padding:var(--sp-md) 0}.dash-health-strip{padding:0;gap:var(--sp-sm)}.dash-health-item{padding:4px 10px;font-size:.72rem}}
+.dash-metric{background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);padding:var(--sp-lg);display:flex;flex-direction:column;gap:4px;transition:border-color var(--duration),box-shadow var(--duration),transform .25s var(--ease-out);box-shadow:var(--shadow-xs)}
+.dash-metric:hover{border-color:rgba(196,163,90,.2);box-shadow:0 0 16px rgba(196,163,90,.1),0 4px 12px rgba(0,0,0,.3);transform:translateY(-2px)}
 .dash-metric .dash-num{font-size:1.75rem;font-weight:700;line-height:1.1;letter-spacing:-.02em}
-.dash-metric .dash-label{font-size:.72rem;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;font-weight:500}
+.dash-metric .dash-label{font-size:.72rem;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
 .dash-metric .dash-sub{font-size:.72rem;color:var(--ink-dim);margin-top:2px}
-.dash-metricAccent{border-left:3px solid var(--primary)}
 .dash-metricSuccess .dash-num{color:var(--success)}
 .dash-metricPrimary .dash-num{color:var(--primary)}
 .dash-metricWarning .dash-num{color:var(--warning)}
@@ -838,8 +905,8 @@ kbd{font-family:var(--font-mono);font-size:.68rem;background:var(--surface);bord
 .dash-charts-row{display:grid;grid-template-columns:1.2fr 1fr;gap:var(--sp-md);margin-top:var(--sp-md)}
 @media(max-width:720px){.dash-charts-row{grid-template-columns:1fr}}
 /* ---- API section (full-width) ---- */
-.dash-api-section{margin:var(--sp-lg) var(--sp-lg) 0;padding:var(--sp-lg);background:var(--card);border:1px solid var(--border);border-radius:var(--r-xl);animation:staggerFade .3s var(--ease-out) .04s both}
-@media(max-width:720px){.dash-api-section{margin:var(--sp-md);padding:var(--sp-md)}}
+.dash-api-section{margin:var(--sp-md) 0;padding:var(--sp-lg);background:var(--card);border:1px solid var(--border);border-radius:var(--r-xl);animation:staggerFade .3s var(--ease-out) .04s both}
+@media(max-width:720px){.dash-api-section{margin:var(--sp-md) 0;padding:var(--sp-md)}}
 .dash-api-header{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-sm);margin-bottom:var(--sp-md)}
 .dash-api-header h2{font-size:.95rem;font-weight:600;color:var(--ink);margin:0;display:flex;align-items:center;gap:var(--sp-sm)}
 .dash-api-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--sp-md)}
@@ -850,63 +917,70 @@ kbd{font-family:var(--font-mono);font-size:.68rem;background:var(--surface);bord
 .dash-trend-wrap{margin-top:var(--sp-md)}
 .dash-trend-label{font-size:.7rem;color:var(--ink-dim);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em}
 .dash-trend-chart-box{height:140px;position:relative}
+.dash-pool-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--sp-md);margin-top:var(--sp-md);padding:var(--sp-md) 0;border-top:1px solid var(--border)}
 /* ---- Service health strip ---- */
-.dash-health-strip{display:flex;gap:var(--sp-md);padding:0 var(--sp-lg);flex-wrap:wrap}
+.dash-health-strip{display:flex;gap:var(--sp-md);padding:0;flex-wrap:wrap}
 .dash-health-item{display:flex;align-items:center;gap:6px;padding:6px 14px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-pill);font-size:.78rem;color:var(--ink-muted);transition:border-color var(--duration),background var(--duration)}
-.dash-health-item:hover{border-color:var(--border-hover);background:var(--card-hover)}
+.dash-health-item:hover{border-color:rgba(196,163,90,.2);background:rgba(34,34,40,.8)}
 .dash-health-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .dash-health-dot.alive{background:var(--success);box-shadow:0 0 6px rgba(52,211,153,.5)}
 .dash-health-dot.dead{background:var(--danger);box-shadow:0 0 6px rgba(248,113,113,.4)}
 .dash-health-dot.checking{background:var(--warning);animation:pulse 1.5s infinite}
 .dash-health-name{font-weight:500;color:var(--ink)}
 .dash-health-lat{font-family:var(--font-mono);font-size:.68rem;color:var(--ink-dim)}
-/* ---- Uptime Kuma embed ---- */
-.dash-uptime-section{margin:var(--sp-md) var(--sp-lg) 0;animation:staggerFade .3s var(--ease-out) .12s both}
-.dash-uptime-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;transition:border-color var(--duration)}
-.dash-uptime-card:hover{border-color:var(--border-hover)}
+/* ---- Service health kanban ---- */
+.dash-uptime-section{margin:var(--sp-md) 0;animation:staggerFade .3s var(--ease-out) .12s both}
+.dash-uptime-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden;transition:border-color var(--duration),box-shadow var(--duration)}
+.dash-uptime-card:hover{border-color:rgba(196,163,90,.2);box-shadow:0 0 12px rgba(196,163,90,.08)}
 .dash-uptime-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border)}
 .dash-uptime-header h3{margin:0;font-size:.88rem;font-weight:600;color:var(--ink)}
-.dash-uptime-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-sm);padding:var(--sp-md)}
-.dash-uptime-item{display:flex;align-items:center;gap:var(--sp-md);padding:var(--sp-md) var(--sp-lg);background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);text-decoration:none;color:var(--ink);transition:border-color .2s,background .2s}
-.dash-uptime-item:hover{border-color:var(--primary);background:rgba(167,139,250,.06)}
-.dash-uptime-icon{font-size:1.5rem;flex-shrink:0}
-.dash-uptime-info{flex:1;min-width:0}
-.dash-uptime-name{font-size:.84rem;font-weight:600;color:var(--ink)}
-.dash-uptime-desc{font-size:.72rem;color:var(--ink-muted);margin-top:2px}
-.dash-uptime-arrow{font-size:1.1rem;color:var(--ink-muted);flex-shrink:0;transition:transform .2s}
-.dash-uptime-item:hover .dash-uptime-arrow{transform:translateX(3px);color:var(--primary)}
 .dash-uptime-link{font-size:.76rem;color:var(--primary);text-decoration:none;font-weight:500;transition:color .2s}
 .dash-uptime-link:hover{color:var(--primary-hover,var(--primary))}
-.dash-uptime-note{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:10px 14px;margin-top:var(--sp-sm);font-size:.78rem;color:var(--ink-muted);display:flex;align-items:center;gap:var(--sp-sm)}
-.dash-uptime-note .note-icon{font-size:1rem;flex-shrink:0}
-.dash-uptime-note strong{color:var(--ink);font-weight:600}
-@media(max-width:720px){.dash-uptime-section{margin:var(--sp-md)}.dash-uptime-grid{grid-template-columns:1fr;padding:var(--sp-sm)}}
+.dash-svc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:var(--sp-sm);padding:var(--sp-sm) 0}
+@media(max-width:520px){.dash-svc-grid{grid-template-columns:1fr 1fr}}
+.dash-svc-card{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);transition:all .2s;position:relative;overflow:hidden}
+.dash-svc-card:hover{border-color:var(--border-hover);box-shadow:var(--shadow-md)}
+.dash-svc-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;transition:all .3s}
+.dash-svc-dot.alive{background:var(--success);box-shadow:0 0 8px rgba(52,211,153,.5)}
+.dash-svc-dot.dead{background:var(--danger);box-shadow:0 0 8px rgba(248,113,113,.4)}
+.dash-svc-dot.checking{background:var(--warning);animation:svcPulse 1.2s infinite}
+@keyframes svcPulse{0%,100%{opacity:1}50%{opacity:.4}}
+.dash-svc-name{font-size:.78rem;font-weight:600;color:var(--ink);text-align:center;line-height:1.2}
+.dash-svc-lat{font-family:var(--font-mono);font-size:.66rem;color:var(--ink-dim)}
+.dash-svc-status{font-size:.68rem;font-weight:500}
+.dash-svc-status.up{color:var(--success)}
+.dash-svc-status.down{color:var(--danger)}
+.dash-svc-skeleton{height:80px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);animation:svcShimmer 1.5s infinite}
+@keyframes svcShimmer{0%{opacity:.5}50%{opacity:1}100%{opacity:.5}}
+.dash-uptime-link{font-size:.76rem;color:var(--primary);text-decoration:none;font-weight:500;transition:color .2s}
+.dash-uptime-link:hover{color:var(--primary-hover,var(--primary))}
+@media(max-width:720px){.dash-uptime-section{margin:var(--sp-md) 0}}
 /* ---- Resource gauges ---- */
-.dash-resource-section{margin:var(--sp-md) var(--sp-lg) 0;display:grid;grid-template-columns:repeat(4,1fr);gap:var(--sp-md);animation:staggerFade .3s var(--ease-out) .06s both}
-@media(max-width:720px){.dash-resource-section{grid-template-columns:repeat(2,1fr);margin:var(--sp-md);gap:var(--sp-sm)}}
-.dash-res-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--sp-md);display:flex;flex-direction:column;gap:4px;transition:border-color var(--duration)}
-.dash-res-card:hover{border-color:var(--border-hover)}
+.dash-resource-section{margin:var(--sp-md) 0;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:var(--sp-md);animation:staggerFade .3s var(--ease-out) .06s both}
+@media(max-width:720px){.dash-resource-section{grid-template-columns:repeat(2,1fr);margin:var(--sp-md) 0;gap:var(--sp-sm)}}
+.dash-res-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);padding:var(--sp-md);display:flex;flex-direction:column;gap:4px;transition:border-color var(--duration),box-shadow var(--duration),transform .25s var(--ease-out)}
+.dash-res-card:hover{border-color:rgba(196,163,90,.2);box-shadow:0 0 16px rgba(196,163,90,.1);transform:translateY(-2px)}
 .dash-res-label{font-size:.7rem;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;font-weight:500}
 .dash-res-value{font-size:1.3rem;font-weight:700;line-height:1.1}
-.dash-res-bar{height:4px;border-radius:2px;background:var(--surface);overflow:hidden;margin-top:2px}
-.dash-res-fill{height:100%;border-radius:2px;transition:width .6s var(--ease-out)}
+.dash-res-bar{height:4px;border-radius:var(--r-sm);background:var(--surface);overflow:hidden;margin-top:2px}
+.dash-res-fill{height:100%;border-radius:var(--r-sm);transition:width .6s var(--ease-out)}
 .dash-res-sub{font-size:.68rem;color:var(--ink-dim);font-family:var(--font-mono)}
 /* ---- Account health donut ---- */
 .dash-donut-wrap{display:flex;align-items:center;gap:var(--sp-lg);margin-top:var(--sp-md)}
 .dash-donut-canvas-wrap{width:100px;height:100px;flex-shrink:0}
 .dash-donut-legend{display:flex;flex-direction:column;gap:6px}
 .dash-donut-legend-item{display:flex;align-items:center;gap:8px;font-size:.82rem}
-.dash-donut-legend-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+.dash-donut-legend-dot{width:10px;height:10px;border-radius:var(--r-sm);flex-shrink:0}
 .dash-donut-legend-value{font-weight:600;font-family:var(--font-mono)}
 /* ---- VPS section ---- */
-.sec-header{display:flex;align-items:center;gap:var(--sp-sm);padding:var(--sp-md) var(--sp-lg) var(--sp-sm);border-bottom:1px solid var(--border)}
+.sec-header{display:flex;align-items:center;gap:var(--sp-sm);padding:var(--sp-md) 0 var(--sp-sm);border-bottom:1px solid var(--border)}
 .sec-header h1{font-size:1rem;margin:0;font-weight:600;color:var(--ink);flex:1;letter-spacing:-.01em}
 .sec-refresh{font-size:.72rem;color:var(--success);display:inline-flex;align-items:center;gap:4px;font-weight:500}
 .sec-refresh::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--success);box-shadow:0 0 6px rgba(52,211,153,.5);animation:pulse 2s infinite}
 .sec-pause-btn{background:none;border:1px solid var(--border);border-radius:var(--r-sm);color:var(--ink-muted);padding:4px 10px;cursor:pointer;font-size:.78rem;transition:all var(--duration);min-height:28px;min-width:28px;display:inline-flex;align-items:center;justify-content:center}
 .sec-pause-btn:hover{border-color:var(--primary);color:var(--primary)}
-.sec-kanban{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-lg);padding:var(--sp-md) var(--sp-lg) var(--sp-lg)}
-@media(max-width:720px){.sec-kanban{grid-template-columns:1fr;padding:var(--sp-md)}}
+.sec-kanban{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-lg);padding:var(--sp-md) 0 var(--sp-lg)}
+@media(max-width:720px){.sec-kanban{grid-template-columns:1fr;padding:var(--sp-md) 0}}
 .sec-col{min-width:0;animation:staggerFade .35s var(--ease-out) both}
 .sec-col:nth-child(2){animation-delay:.08s}
 .sec-col-header{display:flex;align-items:center;gap:var(--sp-sm);padding:var(--sp-sm) 0;margin-bottom:var(--sp-sm);border-bottom:1px solid var(--border)}
@@ -924,7 +998,7 @@ kbd{font-family:var(--font-mono);font-size:.68rem;background:var(--surface);bord
 .dot-green{background:var(--success)}
 .dot-red{background:var(--danger)}
 .dot-amber{background:var(--warning)}
-.sec-badge{font-size:.68rem;padding:2px 8px;border-radius:var(--r-pill);background:var(--card-hover);color:var(--ink-muted);margin-left:6px;font-weight:500;letter-spacing:.02em;white-space:nowrap}
+.sec-badge{font-size:.68rem;padding:var(--sp-xs) 8px;border-radius:var(--r-pill);background:var(--card-hover);color:var(--ink-muted);margin-left:6px;font-weight:500;letter-spacing:.02em;white-space:nowrap}
 .sec-badge-red{background:var(--danger-muted);color:var(--danger);font-weight:600}
 .sec-badge-green{background:var(--success-muted);color:var(--success);font-weight:600}
 .sec-stat-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;font-size:.86rem;border-bottom:1px solid var(--border)}
@@ -933,8 +1007,8 @@ kbd{font-family:var(--font-mono);font-size:.68rem;background:var(--surface);bord
 .sec-stat-row .stat-value{font-weight:600;color:var(--ink)}
 .sec-bar-row{display:flex;align-items:center;gap:var(--sp-sm);padding:4px 0;font-size:.82rem}
 .sec-ip{min-width:130px;color:var(--ink-dim);font-family:var(--font-mono);font-size:.76rem;overflow:hidden;text-overflow:ellipsis}
-.sec-bar-bg{flex:1;height:6px;background:var(--border-hover);border-radius:3px;overflow:hidden}
-.sec-bar-fill{height:100%;border-radius:3px;transition:width .6s var(--ease-out);min-width:2px}
+.sec-bar-bg{flex:1;height:6px;background:var(--border-hover);border-radius:var(--r-sm);overflow:hidden}
+.sec-bar-fill{height:100%;border-radius:var(--r-sm);transition:width .6s var(--ease-out);min-width:2px}
 .sec-cnt{min-width:40px;text-align:right;color:var(--ink-dim);font-size:.76rem;font-family:var(--font-mono)}
 .sec-ufw-row{display:flex;align-items:center;gap:var(--sp-sm);padding:6px 2px;font-size:.82rem;border-bottom:1px solid var(--border);transition:background var(--duration)}
 .sec-ufw-row:hover{background:var(--card-hover);border-radius:var(--r-sm)}
@@ -964,14 +1038,128 @@ kbd{font-family:var(--font-mono);font-size:.68rem;background:var(--surface);bord
 .sec-sysctl-value{font-weight:600;font-size:.9rem}
 .sec-api-status{display:flex;align-items:center;gap:var(--sp-xs);font-size:.78rem;margin-top:var(--sp-sm)}
 .sec-api-status .dot{margin-right:0}
+
+/* ---- Theme Toggle ---- */
+.theme-toggle-btn{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);color:var(--ink-muted);cursor:pointer;transition:all var(--duration);position:relative;overflow:hidden}
+.theme-toggle-btn:hover{color:var(--ink);border-color:var(--border-hover);background:var(--card-hover)}
+.theme-toggle-btn svg{width:18px;height:18px;transition:transform .3s var(--ease-out),opacity .2s}
+.theme-icon-sun,.theme-icon-moon{position:absolute}
+html[data-theme="light"] .theme-icon-sun{opacity:0;transform:rotate(-90deg) scale(0)}
+html[data-theme="light"] .theme-icon-moon{opacity:1;transform:rotate(0) scale(1)}
+html:not([data-theme]) .theme-icon-sun,html[data-theme="modern-dark"] .theme-icon-sun{opacity:1;transform:rotate(0) scale(1)}
+html:not([data-theme]) .theme-icon-moon,html[data-theme="modern-dark"] .theme-icon-moon{opacity:0;transform:rotate(90deg) scale(0)}
+
+/* ---- Command Palette ---- */
+.cmd-palette-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:flex-start;justify-content:center;padding-top:min(20vh,160px)}
+.cmd-palette-overlay.open{display:flex}
+.cmd-palette{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);width:min(520px,92vw);max-height:420px;display:flex;flex-direction:column;box-shadow:var(--shadow-xl);overflow:hidden;animation:fadeIn .15s var(--ease-out)}
+.cmd-palette-input{width:100%;padding:14px 16px;border:none;border-bottom:1px solid var(--border);background:transparent;color:var(--ink);font-size:.95rem;outline:none;font-family:var(--font)}
+.cmd-palette-input::placeholder{color:var(--ink-dim)}
+.cmd-palette-list{overflow-y:auto;flex:1;padding:6px}
+.cmd-palette-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:var(--r-md);cursor:pointer;font-size:.88rem;color:var(--ink-muted);transition:background var(--duration),color var(--duration)}
+.cmd-palette-item:hover,.cmd-palette-item.active{background:var(--primary-muted);color:var(--ink)}
+.cmd-palette-item .cmd-icon{width:20px;text-align:center;font-size:1rem;opacity:.7}
+.cmd-palette-item .cmd-label{flex:1}
+.cmd-palette-item .cmd-kbd{font-size:.68rem;color:var(--ink-dim);font-family:var(--font-mono);background:var(--surface);padding:2px 6px;border-radius:var(--r-sm);border:1px solid var(--border)}
+.cmd-palette-empty{padding:24px;text-align:center;color:var(--ink-dim);font-size:.88rem}
+
+/* ---- Keyboard Shortcuts Modal ---- */
+.shortcuts-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9998;align-items:center;justify-content:center}
+.shortcuts-overlay.open{display:flex}
+.shortcuts-modal{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--sp-lg);max-width:440px;width:92%;box-shadow:var(--shadow-xl);animation:fadeIn .15s var(--ease-out)}
+.shortcuts-modal h2{font-size:1.1rem;font-weight:700;margin-bottom:var(--sp-md);color:var(--ink)}
+.shortcuts-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)}
+.shortcuts-row:last-child{border-bottom:none}
+.shortcuts-row .sk-label{font-size:.88rem;color:var(--ink-muted)}
+.shortcuts-row .sk-keys{display:flex;gap:4px}
+.shortcuts-row kbd{font-size:.72rem;font-family:var(--font-mono);background:var(--surface);color:var(--ink);padding:3px 8px;border-radius:var(--r-sm);border:1px solid var(--border);min-width:24px;text-align:center}
+
+/* ---- Welcome Modal ---- */
+.welcome-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;align-items:center;justify-content:center}
+.welcome-overlay.open{display:flex}
+.welcome-modal{background:var(--card);border:1px solid var(--border);border-radius:var(--r-xl);padding:var(--sp-xl);max-width:460px;width:92%;text-align:center;box-shadow:var(--shadow-xl);animation:fadeIn .2s var(--ease-out)}
+.welcome-modal h2{font-size:1.4rem;font-weight:800;margin-bottom:var(--sp-sm);color:var(--ink);letter-spacing:-.02em}
+.welcome-modal p{font-size:.9rem;color:var(--ink-muted);margin-bottom:var(--sp-md);line-height:1.6}
+.welcome-features{text-align:left;margin:var(--sp-md) 0;padding-left:0;list-style:none}
+.welcome-features li{padding:8px 0;font-size:.88rem;color:var(--ink);display:flex;align-items:flex-start;gap:8px}
+.welcome-features li::before{content:'✨';flex-shrink:0}
+.welcome-btn{display:inline-block;padding:10px 28px;background:var(--primary);color:#fff;border:none;border-radius:var(--r-md);font-size:.9rem;font-weight:600;cursor:pointer;transition:background var(--duration);margin-top:var(--sp-sm)}
+.welcome-btn:hover{background:var(--primary-hover)}
+.welcome-dont-show{display:flex;align-items:center;gap:6px;justify-content:center;margin-top:var(--sp-md);font-size:.78rem;color:var(--ink-dim)}
+.welcome-dont-show input{accent-color:var(--primary)}
+
+/* ---- Floating Action Button ---- */
+.fab-container{position:fixed;bottom:24px;right:24px;z-index:80;display:flex;flex-direction:column-reverse;align-items:center;gap:10px}
+.fab-main{width:52px;height:52px;border-radius:50%;background:var(--primary);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.4rem;box-shadow:var(--shadow-lg);transition:transform .3s var(--ease-out),box-shadow .3s}
+.fab-main:hover{box-shadow:0 6px 24px rgba(37,99,235,.35)}
+.fab-main svg{width:24px;height:24px;transition:transform .3s var(--ease-out)}
+.fab-container.open .fab-main svg{transform:rotate(45deg)}
+.fab-actions{display:flex;flex-direction:column;gap:8px;opacity:0;transform:translateY(10px) scale(.9);pointer-events:none;transition:all .25s var(--ease-out)}
+.fab-container.open .fab-actions{opacity:1;transform:translateY(0) scale(1);pointer-events:auto}
+.fab-action{width:42px;height:42px;border-radius:50%;background:var(--card);color:var(--ink-muted);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.1rem;box-shadow:var(--shadow-sm);transition:all var(--duration);position:relative}
+.fab-action:hover{color:var(--primary);border-color:var(--primary);background:var(--primary-muted);transform:scale(1.1)}
+.fab-action[data-tooltip]:hover::after{content:attr(data-tooltip);position:absolute;right:calc(100% + 8px);white-space:nowrap;background:var(--card);color:var(--ink);font-size:.74rem;padding:4px 10px;border-radius:var(--r-sm);border:1px solid var(--border);box-shadow:var(--shadow-sm)}
+
+/* ---- Node Preview Modal ---- */
+.node-preview-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:900;align-items:center;justify-content:center;padding:24px}
+.node-preview-overlay.open{display:flex}
+.node-preview-modal{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);max-width:980px;width:min(96vw,980px);max-height:86vh;overflow:hidden;box-shadow:var(--shadow-xl);animation:fadeIn .15s var(--ease-out);display:flex;flex-direction:column}
+.node-preview-head{padding:var(--sp-lg);border-bottom:1px solid var(--border);background:linear-gradient(135deg,#E8D5A0,#D4C5A0)}
+.node-preview-modal h3{font-size:1.05rem;font-weight:800;margin-bottom:var(--sp-sm);color:#3D3830;letter-spacing:-.01em}
+.node-preview-badges{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0}
+.node-preview-workspace{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:0;min-height:360px;overflow:hidden}
+.node-preview-content{font-size:.88rem;color:var(--ink);line-height:1.7;padding:var(--sp-lg);background:var(--surface);border-right:1px solid var(--border);max-height:52vh;overflow-y:auto;white-space:pre-wrap;word-break:break-word}
+.node-preview-side{padding:var(--sp-md);background:var(--card);display:flex;flex-direction:column;gap:10px;max-height:52vh;overflow-y:auto}
+.np-side-card{border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);padding:12px}
+.np-side-label{font-size:.68rem;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-bottom:6px}
+.np-side-value{font-size:.86rem;color:var(--ink);font-weight:650;word-break:break-word}
+.np-artifact-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.np-tab{border:1px solid var(--border);background:rgba(255,255,255,.45);color:#3D3830;border-radius:var(--r-pill);padding:5px 10px;font-size:.74rem;font-weight:700;cursor:pointer}
+.np-tab.active{background:#3D3830;color:#fff;border-color:#3D3830}
+.node-preview-actions{display:flex;gap:8px;justify-content:flex-end;padding:var(--sp-md);border-top:1px solid var(--border);background:var(--card)}
+.node-preview-actions a,.node-preview-actions button{padding:8px 16px;border-radius:var(--r-md);font-size:.84rem;font-weight:600;cursor:pointer;transition:all var(--duration)}
+.node-preview-actions a{background:var(--primary);color:#fff;text-decoration:none;border:none}
+.node-preview-actions a:hover{background:var(--primary-hover)}
+.node-preview-actions button{background:var(--surface);color:var(--ink-muted);border:1px solid var(--border)}
+.node-preview-actions button:hover{color:var(--ink);border-color:var(--border-hover)}
+@media(max-width:760px){.node-preview-workspace{grid-template-columns:1fr}.node-preview-content{border-right:0;border-bottom:1px solid var(--border)}.node-preview-side{max-height:none}}
+
+/* ---- Quick Stats (Dashboard) ---- */
+.dash-quick-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-sm);margin-bottom:var(--sp-lg);animation:staggerFade .3s var(--ease-out) .15s both}
+.dash-qs-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);padding:var(--sp-md);text-align:center;transition:border-color var(--duration),box-shadow var(--duration)}
+.dash-qs-card:hover{border-color:var(--border-hover);box-shadow:var(--shadow-sm)}
+.dash-qs-value{font-size:1.6rem;font-weight:800;color:var(--ink);line-height:1}
+.dash-qs-label{font-size:.72rem;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-top:4px}
+@media(max-width:640px){.dash-quick-stats{grid-template-columns:1fr}}
+
+/* ---- Activity Timeline (Dashboard) ---- */
+.dash-timeline{position:relative;padding-left:28px;margin-bottom:var(--sp-lg);animation:staggerFade .3s var(--ease-out) .18s both}
+.dash-timeline::before{content:'';position:absolute;left:8px;top:4px;bottom:4px;width:2px;background:var(--border);border-radius:1px}
+.dash-tl-item{position:relative;padding:6px 0 14px}
+.dash-tl-item::before{content:'';position:absolute;left:-24px;top:10px;width:10px;height:10px;border-radius:50%;background:var(--primary);border:2px solid var(--card);z-index:1;box-shadow:0 0 0 2px var(--primary-muted)}
+.dash-tl-item[data-stage="draft"]::before{background:var(--warning)}
+.dash-tl-item[data-stage="refined"]::before{background:var(--info)}
+.dash-tl-item[data-stage="verified"]::before{background:var(--success)}
+.dash-tl-item[data-stage="canonized"]::before{background:var(--primary)}
+.dash-tl-time{font-size:.7rem;color:var(--ink-dim);font-family:var(--font-mono)}
+.dash-tl-text{font-size:.84rem;color:var(--ink);margin-top:2px}
 """
 
 # ---------------------------------------------------------------------------
 # Shared page shell
 # ---------------------------------------------------------------------------
 
-def _page(title: str, body: str, *, extra_js: str = "", nav_active: str = "home", show_nav: bool = True) -> str:
+def _page(title: str, body: str, *, extra_js: str = "", nav_active: str = "home", show_nav: bool = True, show_fab: bool = False) -> str:
     """Return a full HTML document with sidebar + top header layout."""
+    _fab_js = """/* FAB toggle */
+function toggleFab(){
+  var fab=document.getElementById('fabContainer');
+  if(fab)fab.classList.toggle('open');
+}
+document.addEventListener('click',function(e){
+  var fab=document.getElementById('fabContainer');
+  if(fab&&fab.classList.contains('open')&&!fab.contains(e.target))fab.classList.remove('open');
+});""" if show_fab else ""
     if show_nav:
         nav_html = _nav(active=nav_active)
         return f"""<!DOCTYPE html>
@@ -979,17 +1167,175 @@ def _page(title: str, body: str, *, extra_js: str = "", nav_active: str = "home"
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%237c3aed'/><text x='50' y='72' font-size='60' font-family='sans-serif' font-weight='bold' fill='white' text-anchor='middle'>B</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%23c9a96e'/><text x='50' y='72' font-size='60' font-family='sans-serif' font-weight='bold' fill='%230a1628' text-anchor='middle'>B</text></svg>">
 <title>{_html.escape(title)}</title>
 <style>{_DARK_CSS}</style>
 <script>var _I18N={_json.dumps(_I18N_DICT, ensure_ascii=False)};function _t(key){{var lang=localStorage.getItem('hermes_lang')||'zh';var dict=_I18N[lang]||_I18N.zh;return dict[key]||key;}}function applyI18n(lang){{if(!lang)lang=localStorage.getItem('hermes_lang')||'zh';var dict=_I18N[lang]||_I18N.zh;document.querySelectorAll('[data-i18n]').forEach(function(el){{var key=el.getAttribute('data-i18n');if(dict[key])el.textContent=dict[key];}});document.querySelectorAll('[data-i18n-ph]').forEach(function(el){{var key=el.getAttribute('data-i18n-ph');if(dict[key])el.placeholder=dict[key];}});var g=document.getElementById('dash-greeting-text');if(g){{var h=new Date().getHours();var name=localStorage.getItem('hermes_display_name')||dict.pf_explorer;g.textContent=(h<12?dict.greeting_morning:h<18?dict.greeting_afternoon:dict.greeting_evening)+dict.time_comma+name;}}}}function switchLang(lang){{localStorage.setItem('hermes_lang',lang);var sel=document.getElementById('lang-select');if(sel)sel.value=lang;applyI18n(lang);}}</script>
-<script>(function(){{var t=localStorage.getItem('hermes_theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}})();document.addEventListener('DOMContentLoaded',function(){{var n=localStorage.getItem('hermes_display_name');if(n){{var su=document.getElementById('sidebar-username');if(su)su.textContent=n;}}var a=localStorage.getItem('hermes_avatar_url');if(a){{var sa=document.getElementById('sidebar-avatar');if(sa)sa.innerHTML='<img src=\"'+a+'\" style=\"width:100%;height:100%;object-fit:cover;border-radius:50%\" onerror=\"this.outerHTML=this.dataset.fallback\" data-fallback=\"👤\">';}}applyI18n();}});</script>
+<script>(function(){{var t=localStorage.getItem('hermes_theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');else if(t==='modern-dark')document.documentElement.setAttribute('data-theme','modern-dark');}})();document.addEventListener('DOMContentLoaded',function(){{var n=localStorage.getItem('hermes_display_name');if(n){{var su=document.getElementById('sidebar-username');if(su)su.textContent=n;}}var a=localStorage.getItem('hermes_avatar_url');if(a){{var sa=document.getElementById('sidebar-avatar');if(sa)sa.innerHTML='<img src=\\"'+a+'\\" style=\\"width:100%;height:100%;object-fit:cover;border-radius:50%\\" onerror=\\"this.outerHTML=this.dataset.fallback\\" data-fallback=\\"👤\\">';}}applyI18n();}});</script>
 </head>
 <body>
 {nav_html}
 <div class="main-wrap">
 {body}
 </div>
+<!-- Command Palette -->
+<div class="cmd-palette-overlay" id="cmdPaletteOverlay">
+  <div class="cmd-palette">
+    <input class="cmd-palette-input" id="cmdPaletteInput" type="text" placeholder="Type a command…" autocomplete="off">
+    <div class="cmd-palette-list" id="cmdPaletteList"></div>
+  </div>
+</div>
+<!-- Keyboard Shortcuts Modal -->
+<div class="shortcuts-overlay" id="shortcutsOverlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="shortcuts-modal">
+    <h2>⌨️ Keyboard Shortcuts</h2>
+    <div class="shortcuts-row"><span class="sk-label">Command Palette</span><span class="sk-keys"><kbd>⌘</kbd><kbd>K</kbd></span></div>
+    <div class="shortcuts-row"><span class="sk-label">Go to Workbench</span><span class="sk-keys"><kbd>g</kbd><kbd>w</kbd></span></div>
+    <div class="shortcuts-row"><span class="sk-label">Go to Knowledge</span><span class="sk-keys"><kbd>g</kbd><kbd>k</kbd></span></div>
+    <div class="shortcuts-row"><span class="sk-label">Go to Hub</span><span class="sk-keys"><kbd>g</kbd><kbd>h</kbd></span></div>
+    <div class="shortcuts-row"><span class="sk-label">Go to Control</span><span class="sk-keys"><kbd>g</kbd><kbd>c</kbd></span></div>
+    <div class="shortcuts-row"><span class="sk-label">Go to Settings</span><span class="sk-keys"><kbd>g</kbd><kbd>s</kbd></span></div>
+    <div class="shortcuts-row"><span class="sk-label">Toggle Theme</span><span class="sk-keys"><kbd>t</kbd></span></div>
+    <div class="shortcuts-row"><span class="sk-label">Show Shortcuts</span><span class="sk-keys"><kbd>?</kbd></span></div>
+    <div class="shortcuts-row"><span class="sk-label">Close Modal</span><span class="sk-keys"><kbd>Esc</kbd></span></div>
+  </div>
+</div>
+<!-- Welcome Modal -->
+<div class="welcome-overlay" id="welcomeOverlay">
+  <div class="welcome-modal">
+    <h2>🧠 Welcome to Brain</h2>
+    <p>Your personal knowledge management system powered by AI.</p>
+    <ul class="welcome-features">
+      <li>Organize knowledge with a stage-based lifecycle (Draft → Refined → Verified → Canonized)</li>
+      <li>AI-assisted knowledge integration and auto-promotion</li>
+      <li>Visual knowledge tree with domain grouping and smart filters</li>
+      <li>Command palette (⌘K) and keyboard shortcuts for power users</li>
+    </ul>
+    <button class="welcome-btn" onclick="closeWelcome()">Get Started</button>
+  </div>
+</div>
+<!-- Floating Action Button -->
+{'''<div class="fab-container" id="fabContainer">
+  <button class="fab-main" onclick="toggleFab()" title="Quick actions">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  </button>
+  <div class="fab-actions">
+    <button class="fab-action" data-tooltip="Add Knowledge" onclick="window.location.href='/proposals?tab=knowledge'">➕</button>
+    <button class="fab-action" data-tooltip="Search" onclick="openCmdPalette()">🔍</button>
+    <button class="fab-action" data-tooltip="Export" onclick="fetch('/api/knowledge/export',{{method:'POST',headers:{{'Content-Type':'application/json'}}}}).then(function(r){{return r.json()}}).then(function(d){{alert(d.message||'Done!')}})">⬇️</button>
+  </div>
+</div>''' if show_fab else ''}
+<script>
+/* Theme toggle */
+function toggleTheme(){{
+  var html=document.documentElement;
+  var current=html.getAttribute('data-theme')||'modern-dark';
+  var next=current==='light'?'modern-dark':'light';
+  html.setAttribute('data-theme',next);
+  localStorage.setItem('hermes_theme',next);
+}}
+/* Command Palette */
+var _cmdActions=[
+  {{icon:'⌘',label:'Go to Workbench',href:'/',kbd:'g w'}},
+  {{icon:'🌳',label:'Go to Knowledge',href:'/proposals?tab=knowledge',kbd:'g k'}},
+  {{icon:'▣',label:'Go to Hub',href:'/hub',kbd:'g h'}},
+  {{icon:'🛡',label:'Go to Control',href:'/control',kbd:'g c'}},
+  {{icon:'⚙',label:'Go to Settings',href:'/settings',kbd:'g s'}},
+  {{icon:'🖼',label:'Open Gallery / viz-skills',href:'/gallery',kbd:'gallery'}},
+  {{icon:'🧠',label:'Open Proposal Lifecycle',href:'/proposals',kbd:'brain'}},
+  {{icon:'➕',label:'Add Knowledge',action:function(){{window.location.href='/proposals?tab=knowledge';}},kbd:'n'}},
+  {{icon:'⬇',label:'Export MD',action:function(){{fetch('/api/knowledge/export',{{method:'POST',headers:{{'Content-Type':'application/json'}}}}).then(function(r){{return r.json()}}).then(function(d){{alert(d.message||'Exported!')}});}},kbd:'e'}},
+  {{icon:'🎨',label:'Toggle Theme',action:function(){{toggleTheme();}},kbd:'t'}},
+  {{icon:'⌨',label:'Keyboard Shortcuts',action:function(){{document.getElementById('shortcutsOverlay').classList.add('open');}},kbd:'?'}}
+];
+var _cmdIdx=0;
+function openCmdPalette(){{
+  var ov=document.getElementById('cmdPaletteOverlay');
+  ov.classList.add('open');
+  var inp=document.getElementById('cmdPaletteInput');
+  inp.value='';
+  _cmdIdx=0;
+  renderCmdList('');
+  setTimeout(function(){{inp.focus();}},50);
+}}
+function closeCmdPalette(){{
+  document.getElementById('cmdPaletteOverlay').classList.remove('open');
+}}
+function renderCmdList(filter){{
+  var list=document.getElementById('cmdPaletteList');
+  var q=filter.toLowerCase();
+  var filtered=_cmdActions.filter(function(a){{return !q||a.label.toLowerCase().indexOf(q)!==-1;}});
+  if(!filtered.length){{list.innerHTML='<div class="cmd-palette-empty">No results</div>';return;}}
+  if(_cmdIdx>=filtered.length)_cmdIdx=filtered.length-1;
+  list.innerHTML=filtered.map(function(a,i){{
+    return '<div class="cmd-palette-item'+(i===_cmdIdx?' active':'')+'" data-idx="'+i+'"><span class="cmd-icon">'+a.icon+'</span><span class="cmd-label">'+a.label+'</span>'+(a.kbd?'<span class="cmd-kbd">'+a.kbd+'</span>':'')+'</div>';
+  }}).join('');
+  list.querySelectorAll('.cmd-palette-item').forEach(function(el){{
+    el.addEventListener('click',function(){{execCmdAction(filtered[parseInt(this.getAttribute('data-idx'))]);}});
+    el.addEventListener('mouseenter',function(){{_cmdIdx=parseInt(this.getAttribute('data-idx'));renderCmdList(filter);}});
+  }});
+}}
+function execCmdAction(a){{
+  closeCmdPalette();
+  if(a.href)window.location.href=a.href;
+  else if(a.action)a.action();
+}}
+document.getElementById('cmdPaletteInput').addEventListener('input',function(){{_cmdIdx=0;renderCmdList(this.value);}});
+document.getElementById('cmdPaletteInput').addEventListener('keydown',function(e){{
+  var q=this.value.toLowerCase();
+  var filtered=_cmdActions.filter(function(a){{return !q||a.label.toLowerCase().indexOf(q)!==-1;}});
+  if(e.key==='ArrowDown'){{e.preventDefault();_cmdIdx=Math.min(_cmdIdx+1,filtered.length-1);renderCmdList(this.value);}}
+  else if(e.key==='ArrowUp'){{e.preventDefault();_cmdIdx=Math.max(_cmdIdx-1,0);renderCmdList(this.value);}}
+  else if(e.key==='Enter'){{e.preventDefault();if(filtered[_cmdIdx])execCmdAction(filtered[_cmdIdx]);}}
+  else if(e.key==='Escape'){{closeCmdPalette();}}
+}});
+document.getElementById('cmdPaletteOverlay').addEventListener('click',function(e){{if(e.target===this)closeCmdPalette();}});
+/* Keyboard shortcuts */
+var _gPending=false;var _gTimer=null;
+document.addEventListener('keydown',function(e){{
+  var tag=(e.target.tagName||'').toLowerCase();
+  if(tag==='input'||tag==='textarea'||tag==='select'||e.target.isContentEditable)return;
+  /* Cmd/Ctrl+K — Command Palette */
+  if((e.metaKey||e.ctrlKey)&&e.key==='k'){{e.preventDefault();openCmdPalette();return;}}
+  /* Escape — close modals */
+  if(e.key==='Escape'){{
+    closeCmdPalette();
+    document.getElementById('shortcutsOverlay').classList.remove('open');
+    document.getElementById('welcomeOverlay').classList.remove('open');
+    var npo=document.getElementById('nodePreviewOverlay');if(npo)npo.classList.remove('open');
+    return;
+  }}
+  /* ? — show shortcuts */
+  if(e.key==='?'||e.key==='/'&&e.shiftKey){{e.preventDefault();document.getElementById('shortcutsOverlay').classList.toggle('open');return;}}
+  /* t — toggle theme */
+  if(e.key==='t'&&!_gPending){{toggleTheme();return;}}
+  /* g prefix — navigation */
+  if(e.key==='g'){{
+    _gPending=true;
+    _gTimer=setTimeout(function(){{_gPending=false;}},800);
+    return;
+  }}
+  if(_gPending){{
+    _gPending=false;clearTimeout(_gTimer);
+    if(e.key==='w'){{window.location.href='/';return;}}
+    if(e.key==='k'){{window.location.href='/proposals?tab=knowledge';return;}}
+    if(e.key==='h'){{window.location.href='/hub';return;}}
+    if(e.key==='c'){{window.location.href='/control';return;}}
+    if(e.key==='s'){{window.location.href='/settings';return;}}
+  }}
+}});
+/* Welcome modal */
+function closeWelcome(){{
+  localStorage.setItem('brain_welcomed','1');
+  document.getElementById('welcomeOverlay').classList.remove('open');
+}}
+document.addEventListener('DOMContentLoaded',function(){{
+  if(!localStorage.getItem('brain_welcomed')){{
+    document.getElementById('welcomeOverlay').classList.add('open');
+  }}
+}});
+{_fab_js}
+</script>
 {extra_js if extra_js.strip().startswith('<script') or not extra_js.strip() else f'<script>{extra_js}</script>'}
 </body>
 </html>"""
@@ -999,7 +1345,7 @@ def _page(title: str, body: str, *, extra_js: str = "", nav_active: str = "home"
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%237c3aed'/><text x='50' y='72' font-size='60' font-family='sans-serif' font-weight='bold' fill='white' text-anchor='middle'>B</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%23c9a96e'/><text x='50' y='72' font-size='60' font-family='sans-serif' font-weight='bold' fill='%230a1628' text-anchor='middle'>B</text></svg>">
 <title>{_html.escape(title)}</title>
 <style>{_DARK_CSS}</style>
 <script>var _I18N={_json.dumps(_I18N_DICT, ensure_ascii=False)};function _t(key){{var lang=localStorage.getItem('hermes_lang')||'zh';var dict=_I18N[lang]||_I18N.zh;return dict[key]||key;}}function applyI18n(lang){{if(!lang)lang=localStorage.getItem('hermes_lang')||'zh';var dict=_I18N[lang]||_I18N.zh;document.querySelectorAll('[data-i18n]').forEach(function(el){{var key=el.getAttribute('data-i18n');if(dict[key])el.textContent=dict[key];}});document.querySelectorAll('[data-i18n-ph]').forEach(function(el){{var key=el.getAttribute('data-i18n-ph');if(dict[key])el.placeholder=dict[key];}});var g=document.getElementById('dash-greeting-text');if(g){{var h=new Date().getHours();var name=localStorage.getItem('hermes_display_name')||dict.pf_explorer;g.textContent=(h<12?dict.greeting_morning:h<18?dict.greeting_afternoon:dict.greeting_evening)+dict.time_comma+name;}}}}function switchLang(lang){{localStorage.setItem('hermes_lang',lang);var sel=document.getElementById('lang-select');if(sel)sel.value=lang;applyI18n(lang);}}</script>
@@ -1030,7 +1376,6 @@ _ICON_SETTINGS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 
 _ICON_HOME = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>'
 
-_ICON_SERVICES = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="9" height="9" rx="2"/><rect x="13" y="2" width="9" height="9" rx="2"/><rect x="2" y="13" width="9" height="9" rx="2"/><rect x="13" y="13" width="9" height="9" rx="2"/></svg>'
 
 _ICON_USER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
 
@@ -1043,19 +1388,29 @@ def _nav(*, active: str = "home") -> str:
     icon_chevron = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>'
 
     nav_items = [
-        ("home", "首页", "/", _ICON_HOME),
-        ("knowledge", "知识", "/knowledge", _ICON_KNOWLEDGE),
-        ("gallery", "绘图", "/gallery", _ICON_GALLERY),
-        ("services", "服务", "/services", _ICON_SERVICES),
+        ("workbench", "Workbench", "/", _ICON_HOME),
+        ("knowledge", "Knowledge", "/proposals?tab=knowledge", _ICON_KNOWLEDGE),
+        ("hub", "Hub", "/hub", _ICON_EXPORT),
+        ("control", "Control", "/control", _ICON_SHIELD),
+        ("settings", "Settings", "/settings", _ICON_SETTINGS),
     ]
+    active_aliases = {
+        "home": "workbench",
+        "resources": "hub",
+        "gallery": "knowledge",
+        "brain_map": "knowledge",
+        "ops": "control",
+        "profile": "settings",
+    }
+    active_key = active_aliases.get(active, active)
     nav_items_html = []
     for key, label, href, icon in nav_items:
-        cls = "sidebar-nav-item active" if key == active else "sidebar-nav-item"
+        cls = "sidebar-nav-item active" if key == active_key else "sidebar-nav-item"
         nav_items_html.append(
             f'<a href="{href}" class="{cls}">{icon}<span data-i18n="nav_{key}">{_html.escape(label)}</span></a>'
         )
 
-    profile_cls = "sidebar-nav-item active" if active == "profile" else "sidebar-nav-item"
+    profile_cls = "sidebar-nav-item active" if active_key == "settings" else "sidebar-nav-item"
 
     sidebar = f"""<aside class="sidebar" id="brainSidebar">
   <div class="sidebar-brand">
@@ -1069,13 +1424,13 @@ def _nav(*, active: str = "home") -> str:
     <div class="sidebar-nav-group">
       <div class="sidebar-nav-label" data-i18n="nav_label">导航</div>
       {''.join(nav_items_html)}
-      <a href="/profile" class="{profile_cls}">{_ICON_USER}<span data-i18n="nav_profile">我的</span></a>
     </div>
   </nav>
-  <a href="/profile" class="sidebar-user-link">
+  <a href="/settings" class="sidebar-user-link">
     <div class="sidebar-user-avatar" id="sidebar-avatar">{_ICON_USER}</div>
     <span class="sidebar-user-name" id="sidebar-username" data-i18n="nav_user">用户</span>
   </a>
+  <a href="/logout" class="sidebar-nav-item" title="退出登录">{_ICON_LOGOUT}<span data-i18n="pf_logout">退出登录</span></a>
 </aside>"""
 
     top_header = f"""<header class="top-header" id="topHeader">
@@ -1085,7 +1440,12 @@ def _nav(*, active: str = "home") -> str:
     </button>
   </div>
   <div class="header-right">
+    <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle theme">
+      <svg class="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      <svg class="theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
     <a href="/profile" class="header-btn" title="Profile">{_ICON_USER}</a>
+    <a href="/logout" class="header-btn" title="Logout">{_ICON_LOGOUT}</a>
   </div>
 </header>"""
 
@@ -1224,9 +1584,7 @@ def review_queue_page(
     tab_html = ""
     for key, label, count in tabs:
         active_cls = " active" if (key == active_state) or (key == "all" and active_state == "all") else ""
-        href = f"/review?state={key}" if key != "pending" else "/review"
-        if key == "all":
-            href = "/review?state=all"
+        href = f"/proposals?tab=review&state={key}"
         tab_html += (
             f'<a href="{href}" class="{active_cls.lstrip()}">'
             f'{_html.escape(label)} <span class="tab-count">{count}</span></a>'
@@ -1242,20 +1600,21 @@ def review_queue_page(
         state = str(p.get("state", "pending"))
         # Truncate preview to 120 chars
         preview = memory[:120] + ("..." if len(memory) > 120 else "")
-        cards += f"""<a href="/review/{_html.escape(pid)}" class="card">
+        cards += f"""<a href="/review/{_html.escape(pid)}" class="card" data-proposal-id="{_html.escape(pid)}">
   <div class="card-top">{_category_badge(cat)} {_state_badge(state)}</div>
   <div class="card-preview">{_html.escape(preview)}</div>
   <div class="card-meta">
     <span>{_html.escape(project)}</span>
     {_risk_badge(risk)}
   </div>
+  <div class="card-id">{_html.escape(pid)}</div>
 </a>"""
 
     if not proposals:
         cards = f'<div class="empty">{_pt("rv_no_proposals")}</div>'
 
     # The heading must contain "Pending proposals" for the test
-    heading = _pt("stat_pending") if active_state == "pending" else f"{active_state.replace('_', ' ').title()} proposals"
+    heading = "Pending proposals" if active_state == "pending" else f"{active_state.replace('_', ' ').title()} proposals"
 
     body = f"""
 <h1 style="padding:16px 16px 0;font-size:1.2rem">{_html.escape(heading)}</h1>
@@ -1401,7 +1760,7 @@ def review_detail_page(*, proposal: dict) -> str:
 
     body = f"""
 <div class="detail-header">
-  <a href="/review" class="back-link" data-i18n="rv_review">{_pt("rv_review")}</a>
+  <a href="/proposals?tab=review" class="back-link" data-i18n="rv_review">{_pt("rv_review")}</a>
   <span class="detail-title">{_html.escape(pid[:12])}…</span>
   {_state_badge(state)}
 </div>
@@ -1438,8 +1797,9 @@ def login_page(*, error: str = "") -> str:
     body = f"""<div class="login-wrapper">
 <div class="login-card">
   <div class="login-brand">
-    <div class="login-logo">🧠</div>
-    <h1 class="login-title" data-i18n="login_title">Sign In</h1>
+    <div class="login-logo">B</div>
+    <h1 class="login-title" data-i18n="login_title">Brain</h1>
+    <div class="login-divider"></div>
     <p class="login-subtitle" data-i18n="login_subtitle">Knowledge Management System</p>
   </div>
   {error_html}
@@ -1456,36 +1816,38 @@ def login_page(*, error: str = "") -> str:
     </div>
     <button type="submit" class="login-btn" data-i18n="login_btn">Sign In</button>
   </form>
-  <p class="login-hint">
-    API: <code>Authorization: Bearer &lt;token&gt;</code>
-  </p>
 </div>
 </div>"""
     login_css = """
 <style>
-.login-wrapper{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:16px;background:radial-gradient(ellipse at 50% 0%,rgba(167,139,250,.08) 0%,transparent 60%)}
-.login-card{background:var(--card);border-radius:var(--r-xl);padding:40px 32px;max-width:380px;width:100%;border:1px solid var(--border);box-shadow:var(--shadow-lg);animation:fadeIn .4s var(--ease-out)}
+html,body{height:100%;margin:0;padding:0;overflow:hidden}
+.login-wrapper{display:flex;align-items:center;justify-content:center;min-height:100vh;width:100%;padding:16px;background:#FAF7F2;position:relative;overflow:hidden;box-sizing:border-box}
+.login-wrapper::before{content:'';position:absolute;inset:-50%;background:radial-gradient(ellipse at 30% 20%,rgba(196,163,90,.08) 0%,transparent 50%),radial-gradient(ellipse at 70% 60%,rgba(168,139,62,.06) 0%,transparent 50%);pointer-events:none;animation:auroraDrift 12s ease-in-out infinite alternate}
+@keyframes auroraDrift{0%{transform:translate(0,0) rotate(0deg)}33%{transform:translate(5%,-3%) rotate(1deg)}66%{transform:translate(-3%,5%) rotate(-1deg)}100%{transform:translate(2%,2%) rotate(.5deg)}}
+.login-wrapper::after{content:'';position:absolute;inset:0;background-image:radial-gradient(rgba(0,0,0,.03) 1px,transparent 1px);background-size:30px 30px;pointer-events:none;opacity:.5}
+.login-card{position:relative;z-index:1;background:#FFFFFF;border-radius:var(--r-lg);padding:48px 40px;max-width:420px;width:100%;border:1px solid #D4C8B0;box-shadow:0 2px 8px rgba(0,0,0,.06);animation:fadeIn .5s var(--ease-out)}
 .login-brand{text-align:center;margin-bottom:28px}
-.login-logo{font-size:2.4rem;margin-bottom:4px;animation:slideUp .4s var(--ease-out)}
-.login-title{font-size:1.5rem;font-weight:700;margin:0;background:linear-gradient(135deg,var(--primary),var(--info));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.login-logo{font-size:3rem;font-weight:900;margin-bottom:8px;background:linear-gradient(135deg,#C4A35A,#7c3aed);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:-.02em;animation:slideUp .4s var(--ease-out),glowPulse 3s ease-in-out infinite;line-height:1;filter:drop-shadow(0 0 20px rgba(196,163,90,.3))}
+.login-divider{width:40px;height:2px;background:linear-gradient(90deg,transparent,#C4A35A,transparent);margin:12px auto}
+.login-title{font-size:1.5rem;font-weight:700;margin:0;background:linear-gradient(135deg,#C4A35A,#8B7340);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .login-subtitle{font-size:.82rem;color:var(--ink-muted);margin-top:4px;letter-spacing:.02em}
-.login-error{background:var(--danger-muted);color:var(--danger);padding:10px 14px;border-radius:var(--r-md);font-size:.88rem;text-align:center;margin-bottom:16px;border:1px solid var(--danger);animation:staggerFade .3s var(--ease-out)}
+.login-error{background:rgba(239,68,68,.12);color:var(--danger);padding:10px 14px;border-radius:var(--r-md);font-size:.88rem;text-align:center;margin-bottom:16px;border:1px solid rgba(239,68,68,.3);animation:staggerFade .3s var(--ease-out)}
 .login-form{display:flex;flex-direction:column;gap:4px}
-.login-label{display:block;font-size:.82rem;color:var(--ink-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em;font-weight:500}
+.login-label{display:block;font-size:.82rem;color:#7A7066;margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em;font-weight:500}
 .login-input-wrap{position:relative;margin-bottom:14px}
-.login-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:var(--ink-dim);pointer-events:none;transition:color var(--duration)}
-.login-input{width:100%;padding:12px 12px 12px 40px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);color:var(--ink);font-size:.95rem;min-height:48px;outline:none;transition:border-color var(--duration),box-shadow var(--duration)}
-.login-input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(167,139,250,.2)}
+.login-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:#A89E92;pointer-events:none;transition:color var(--duration)}
+.login-input{width:100%;padding:12px 12px 12px 40px;border:1px solid #D4C8B0;border-radius:var(--r-md);background:#FFFFFF;color:#2D2A26;font-size:.95rem;min-height:48px;outline:none;transition:border-color var(--duration),box-shadow var(--duration)}
+.login-input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(196,163,90,.2),0 0 20px rgba(196,163,90,.08)}
 .login-input:focus+.login-icon,.login-input:focus~.login-icon{color:var(--primary)}
 .login-input-wrap:focus-within .login-icon{color:var(--primary)}
-.login-btn{width:100%;padding:14px;border:none;border-radius:var(--r-md);background:linear-gradient(135deg,var(--primary),#818cf8);color:#fff;font-size:1rem;font-weight:600;cursor:pointer;min-height:48px;transition:all var(--duration) var(--ease-out);margin-top:4px;position:relative;overflow:hidden}
-.login-btn:hover{box-shadow:var(--shadow-md),0 0 20px rgba(167,139,250,.25);transform:translateY(-1px)}
-.login-btn:active{transform:translateY(1px);box-shadow:var(--shadow-sm)}
-.login-hint{text-align:center;margin-top:20px;font-size:.72rem;color:var(--ink-dim);line-height:1.5}
-.login-hint code{background:var(--surface);padding:2px 8px;border-radius:var(--r-sm);border:1px solid var(--border);font-size:.72rem;font-family:var(--font-mono)}
+.login-btn{width:100%;padding:14px;border:none;border-radius:var(--r-md);background:linear-gradient(135deg,#C4A35A,#A88B3E);color:#fff;font-size:1rem;font-weight:700;cursor:pointer;min-height:48px;transition:all var(--duration) var(--ease-out);margin-top:4px;position:relative;overflow:hidden;letter-spacing:.02em}
+.login-btn::after{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.15),transparent);transition:left .5s ease}
+.login-btn:hover{box-shadow:var(--shadow-md),0 0 30px rgba(196,163,90,.3);border-color:var(--border-hover);transform:translateY(-1px)}
+.login-btn:hover::after{left:100%}
+.login-btn:active{opacity:.85;box-shadow:var(--shadow-sm);transform:translateY(0)}
 </style>
 """
-    return _page("Hermes Login", login_css + body, show_nav=False)
+    return _page("Brain", login_css + body, show_nav=False)
 
 
 # ---------------------------------------------------------------------------
@@ -1787,35 +2149,16 @@ def gallery_page() -> str:
         if _act == "approve":
             _approved_charts.add(_chart_name)
 
-    # Category groups for cleaner filter UI (map tags → broad chart-type categories)
-    _CATEGORY_GROUPS = {
-        # tag → 图表类型大类
-        "散点": "散点图", "差异表达": "散点图", "GWAS/QTL": "散点图", "富集": "散点图",
-        "降维": "散点图", "位点标注": "散点图", "检验": "散点图", "配对比较": "散点图",
-        "组成": "散点图", "3D": "散点图", "单细胞": "散点图", "APA": "散点图",
-
-        "线图/曲线": "线图/曲线", "生存": "线图/曲线", "分类": "线图/曲线",
-
-        "分布": "分布图", "箱线": "分布图", "云雨": "分布图", "山峦": "分布图",
-
-        "热图": "热图", "聚类": "热图", "相关性": "热图", "脑区": "热图", "环状": "热图",
-
-        "柱状图": "柱状图", "分组比较": "柱状图", "双向": "柱状图",
-        "面积图": "柱状图",
-
-        "网络/关系": "网络/关系图", "互作": "网络/关系图", "弦图": "网络/关系图",
-        "冲积": "网络/关系图", "桑基": "网络/关系图",
-
-        "集合": "集合图", "交集": "集合图",
-
-        "圈图": "圈图", "基因组": "圈图",
-
-        "基因组结构": "基因组图", "基因簇": "基因组图", "进化树": "基因组图",
-        "共线性": "基因组图", "突变": "基因组图", "标注": "基因组图",
-
-        "临床": "临床图", "森林图": "临床图", "预后": "临床图",
-
-        "雷达图": "雷达图", "多维": "雷达图",
+    # Visual grammar categories for filter bar (Layer 1 classification)
+    _VG_LABELS = {
+        "scatter_rel": "Scatter",
+        "distribution": "Distribution",
+        "bar_rank": "Bar/Rank",
+        "heatmap": "Heatmap",
+        "line_trend": "Line/Trend",
+        "network_flow": "Network/Flow",
+        "set_overlap": "Set/Overlap",
+        "special": "Special",
     }
 
     chart_cards = ""
@@ -1827,6 +2170,7 @@ def gallery_page() -> str:
         tier = c.get("tier", "P2")
         status = c.get("status", "planned")
         tpl_path = c.get("template", "")
+        vg = c.get("visual_grammar", "")
         has_template = (
             _os.path.exists(_os.path.join(_plotting_dir, "templates", f"{name}.py"))
             or _os.path.exists(_os.path.join(_plotting_dir, "templates", f"{name}.R"))
@@ -1835,10 +2179,8 @@ def gallery_page() -> str:
         img_file = _demo_files.get(name)
         interactive_file = _interactive_files.get(name)
 
-        # Map tags to broader categories for filtering
-        categories = set()
-        for t in tags:
-            categories.add(_CATEGORY_GROUPS.get(t, "其他"))
+        # Use visual_grammar for category filter
+        category_label = _VG_LABELS.get(vg, "")
 
         card_class = ("has-demo has-approved" if img_file and name in _approved_charts
                       else "has-demo" if img_file else "no-demo")
@@ -1851,7 +2193,7 @@ def gallery_page() -> str:
             img_url = f"/gallery/static/{img_file}"
             preview = f'<div class="card-img">{badges_html}<img src="{img_url}" loading="lazy"></div>'
         else:
-            preview = f'<div class="card-img" style="color:var(--ink-dim);font-size:13px;display:flex;align-items:center;justify-content:center;">{badges_html}<span class="planned-placeholder" data-i18n="gl_planned">Planned</span></div>'
+            preview = f'<div class="card-img" style="color:var(--ink-dim);font-size:13px;display:flex;align-items:center;justify-content:center;">{badges_html}<span class="planned-placeholder" data-i18n="gl_planned">计划中</span></div>'
 
         tags_html = "".join(f'<span class="tag">{_html.escape(t)}</span>' for t in tags[:3])
         # Add input_shape as a distinguishing tag
@@ -1863,9 +2205,9 @@ def gallery_page() -> str:
         # Build footer pills: Done/Planned + template language + Interactive
         pills = []
         if status == "done":
-            pills.append('<span class="pill pill-done">Done</span>')
+            pills.append('<span class="pill pill-done">已完成</span>')
         else:
-            pills.append('<span class="pill pill-planned">Planned</span>')
+            pills.append('<span class="pill pill-planned">计划中</span>')
         if has_template:
             ext = tpl_path.rsplit(".", 1)[-1].lower() if tpl_path else ""
             if ext == "py" or _os.path.exists(_os.path.join(_plotting_dir, "templates", f"{name}.py")):
@@ -1873,12 +2215,12 @@ def gallery_page() -> str:
             if ext == "r" or _os.path.exists(_os.path.join(_plotting_dir, "templates", f"{name}.R")):
                 pills.append('<span class="pill pill-template">R</span>')
             if ext not in ("py", "r") and not _os.path.exists(_os.path.join(_plotting_dir, "templates", f"{name}.py")) and not _os.path.exists(_os.path.join(_plotting_dir, "templates", f"{name}.R")):
-                pills.append('<span class="pill pill-template">Template</span>')
+                pills.append('<span class="pill pill-template">模板</span>')
         if interactive_file:
-            pills.append('<span class="pill pill-interactive">Interactive</span>')
+            pills.append('<span class="pill pill-interactive">交互式</span>')
         footer_html = f'<div class="card-footer">{"".join(pills)}</div>'
 
-        data_attrs = f'data-tags="{" ".join(tags)}" data-category="{" ".join(categories)}" data-tier="{tier}" data-status="{status}"'
+        data_attrs = f'data-tags="{" ".join(tags)}" data-category="{_html.escape(category_label)}" data-tier="{tier}" data-status="{status}" data-vg="{vg}"'
         chart_cards += (
             f'<a href="/gallery/{safe_name}" class="gallery-card-link" {data_attrs}>'
             f'<div class="gallery-card {card_class}">'
@@ -1890,23 +2232,22 @@ def gallery_page() -> str:
             f'</div></a>'
         )
 
-    # Filter by broad categories instead of raw tags
-    _all_categories = sorted(set(
-        _CATEGORY_GROUPS.get(t, "其他")
-        for c in _catalog.get("charts", [])
-        for t in c.get("tags", [])
-    ))
+    # Filter bar: visual grammar categories + tier
     _tier_options = ["P0", "P1", "P2"]
-    filter_btns = '<button class="filter-btn active" data-filter="all">All</button>'
+    filter_btns = '<button class="filter-btn active" data-filter="all">全部</button>'
     filter_btns += ' <span class="filter-sep">│</span>'
-    filter_btns += '<span class="filter-label">Tier</span>'
+    filter_btns += '<span class="filter-label">优先级</span>'
     for t in _tier_options:
         tiers_class = f'tier-{t}'
         filter_btns += f' <button class="filter-btn {tiers_class}" data-filter="tier-{t}" data-tier="{t}">{t}</button>'
     filter_btns += ' <span class="filter-sep">│</span>'
-    filter_btns += '<span class="filter-label">Type</span>'
-    for cat in _all_categories:
-        filter_btns += f' <button class="filter-btn cat-btn" data-filter="cat-{_html.escape(cat)}">{_html.escape(cat)}</button>'
+    filter_btns += '<span class="filter-label">类型</span>'
+    # Show categories that have at least one chart
+    _used_vgs = set(c.get("visual_grammar", "") for c in _catalog.get("charts", []))
+    for _vgk in ["scatter_rel", "distribution", "bar_rank", "heatmap", "line_trend", "network_flow", "set_overlap", "special"]:
+        if _vgk in _used_vgs:
+            _label = _VG_LABELS[_vgk]
+            filter_btns += f' <button class="filter-btn cat-btn" data-filter="cat-{_html.escape(_label)}">{_html.escape(_label)}</button>'
 
     # NOTE: JS goes in extra_js, NOT in the body f-string,
     # so that curly braces are not mangled by Python's f-string escaping.
@@ -1932,9 +2273,9 @@ def gallery_page() -> str:
 .gallery-toolbar { display: flex; gap: 12px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
 .search-wrap { position: relative; flex: 1; min-width: 200px; max-width: 400px; }
 .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--ink-dim); font-size: 14px; pointer-events: none; }
-#gallery-search { width: 100%; padding: 7px 32px 7px 30px; border: 1px solid var(--border-hover); border-radius: var(--r-pill); background: var(--card); color: var(--ink); font-size: 13px; transition: all var(--duration) var(--ease-out); }
-#gallery-search:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-muted); }
-.search-clear { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: var(--ink-dim); cursor: pointer; font-size: 12px; display: none; padding: 2px 4px; border-radius: 3px; }
+#gallery-search { width: 100%; padding: 7px 32px 7px 30px; border: 1px solid var(--border-hover); border-radius: var(--r-pill); background: var(--card); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); color: var(--ink); font-size: 13px; transition: all var(--duration) var(--ease-out); }
+#gallery-search:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(196,163,90,.2), 0 0 16px rgba(196,163,90,.1); }
+.search-clear { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: var(--ink-dim); cursor: pointer; font-size: 12px; display: none; padding:var(--sp-xs) 4px; border-radius:var(--r-sm); }
 .search-clear:hover { color: var(--ink); }
 .toolbar-actions { display: flex; align-items: center; gap: 10px; margin-left: auto; }
 .card-count { font-size: 12px; color: var(--ink-dim); white-space: nowrap; }
@@ -1954,14 +2295,15 @@ def gallery_page() -> str:
 /* ── Card Grid ── */
 .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--sp-md); margin-top: var(--sp-md); }
 .gallery-card-link { text-decoration: none; color: inherit; display: block; }
-.gallery-card { background: var(--card); border: 1px solid var(--border-hover); border-radius: var(--r-md); overflow: hidden; transition: all 0.25s cubic-bezier(.4,0,.2,1); position: relative; }
-.gallery-card:hover { border-color: var(--primary); transform: translateY(-4px); box-shadow: var(--shadow-lg); }
+.gallery-card { background: var(--card); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; transition: border-color var(--duration), box-shadow var(--duration), transform .25s var(--ease-out); position: relative; }
+.gallery-card:hover { border-color: rgba(196,163,90,.25); box-shadow: 0 0 20px rgba(196,163,90,.12), 0 4px 12px rgba(0,0,0,.3); transform: translateY(-3px); }
 .gallery-card.has-demo { border-left: 3px solid var(--success); }
 .gallery-card.no-demo { border-left: 3px solid var(--border-hover); opacity: 0.85; }
 .gallery-card.no-demo:hover { opacity: 1; }
 
 /* ── Card Image ── */
-.card-img { background: var(--bg); min-height: 160px; display: flex; align-items: center; justify-content: center; padding: 8px; cursor: pointer; border-bottom: 1px solid var(--border); position: relative; overflow: hidden; }
+.card-img { background: var(--bg); min-height: 160px; display: flex; align-items: center; justify-content: center; padding: 8px; cursor: pointer; border-bottom: 1px solid var(--border); position: relative; overflow: hidden; border-radius: var(--r-sm); }
+.card-img img { border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
 .card-img img { max-width: 100%; max-height: 180px; object-fit: contain; transition: transform 0.3s ease; }
 .gallery-card:hover .card-img img { transform: scale(1.04); }
 .card-img .planned-placeholder { color: var(--ink-dim); font-size: 12px; text-align: center; padding: 16px; line-height: 1.4; }
@@ -1969,7 +2311,7 @@ def gallery_page() -> str:
 
 /* ── Tier & Status Badges ── */
 .badge-row { position: absolute; top: 8px; left: 8px; display: flex; gap: 4px; align-items: center; z-index: 2; }
-.tier-badge { font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 3px; letter-spacing: 0.5px; }
+.tier-badge { font-size: 9px; font-weight: 700; padding:var(--sp-xs) 7px; border-radius:var(--r-sm); letter-spacing: 0.5px; }
 .tier-badge.tier-P0 { background: var(--danger); color: var(--bg); }
 .tier-badge.tier-P1 { background: var(--primary); color: var(--bg); }
 .tier-badge.tier-P2 { background: var(--ink-dim); color: var(--ink-muted); }
@@ -1986,7 +2328,7 @@ def gallery_page() -> str:
 .card-info .tag.tag-shape { background: var(--primary-muted); border-color: var(--primary); color: var(--primary); font-weight: 600; }
 
 /* ── Action Buttons ── */
-.btn-act { border: 1px solid var(--border-hover); border-radius: 4px; padding: 3px 10px; font-size: 11px; cursor: pointer; transition: all var(--duration) var(--ease-out); background: transparent; color: var(--ink-muted); }
+.btn-act { border: 1px solid var(--border-hover); border-radius:var(--r-sm); padding: 3px 10px; font-size: 11px; cursor: pointer; transition: all var(--duration) var(--ease-out); background: transparent; color: var(--ink-muted); }
 .btn-ok:hover { background: var(--success-muted); border-color: var(--success); color: var(--success); }
 .btn-edit:hover { background: var(--primary-muted); border-color: var(--primary); color: var(--primary); }
 .btn-no:hover { background: var(--danger-muted); border-color: var(--danger); color: var(--danger); }
@@ -1995,7 +2337,7 @@ def gallery_page() -> str:
 
 /* ── Card footer: tier + status pills ── */
 .card-footer { display: flex; gap: 6px; padding: 6px 14px 10px; align-items: center; flex-wrap: wrap; }
-.card-footer .pill { font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+.card-footer .pill { font-size: 10px; padding:var(--sp-xs) 8px; border-radius: 10px; font-weight: 600; }
 .pill-done { background: var(--success-muted); color: var(--success); }
 .pill-planned { background: var(--surface); color: var(--ink-dim); border: 1px solid var(--border-hover); }
 .pill-interactive { background: var(--info-muted); color: var(--info); }
@@ -2003,9 +2345,9 @@ def gallery_page() -> str:
 
 /* ── Suggest Input ── */
 .suggest-input { margin: 4px 14px 10px; }
-.suggest-input textarea { width: 100%; padding: 6px 8px; border-radius: 4px; border: 1px solid var(--border-hover); background: var(--bg); color: var(--ink); font-size: 12px; min-height: 50px; resize: vertical; box-sizing: border-box; }
+.suggest-input textarea { width: 100%; padding: 6px 8px; border-radius:var(--r-sm); border: 1px solid var(--border-hover); background: var(--bg); color: var(--ink); font-size: 12px; min-height: 50px; resize: vertical; box-sizing: border-box; }
 .suggest-input textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-muted); }
-.suggest-input button { margin-top: 4px; padding: 4px 12px; border-radius: 4px; background: var(--primary); color: var(--bg); border: none; font-size: 11px; cursor: pointer; }
+.suggest-input button { margin-top: 4px; padding: 4px 12px; border-radius:var(--r-sm); background: var(--primary); color: var(--bg); border: none; font-size: 11px; cursor: pointer; }
 
 /* ── Modal ── */
 .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1000; justify-content: center; align-items: center; }
@@ -2035,12 +2377,12 @@ def gallery_page() -> str:
 .submit-toggle-btn:hover { background: var(--card-hover); border-color: var(--primary); color: var(--primary); }
 .submit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-width: 600px; margin: 0 auto; }
 .submit-grid label, .submit-notes-row label { color: var(--ink-muted); font-size: 11px; display: block; margin-bottom: 2px; }
-.submit-grid input[type="text"], .submit-grid input[type="file"] { width: 100%; padding: 6px 8px; border: 1px solid var(--border-hover); border-radius: 4px; background: var(--bg); color: var(--ink); font-size: 12px; box-sizing: border-box; }
+.submit-grid input[type="text"], .submit-grid input[type="file"] { width: 100%; padding: 6px 8px; border: 1px solid var(--border-hover); border-radius:var(--r-sm); background: var(--bg); color: var(--ink); font-size: 12px; box-sizing: border-box; }
 .submit-grid input[type="file"] { padding: 4px; }
 .submit-notes-row { max-width: 600px; margin: 6px auto 0; }
-.submit-notes-row textarea { width: 100%; padding: 6px 8px; border: 1px solid var(--border-hover); border-radius: 4px; background: var(--bg); color: var(--ink); font-size: 12px; resize: vertical; box-sizing: border-box; min-height: 40px; }
+.submit-notes-row textarea { width: 100%; padding: 6px 8px; border: 1px solid var(--border-hover); border-radius:var(--r-sm); background: var(--bg); color: var(--ink); font-size: 12px; resize: vertical; box-sizing: border-box; min-height: 40px; }
 .submit-actions { max-width: 600px; margin: 6px auto 0; text-align: right; }
-.submit-go { padding: 6px 16px; border-radius: 4px; background: var(--primary); color: var(--bg); border: none; font-size: 12px; cursor: pointer; }
+.submit-go { padding: 6px 16px; border-radius:var(--r-sm); background: var(--primary); color: var(--bg); border: none; font-size: 12px; cursor: pointer; }
 
 /* ── Approved State ── */
 .has-approved { border-left-color: var(--success) !important; }
@@ -2061,24 +2403,24 @@ def gallery_page() -> str:
 .pal-filter-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
 .palette-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; margin-bottom: 28px; }
 .palette-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--r-md); padding: 14px; transition: border-color var(--duration), box-shadow var(--duration); cursor: pointer; }
-.palette-card:hover { border-color: var(--primary); box-shadow: 0 4px 16px rgba(167,139,250,.1); }
+.palette-card:hover { border-color: var(--primary); box-shadow: 0 4px 16px rgba(59,130,246,.1); }
 .pal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
 .pal-name { font-size: .95rem; font-weight: 600; color: var(--ink); }
-.cvd-yes { background: #009E7322; color: #00A087; border: 1px solid #009E7344; font-size: .68rem; padding: 2px 7px; border-radius: 10px; }
-.cvd-no { background: #DC000022; color: #DC0000; border: 1px solid #DC000044; font-size: .68rem; padding: 2px 7px; border-radius: 10px; }
+.cvd-yes { background: #009E7322; color: #00A087; border: 1px solid #009E7344; font-size: .68rem; padding:var(--sp-xs) 7px; border-radius: 10px; }
+.cvd-no { background: #DC000022; color: #DC0000; border: 1px solid #DC000044; font-size: .68rem; padding:var(--sp-xs) 7px; border-radius: 10px; }
 .pal-src { font-size: .7rem; color: var(--ink-dim); margin-bottom: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pal-swatches { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
-.pal-swatch { width: 34px; height: 34px; border-radius: 5px; cursor: pointer; position: relative; transition: transform var(--duration); border: 1px solid rgba(255,255,255,.08); display: flex; align-items: flex-end; justify-content: center; }
+.pal-swatch { width: 34px; height: 34px; border-radius:var(--r-sm); cursor: pointer; position: relative; transition: transform var(--duration); border: 1px solid rgba(255,255,255,.08); display: flex; align-items: flex-end; justify-content: center; }
 .pal-swatch:hover { transform: scale(1.18); z-index: 1; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
-.pal-hex { font-size: .5rem; color: #000; background: rgba(255,255,255,.88); padding: 1px 3px; border-radius: 2px; opacity: 0; transition: opacity var(--duration); margin-bottom: 2px; font-family: var(--font-mono); }
+.pal-hex { font-size: .5rem; color: #000; background: rgba(255,255,255,.88); padding: 1px 3px; border-radius:var(--r-sm); opacity: 0; transition: opacity var(--duration); margin-bottom: 2px; font-family: var(--font-mono); }
 .pal-swatch:hover .pal-hex { opacity: 1; }
 .pal-footer { border-top: 1px solid var(--border); padding-top: 6px; }
-.pal-copy { font-size: .7rem; cursor: pointer; color: var(--primary); padding: 2px 6px; border-radius: 4px; transition: background var(--duration), color var(--duration); }
+.pal-copy { font-size: .7rem; cursor: pointer; color: var(--primary); padding:var(--sp-xs) 6px; border-radius:var(--r-sm); transition: background var(--duration), color var(--duration); }
 .pal-copy:hover { background: var(--primary); color: #fff; }
 .palette-cmap { width: 100%; border-collapse: collapse; font-size: .82rem; margin-bottom: 28px; }
 .palette-cmap th { text-align: left; padding: 6px 8px; border-bottom: 2px solid var(--border); color: var(--ink-muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .5px; }
 .palette-cmap td { padding: 6px 8px; border-bottom: 1px solid var(--border); color: var(--ink); }
-.cmap-bar { height: 22px; border-radius: 4px; min-width: 120px; }
+.cmap-bar { height: 22px; border-radius:var(--r-sm); min-width: 120px; }
 /* ── Palette Detail Modal ── */
 .palette-detail-overlay { display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,.55); backdrop-filter:blur(4px); justify-content:center; align-items:center; }
 .palette-detail-overlay.show { display:flex; }
@@ -2090,7 +2432,7 @@ def gallery_page() -> str:
 .pd-swatches { display:flex; flex-wrap:wrap; gap:6px; margin:14px 0; }
 .pd-swatch { width:64px; height:64px; border-radius:var(--r-md); border:1px solid var(--border); display:flex; align-items:flex-end; justify-content:center; cursor:pointer; transition:transform var(--duration); }
 .pd-swatch:hover { transform:scale(1.12); }
-.pd-swatch .pd-hex-label { font-size:.6rem; color:#000; background:rgba(255,255,255,.88); padding:1px 4px; border-radius:2px; margin-bottom:3px; font-family:var(--font-mono); }
+.pd-swatch .pd-hex-label { font-size:.6rem; color:#000; background:rgba(255,255,255,.88); padding:1px 4px; border-radius:var(--r-sm); margin-bottom:3px; font-family:var(--font-mono); }
 .pd-copy-all { background:var(--primary); color:#fff; border:none; padding:7px 18px; border-radius:var(--r-md); cursor:pointer; font-size:.82rem; transition:opacity var(--duration); }
 .pd-copy-all:hover { opacity:.85; }
 .pd-code { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-md); padding:10px 14px; margin-top:14px; font-family:var(--font-mono); font-size:.78rem; color:var(--ink); white-space:pre-wrap; }
@@ -2115,8 +2457,8 @@ def gallery_page() -> str:
     _p2 = sum(1 for c in _catalog.get("charts", []) if c.get("tier") == "P2")
     stats_html = (
         '<div class="gallery-stats">'
-        f'<div class="stat-item"><span class="stat-num">{_total}</span><span class="stat-label">Total</span></div>'
-        f'<div class="stat-item stat-done"><span class="stat-num">{_done}</span><span class="stat-label">Done</span></div>'
+        f'<div class="stat-item"><span class="stat-num">{_total}</span><span class="stat-label">总计</span></div>'
+        f'<div class="stat-item stat-done"><span class="stat-num">{_done}</span><span class="stat-label">已完成</span></div>'
         f'<div class="stat-item stat-p0"><span class="stat-num">{_p0}</span><span class="stat-label">P0</span></div>'
         f'<div class="stat-item stat-p1"><span class="stat-num">{_p1}</span><span class="stat-label">P1</span></div>'
         f'<div class="stat-item stat-p2"><span class="stat-num">{_p2}</span><span class="stat-label">P2</span></div>'
@@ -2381,11 +2723,11 @@ def gallery_detail_page(name: str) -> str:
             break
 
     if chart is None:
-        return _page("Not Found",
+        return _page("未找到",
                      '<div style="max-width:600px;margin:80px auto;text-align:center;color:var(--ink-muted);">'
-                     '<h2 style="color:var(--ink);margin-bottom:8px;">Chart Not Found</h2>'
-                     '<p>No chart with name "' + _html.escape(name) + '" exists in the catalog.</p>'
-                     '<a href="/gallery" style="margin-top:16px;display:inline-block;">← Back to Gallery</a></div>', nav_active="gallery")
+                     '<h2 style="color:var(--ink);margin-bottom:8px;">未找到图表</h2>'
+                     '<p>未找到名为 "' + _html.escape(name) + '" 的图表。</p>'
+                     '<a href="/gallery" style="margin-top:16px;display:inline-block;">← 返回绘图库</a></div>', nav_active="gallery")
 
     title = chart.get("title", name)
     desc = chart.get("description", "")
@@ -2452,7 +2794,7 @@ def gallery_detail_page(name: str) -> str:
     status_label = "Done" if status == "done" else "Planned"
     status_color = "var(--success)" if status == "done" else "var(--ink-dim)"
     approved_badge = (
-        '<span style="display:inline-block;padding:2px 10px;border-radius:var(--r-pill);'
+        '<span style="display:inline-block;padding:var(--sp-xs) 10px;border-radius:var(--r-pill);'
         'font-size:11px;font-weight:600;background:var(--success-muted);color:var(--success);'
         'margin-left:8px;">✓ Approved</span>'
         if is_approved else ""
@@ -2464,10 +2806,10 @@ def gallery_detail_page(name: str) -> str:
         '← Back to Gallery</a>'
         '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
         f'<h1 style="font-size:24px;font-weight:700;color:var(--ink);margin:0;">{_html.escape(title)}</h1>'
-        f'<span style="display:inline-block;padding:2px 8px;border-radius:3px;font-size:10px;'
+        f'<span style="display:inline-block;padding:var(--sp-xs) 8px;border-radius:var(--r-sm);font-size:10px;'
         f'font-weight:700;letter-spacing:0.5px;background:{"var(--danger)" if tier == "P0" else "var(--primary)" if tier == "P1" else "var(--ink-dim)"};'
         f'color:{"var(--bg)" if tier != "P2" else "var(--ink-muted)"};">{tier}</span>'
-        f'<span style="display:inline-block;padding:2px 8px;border-radius:var(--r-pill);font-size:11px;'
+        f'<span style="display:inline-block;padding:var(--sp-xs) 8px;border-radius:var(--r-pill);font-size:11px;'
         f'background:{"var(--success-muted)" if status == "done" else "var(--card)"};'
         f'color:{status_color};">{status_icon} {status_label}</span>'
         f'{approved_badge}'
@@ -2487,42 +2829,42 @@ def gallery_detail_page(name: str) -> str:
     else:
         image_html = (
             '<div style="padding:48px 0;text-align:center;background:var(--card);border-radius:var(--r-md);border:1px dashed var(--border-hover);">'
-            '<span style="color:var(--ink-dim);font-size:14px;">📋 No demo yet</span></div>'
+            '<span style="color:var(--ink-dim);font-size:14px;">📋 暂无示例图</span></div>'
         )
 
     # Metadata card
     meta_parts = []
     if desc:
-        meta_parts.append(f'<div style="margin-bottom:12px;"><span style="color:var(--ink-muted);font-size:12px;font-weight:600;">Description</span>'
+        meta_parts.append(f'<div style="margin-bottom:12px;"><span style="color:var(--ink-muted);font-size:12px;font-weight:600;">描述</span>'
                           f'<p style="color:var(--ink);font-size:14px;margin-top:4px;line-height:1.6;">{_html.escape(desc)}</p></div>')
     if data_type:
-        meta_parts.append(f'<div style="margin-bottom:12px;"><span style="color:var(--ink-muted);font-size:12px;font-weight:600;">Data Type</span>'
+        meta_parts.append(f'<div style="margin-bottom:12px;"><span style="color:var(--ink-muted);font-size:12px;font-weight:600;">数据类型</span>'
                           f'<p style="color:var(--ink);font-size:13px;margin-top:4px;">{_html.escape(str(data_type))}</p></div>')
     if req_cols:
-        cols_html = "".join(f'<span style="display:inline-block;padding:2px 8px;margin:2px;background:var(--primary-muted);color:var(--primary);border-radius:var(--r-pill);font-size:11px;">{_html.escape(str(c))}</span>' for c in req_cols)
-        meta_parts.append(f'<div style="margin-bottom:12px;"><span style="color:var(--ink-muted);font-size:12px;font-weight:600;">Required Columns</span>'
+        cols_html = "".join(f'<span style="display:inline-block;padding:var(--sp-xs) 8px;margin:2px;background:var(--primary-muted);color:var(--primary);border-radius:var(--r-pill);font-size:11px;">{_html.escape(str(c))}</span>' for c in req_cols)
+        meta_parts.append(f'<div style="margin-bottom:12px;"><span style="color:var(--ink-muted);font-size:12px;font-weight:600;">必需字段</span>'
                           f'<div style="margin-top:4px;">{cols_html}</div></div>')
     if opt_cols:
-        cols_html = "".join(f'<span style="display:inline-block;padding:2px 8px;margin:2px;background:var(--surface);color:var(--ink-muted);border-radius:var(--r-pill);font-size:11px;border:1px solid var(--border-hover);">{_html.escape(str(c))}</span>' for c in opt_cols)
-        meta_parts.append(f'<div style="margin-bottom:12px;"><span style="color:var(--ink-muted);font-size:12px;font-weight:600;">Optional Columns</span>'
+        cols_html = "".join(f'<span style="display:inline-block;padding:var(--sp-xs) 8px;margin:2px;background:var(--surface);color:var(--ink-muted);border-radius:var(--r-pill);font-size:11px;border:1px solid var(--border-hover);">{_html.escape(str(c))}</span>' for c in opt_cols)
+        meta_parts.append(f'<div style="margin-bottom:12px;"><span style="color:var(--ink-muted);font-size:12px;font-weight:600;">可选字段</span>'
                           f'<div style="margin-top:4px;">{cols_html}</div></div>')
     if tags:
-        tags_html = "".join(f'<span style="display:inline-block;padding:2px 8px;margin:2px;background:var(--surface);border:1px solid var(--border-hover);color:var(--ink-muted);border-radius:var(--r-pill);font-size:11px;">{_html.escape(t)}</span>' for t in tags)
-        meta_parts.append(f'<div style="margin-bottom:12px;"><span style="color:var(--ink-muted);font-size:12px;font-weight:600;">Tags</span>'
+        tags_html = "".join(f'<span style="display:inline-block;padding:var(--sp-xs) 8px;margin:2px;background:var(--surface);border:1px solid var(--border-hover);color:var(--ink-muted);border-radius:var(--r-pill);font-size:11px;">{_html.escape(t)}</span>' for t in tags)
+        meta_parts.append(f'<div style="margin-bottom:12px;"><span style="color:var(--ink-muted);font-size:12px;font-weight:600;">标签</span>'
                           f'<div style="margin-top:4px;">{tags_html}</div></div>')
     if recommended_for:
         rec_html = "".join(f'<li style="color:var(--ink);font-size:13px;margin:2px 0;">{_html.escape(str(r))}</li>' for r in recommended_for)
-        meta_parts.append(f'<div style="margin-bottom:12px;"><span style="color:var(--ink-muted);font-size:12px;font-weight:600;">Recommended For</span>'
+        meta_parts.append(f'<div style="margin-bottom:12px;"><span style="color:var(--ink-muted);font-size:12px;font-weight:600;">适用场景</span>'
                           f'<ul style="margin:4px 0 0 16px;">{rec_html}</ul></div>')
     if references:
         ref_html = "".join(f'<li style="color:var(--ink);font-size:13px;margin:2px 0;">{_html.escape(str(r))}</li>' for r in references)
-        meta_parts.append(f'<div style="margin-bottom:12px;"><span style="color:var(--ink-muted);font-size:12px;font-weight:600;">References</span>'
+        meta_parts.append(f'<div style="margin-bottom:12px;"><span style="color:var(--ink-muted);font-size:12px;font-weight:600;">参考文献</span>'
                           f'<ul style="margin:4px 0 0 16px;">{ref_html}</ul></div>')
 
     metadata_html = (
         '<div style="background:var(--card);border:1px solid var(--border-hover);border-radius:var(--r-md);'
         'padding:var(--sp-md);">'
-        '<h2 style="font-size:15px;font-weight:600;color:var(--ink);margin-bottom:12px;">Details</h2>'
+        '<h2 style="font-size:15px;font-weight:600;color:var(--ink);margin-bottom:12px;">详细信息</h2>'
         + "".join(meta_parts) +
         '</div>'
     )
@@ -2542,11 +2884,11 @@ def gallery_detail_page(name: str) -> str:
                 f'style="color:var(--primary);font-size:13px;font-weight:500;flex:1;'
                 f'font-family:var(--font-mono);">{_html.escape(tf["filename"])}</a>'
                 f'<span style="font-size:11px;color:var(--ink-dim);">{fsize_str}</span>'
-                f'<span style="display:inline-block;padding:2px 8px;border-radius:var(--r-pill);'
+                f'<span style="display:inline-block;padding:var(--sp-xs) 8px;border-radius:var(--r-pill);'
                 f'font-size:10px;font-weight:600;background:{lang_bg};color:{lang_color};">'
                 f'{tf["lang"]}</span>'
                 f'<button id="{safe_id}-btn" onclick="toggleCodePreview(\'{safe_id}\',\'{_html.escape(tf["filename"])}\')" '
-                f'style="padding:2px 10px;border-radius:4px;border:1px solid var(--border-hover);'
+                f'style="padding:var(--sp-xs) 10px;border-radius:var(--r-sm);border:1px solid var(--border-hover);'
                 f'background:var(--card);color:var(--ink-muted);font-size:11px;cursor:pointer;'
                 f'transition:all var(--duration) var(--ease-out);">▸ Code</button>'
                 f'</div>'
@@ -2561,7 +2903,7 @@ def gallery_detail_page(name: str) -> str:
             '<div style="background:var(--card);border:1px solid var(--border-hover);border-radius:var(--r-md);'
             'overflow:hidden;">'
             '<div style="padding:var(--sp-sm) var(--sp-md);border-bottom:1px solid var(--border-hover);">'
-            '<h2 style="font-size:15px;font-weight:600;color:var(--ink);margin:0;">Template Files</h2></div>'
+            '<h2 style="font-size:15px;font-weight:600;color:var(--ink);margin:0;">模板文件</h2></div>'
             + tpl_rows +
             '</div>'
         )
@@ -2569,29 +2911,29 @@ def gallery_detail_page(name: str) -> str:
         templates_html = (
             '<div style="background:var(--card);border:1px solid var(--border-hover);border-radius:var(--r-md);'
             'padding:var(--sp-lg);text-align:center;">'
-            '<h2 style="font-size:16px;font-weight:600;color:var(--ink);margin-bottom:8px;">Template Files</h2>'
-            '<span style="color:var(--ink-dim);font-size:13px;">No template files found yet.</span></div>'
+            '<h2 style="font-size:16px;font-weight:600;color:var(--ink);margin-bottom:8px;">模板文件</h2>'
+            '<span style="color:var(--ink-dim);font-size:13px;">暂无模板文件</span></div>'
         )
 
     # Upload section
     upload_html = (
         '<div style="background:var(--card);border:1px solid var(--border-hover);border-radius:var(--r-md);'
         'padding:var(--sp-md);">'
-        '<h2 style="font-size:15px;font-weight:600;color:var(--ink);margin-bottom:10px;">Upload Template</h2>'
+        '<h2 style="font-size:15px;font-weight:600;color:var(--ink);margin-bottom:10px;">上传模板</h2>'
         f'<form id="upload-form" enctype="multipart/form-data" '
         f'style="display:flex;flex-direction:column;gap:10px;">'
         f'<input type="hidden" name="chart_name" value="{_html.escape(name)}">'
         '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
         '<input type="file" name="file" accept=".py,.R,.zip" '
-        'style="padding:6px;border:1px solid var(--border-hover);border-radius:4px;'
+        'style="padding:6px;border:1px solid var(--border-hover);border-radius:var(--r-sm);'
         'background:var(--bg);color:var(--ink);font-size:12px;flex:1;min-width:200px;">'
-        '<input type="text" name="description" placeholder="Description (optional)" '
+        '<input type="text" name="description" placeholder="描述（可选）" '
         'style="flex:2;min-width:200px;padding:6px 10px;border:1px solid var(--border-hover);'
-        'border-radius:4px;background:var(--bg);color:var(--ink);font-size:12px;">'
+        'border-radius:var(--r-sm);background:var(--bg);color:var(--ink);font-size:12px;">'
         '</div>'
         '<div style="text-align:right;">'
-        '<button type="submit" style="padding:6px 20px;border-radius:4px;background:var(--primary);'
-        'color:var(--bg);border:none;font-size:12px;cursor:pointer;font-weight:500;">Upload</button>'
+        '<button type="submit" style="padding:6px 20px;border-radius:var(--r-sm);background:var(--primary);'
+        'color:var(--bg);border:none;font-size:12px;cursor:pointer;font-weight:500;">上传</button>'
         '</div></form></div>'
     )
 
@@ -2637,12 +2979,12 @@ def gallery_detail_page(name: str) -> str:
     if not fb_sections:
         fb_sections = (
             '<div style="color:var(--ink-dim);font-size:13px;text-align:center;padding:20px 0;">'
-            'No feedback recorded yet.</div>'
+"暂无反馈记录"
         )
 
     feedback_html = (
         '<div style="margin-bottom:var(--sp-md);">'
-        '<h2 style="font-size:15px;font-weight:600;color:var(--ink);margin-bottom:10px;">Feedback History</h2>'
+        '<h2 style="font-size:15px;font-weight:600;color:var(--ink);margin-bottom:10px;">反馈历史</h2>'
         + fb_sections +
         '</div>'
     )
@@ -2651,10 +2993,10 @@ def gallery_detail_page(name: str) -> str:
     safe_name_js = name.replace("\\", "\\\\").replace("'", "\\'")
     approve_btn = (
         f'<button onclick="detailFeedback(\'approve\')" '
-        f'style="padding:8px 20px;border-radius:4px;background:var(--success);color:var(--bg);'
+        f'style="padding:8px 20px;border-radius:var(--r-sm);background:var(--success);color:var(--bg);'
         f'border:none;font-size:13px;cursor:pointer;font-weight:600;">✓ Approve</button>'
         if not is_approved else
-        '<span style="display:inline-flex;align-items:center;gap:6px;padding:6px 16px;border-radius:4px;'
+        '<span style="display:inline-flex;align-items:center;gap:6px;padding:6px 16px;border-radius:var(--r-sm);'
         'background:var(--success-muted);color:var(--success);font-size:13px;font-weight:600;'
         'border:1px solid var(--success);">✓ Approved</span>'
     )
@@ -2666,21 +3008,21 @@ def gallery_detail_page(name: str) -> str:
         '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">'
         f'{approve_btn}'
         f'<button onclick="openSuggestBox()" '
-        'style="padding:8px 20px;border-radius:4px;background:var(--primary-muted);color:var(--primary);'
+        'style="padding:8px 20px;border-radius:var(--r-sm);background:var(--primary-muted);color:var(--primary);'
         f'border:1px solid var(--primary);font-size:13px;cursor:pointer;font-weight:600;">{_pt("gl_suggest")}</button>'
         f'<button onclick="detailFeedback(\'reject\')" '
-        'style="padding:8px 20px;border-radius:4px;background:var(--danger-muted);color:var(--danger);'
+        'style="padding:8px 20px;border-radius:var(--r-sm);background:var(--danger-muted);color:var(--danger);'
         f'border:1px solid var(--danger);font-size:13px;cursor:pointer;font-weight:600;">✕ {_pt("kh_reject")}</button>'
         '</div>'
         '<div id="suggest-box" style="display:none;margin-top:12px;">'
         f'<textarea id="suggest-text" placeholder="{_pt("gl_suggest_ph")}" '
-        'style="width:100%;padding:8px;border-radius:4px;border:1px solid var(--border-hover);'
+        'style="width:100%;padding:8px;border-radius:var(--r-sm);border:1px solid var(--border-hover);'
         'background:var(--bg);color:var(--ink);font-size:13px;min-height:80px;resize:vertical;'
         'box-sizing:border-box;"></textarea>'
         '<div style="text-align:right;margin-top:6px;">'
         '<button onclick="submitDetailSuggest()" '
-        'style="padding:6px 16px;border-radius:4px;background:var(--primary);color:var(--bg);'
-        'border:none;font-size:12px;cursor:pointer;">Submit Suggestion</button></div></div>'
+        'style="padding:6px 16px;border-radius:var(--r-sm);background:var(--primary);color:var(--bg);'
+        'border:none;font-size:12px;cursor:pointer;">提交建议</button></div></div>'
         '</div>'
     )
 
@@ -2769,7 +3111,7 @@ def gallery_detail_page(name: str) -> str:
         '<span style="font-size:11px;color:var(--ink-dim);">Edit code → Run → Preview</span>'
         '<div style="margin-left:auto;display:flex;gap:8px;align-items:center;">'
         '<select id="editor-format" style="padding:4px 8px;border:1px solid var(--border-hover);'
-        'border-radius:4px;background:var(--bg);color:var(--ink);font-size:12px;">'
+        'border-radius:var(--r-sm);background:var(--bg);color:var(--ink);font-size:12px;">'
         '<option value="png">PNG</option><option value="pdf">PDF</option></select>'
         '<button id="editor-run-btn" onclick="runEditorCode()" '
         'style="padding:6px 18px;border-radius:var(--r-md);background:var(--primary);color:#fff;'
@@ -2908,14 +3250,14 @@ function toggleCodePreview(id, filename) {
   if (el.style.display === 'none') {
     // Show — load code if not yet loaded
     var pre = document.getElementById(id + '-pre');
-    if (pre && pre.textContent === _t('gl_loading') + '...') {
+    if (pre && !pre.getAttribute('data-loaded')) {
       fetch('/api/gallery/template/' + filename)
         .then(function(r) { return r.json(); })
         .then(function(data) {
-          if (data.ok) { pre.textContent = data.content; }
-          else { pre.textContent = _t('toast_error') + ': ' + (data.error || _t('toast_network_error')); }
+          if (data.ok) { pre.textContent = data.content; pre.setAttribute('data-loaded', '1'); }
+          else { pre.textContent = 'Error: ' + (data.error || 'Failed to load'); }
         })
-        .catch(function() { pre.textContent = _t('toast_network_error'); });
+        .catch(function() { pre.textContent = 'Network error'; });
     }
     el.style.display = 'block';
     if (btn) { btn.textContent = '▾ Code'; btn.style.borderColor = 'var(--primary)'; btn.style.color = 'var(--primary)'; }
@@ -3073,8 +3415,8 @@ def _format_cost(c: float) -> str:
     return f"${c:.0f}"
 
 
-def home_page(*, node_counts: dict[str, int], chart_count: int, health_summary: dict, recent_nodes: list | None = None, do_status: dict | None = None, proxy_status: dict | None = None, proxy_traffic: list | None = None, sub2api: dict | None = None) -> str:
-    """Render the home/landing page as a Notion-style personal dashboard."""
+def home_page(*, node_counts: dict[str, int], chart_count: int, health_summary: dict, recent_nodes: list | None = None, do_status: dict | None = None, proxy_status: dict | None = None, proxy_traffic: list | None = None, sub2api: dict | None = None, linuxdo_board: dict | None = None) -> str:
+    """Render the home/landing page as a personal information center."""
     total_nodes = sum(node_counts.values())
     canonized = node_counts.get("canonized", 0)
     draft = node_counts.get("draft", 0)
@@ -3085,9 +3427,9 @@ def home_page(*, node_counts: dict[str, int], chart_count: int, health_summary: 
     # Stage badge colors
     stage_colors = {
         "draft": "#eab308",
-        "refined": "#3b82f6",
+        "refined": "#C4A35A",
         "verified": "#22c55e",
-        "canonized": "#a78bfa",
+        "canonized": "#C4A35A",
         "deprecated": "#6b7280",
     }
     stage_labels = {
@@ -3120,10 +3462,58 @@ def home_page(*, node_counts: dict[str, int], chart_count: int, health_summary: 
     else:
         recent_items = f'<tr><td colspan="3" class="dash-activity-empty" data-i18n="dash_no_activity">{_pt("dash_no_activity")}</td></tr>'
 
+    # --- Quick Stats ---
+    from datetime import datetime, timedelta, timezone
+    _now = datetime.now(timezone.utc)
+    _today_start = _now.replace(hour=0, minute=0, second=0, microsecond=0)
+    _week_start = _today_start - timedelta(days=_today_start.weekday())
+    _nodes_today = 0
+    _nodes_week = 0
+    _cat_counts: dict[str, int] = {}
+    if recent_nodes:
+        for node in recent_nodes:
+            created = node.get("created_at", "")
+            cat = node.get("category", "general")
+            _cat_counts[cat] = _cat_counts.get(cat, 0) + 1
+            try:
+                if isinstance(created, str) and len(created) >= 10:
+                    dt = datetime.fromisoformat(created.replace("Z", "+00:00"))
+                    if dt >= _today_start:
+                        _nodes_today += 1
+                    if dt >= _week_start:
+                        _nodes_week += 1
+            except Exception:
+                pass
+    _active_cat = max(_cat_counts, key=lambda k: _cat_counts[k]) if _cat_counts else "—"
+    quick_stats_html = f"""  <div class="dash-quick-stats">
+    <div class="dash-qs-card"><div class="dash-qs-value">{_nodes_today}</div><div class="dash-qs-label">Today</div></div>
+    <div class="dash-qs-card"><div class="dash-qs-value">{_nodes_week}</div><div class="dash-qs-label">This Week</div></div>
+    <div class="dash-qs-card"><div class="dash-qs-value" style="font-size:1.1rem">{_html.escape(_active_cat)}</div><div class="dash-qs-label">Top Category</div></div>
+  </div>"""
+
+    # --- Activity Timeline ---
+    timeline_html = ""
+    if recent_nodes:
+        tl_items = ""
+        for node in recent_nodes[:6]:
+            stage = node.get("stage", "draft")
+            summary = (node.get("summary") or _pt("dash_no_summary"))
+            if len(summary) > 80:
+                summary = summary[:77] + "..."
+            created = node.get("created_at", "")
+            tl_items += f'<div class="dash-tl-item" data-stage="{_html.escape(stage)}"><div class="dash-tl-time">{_html.escape(str(created)[:10])}</div><div class="dash-tl-text">{_html.escape(summary)}</div></div>'
+        timeline_html = f"""  <section class="dash-section" style="animation-delay:.16s">
+    <div class="dash-section-header">
+      <h2 class="dash-section-title">📈 Activity Timeline</h2>
+    </div>
+    <div class="dash-timeline">{tl_items}</div>
+  </section>"""
+
     # --- Build Sub2API hero cards and trend chart for home page ---
     _s2 = sub2api or {}
     _s2st = _s2.get("stats")
     _s2trend = _s2.get("trend") or []
+    _s2pool = _s2.get("pool") or {}
     home_sub2api_cards = ""
     home_trend_data_js = "[]"
     home_need_chartjs = False
@@ -3149,7 +3539,7 @@ def home_page(*, node_counts: dict[str, int], chart_count: int, health_summary: 
       <h2 class="dash-section-title">⚡ Sub2API</h2>
     </div>
     <div class="dash-hero">
-      <div class="dash-metric dash-metricPrimary dash-metricAccent">
+      <div class="dash-metric dash-metricPrimary">
         <div class="dash-num">{_format_tokens(_today_tokens)}</div>
         <div class="dash-label" data-i18n="dash_tokens">{_pt("dash_tokens")}</div>
       </div>
@@ -3172,390 +3562,120 @@ def home_page(*, node_counts: dict[str, int], chart_count: int, health_summary: 
     </div>
   </section>
 """
-
-    body = f"""
-
-<div class="dash-wrap">
-
-  <!-- Greeting -->
-  <section class="dash-greeting" id="dash-greeting">
-    <h1 id="dash-greeting-text" data-i18n="dash_greeting">你好，探索者</h1>
-    <p class="dash-greeting-date" id="dash-greeting-date"></p>
-  </section>
-
-  <!-- Stat Cards — AxonHub style with icon watermarks -->
-  <section class="dash-stat-grid">
-    <div class="dash-stat-card" data-accent="primary">
-      <div class="dash-stat-watermark">{_ICON_KNOWLEDGE}</div>
-      <div class="dash-stat-value">{total_nodes}</div>
-      <div class="dash-stat-label" data-i18n="dash_total">总节点</div>
-    </div>
-    <div class="dash-stat-card" data-accent="success">
-      <div class="dash-stat-watermark">{_ICON_STATUS}</div>
-      <div class="dash-stat-value" style="color:var(--primary)">{canonized}</div>
-      <div class="dash-stat-label" data-i18n="dash_canonized">正典</div>
-    </div>
-    <div class="dash-stat-card" data-accent="info">
-      <div class="dash-stat-watermark">{_ICON_GALLERY}</div>
-      <div class="dash-stat-value" style="color:var(--info)">{refined}</div>
-      <div class="dash-stat-label" data-i18n="dash_refined">精炼</div>
-    </div>
-    <div class="dash-stat-card" data-accent="warning">
-      <div class="dash-stat-watermark">{_ICON_QUEUE}</div>
-      <div class="dash-stat-value" style="color:var(--warning)">{draft}</div>
-      <div class="dash-stat-label" data-i18n="dash_draft">草稿</div>
-    </div>
-  </section>
-
-  <!-- Recent Activity — table style -->
-  <section class="dash-section">
-    <div class="dash-section-header">
-      <h2 class="dash-section-title" data-i18n="dash_recent">📋 最近更新</h2>
-      <a href="/knowledge" class="dash-section-link" data-i18n="dash_viewall">查看全部 →</a>
-    </div>
-    <div class="dash-table-wrap">
-      <table class="dash-activity-table">
-        <thead>
-          <tr><th data-i18n="col_status">{_pt("col_status")}</th><th data-i18n="col_summary">{_pt("col_summary")}</th><th data-i18n="col_time">{_pt("col_time")}</th></tr>
-        </thead>
-        <tbody>
-          {recent_items}
-        </tbody>
-      </table>
-    </div>
-  </section>
-
-  <!-- Quick Access — horizontal icon cards -->
-  <section class="dash-section">
-    <div class="dash-section-header">
-      <h2 class="dash-section-title" data-i18n="dash_shortcuts">⚡ 快捷入口</h2>
-    </div>
-    <div class="dash-quick-row">
-      <a href="/knowledge" class="dash-quick-tile">
-        <div class="dash-quick-tile-icon" style="background:var(--primary-muted);color:var(--primary)">{_ICON_KNOWLEDGE}</div>
-        <span data-i18n="dash_knowledge">知识树</span>
-      </a>
-      <a href="/gallery" class="dash-quick-tile">
-        <div class="dash-quick-tile-icon" style="background:var(--success-muted);color:var(--success)">{_ICON_GALLERY}</div>
-        <span data-i18n="dash_gallery">绘图库</span>
-      </a>
-      <a href="/dashboard" class="dash-quick-tile">
-        <div class="dash-quick-tile-icon" style="background:var(--info-muted);color:var(--info)">{_ICON_SHIELD}</div>
-        <span data-i18n="dash_monitor">监控台</span>
-      </a>
-      <a href="/services" class="dash-quick-tile">
-        <div class="dash-quick-tile-icon" style="background:rgba(251,191,36,.12);color:#fbbf24">{_ICON_SERVICES}</div>
-        <span data-i18n="nav_services">服务</span>
-      </a>
-    </div>
-  </section>
-
-
-
-{home_sub2api_cards}
-
-  <!-- Resource Monitor -->
+    # --- Account Pool health (used by portal monitor; old pool card disabled) ---
+    home_pool_card = ""
+    if False and _s2pool.get("total", 0) > 0:
+        _h = _s2pool["healthy"]
+        _t = _s2pool["total"]
+        _a = _s2pool["active"]
+        _rl = _s2pool.get("active_rate_limited", 0)
+        _es = _s2pool.get("expiring_soon", 0)
+        _pct = int(_h / _t * 100) if _t else 0
+        _pcl = "dash-metricSuccess" if _pct >= 50 else ("dash-metricWarning" if _pct >= 25 else "dash-metricDanger")
+        home_pool_card = f'''  <!-- Account Pool -->
   <section class="dash-section" style="animation-delay:.24s">
     <div class="dash-section-header">
-      <h2 class="dash-section-title">📊 Resources</h2>
+      <h2 class="dash-section-title">Account Pool</h2>
     </div>
-    <div class="dash-resource-section" id="home-resource-section" style="margin:0">
-      <div class="dash-res-card">
-        <div class="dash-res-label">CPU</div>
-        <div class="dash-res-value" id="home-res-cpu">—</div>
-        <div class="dash-res-bar"><div class="dash-res-fill" id="home-res-cpu-bar" style="width:0;background:var(--primary)"></div></div>
+    <div class="dash-pool-strip">
+      <div class="dash-metric {_pcl}">
+        <div class="dash-num">{_h}</div>
+        <div class="dash-label">Healthy</div>
       </div>
-      <div class="dash-res-card">
-        <div class="dash-res-label">Memory</div>
-        <div class="dash-res-value" id="home-res-mem">—</div>
-        <div class="dash-res-bar"><div class="dash-res-fill" id="home-res-mem-bar" style="width:0;background:var(--success)"></div></div>
-        <div class="dash-res-sub" id="home-res-mem-sub"></div>
+      <div class="dash-metric">
+        <div class="dash-num">{_a} / {_t}</div>
+        <div class="dash-label">Active / Total</div>
       </div>
-      <div class="dash-res-card">
-        <div class="dash-res-label">Disk</div>
-        <div class="dash-res-value" id="home-res-disk">—</div>
-        <div class="dash-res-bar"><div class="dash-res-fill" id="home-res-disk-bar" style="width:0;background:var(--warning)"></div></div>
-        <div class="dash-res-sub" id="home-res-disk-sub"></div>
+      <div class="dash-metric dash-metricWarning">
+        <div class="dash-num">{_rl}</div>
+        <div class="dash-label">Rate Limited</div>
       </div>
-      <div class="dash-res-card">
-        <div class="dash-res-label">Load Avg</div>
-        <div class="dash-res-value" id="home-res-load">—</div>
-        <div class="dash-res-sub" id="home-res-load-sub"></div>
+      <div class="dash-metric dash-metricDanger">
+        <div class="dash-num">{_es}</div>
+        <div class="dash-label">Expiring Soon</div>
       </div>
     </div>
   </section>
+'''
+    # --- Linux.do latest board for home page ---
+    _linuxdo = linuxdo_board or {}
+    _linuxdo_items = _linuxdo.get("items") or []
+    _linuxdo_updated = str(_linuxdo.get("updated_at") or "")[:16].replace("T", " ") or "—"
+    linuxdo_home_items = ""
+    for item in _linuxdo_items[:4]:
+        title = str(item.get("title") or item.get("summary") or "Untitled")
+        if len(title) > 72:
+            title = title[:69] + "..."
+        url = str(item.get("url") or item.get("link") or "")
+        score = item.get("score")
+        score_text = f" · score {score}" if score is not None else ""
+        if url:
+            linuxdo_home_items += f'<a class="wb-news-item" href="{_html.escape(url)}" target="_blank" rel="noopener"><b>{_html.escape(title)}</b><em>Linux.do{_html.escape(score_text)}</em></a>'
+        else:
+            linuxdo_home_items += f'<div class="wb-news-item"><b>{_html.escape(title)}</b><em>Linux.do{_html.escape(score_text)}</em></div>'
+    if not linuxdo_home_items:
+        linuxdo_home_items = '<div class="wb-news-item muted"><b>No Linux.do board items</b><em>Daily board has no entries yet.</em></div>'
 
-  <!-- System Health Footer -->
-  <footer class="dash-health-bar">
-    <div class="dash-health-indicator">
-      <span class="dash-health-dot" style="background:var(--success);box-shadow:0 0 8px rgba(52,211,153,.5)"></span>
-      <span data-i18n="pf_status_run">正常运行</span>
+    body = f"""
+<div class="workbench-page portal-v2">
+  <section class="portal-hero">
+    <div>
+      <div class="wb-kicker">Personal Control Center</div>
+      <h1 id="dash-greeting-text">Brain Dashboard</h1>
+      <p id="dash-greeting-date">只保留三件事：机器/服务监控、项目入口、每日热点。</p>
     </div>
-    <div class="dash-health-indicator">
-      <span class="dash-health-dot" style="background:var(--success);box-shadow:0 0 8px rgba(52,211,153,.5)"></span>
-      <span data-i18n="dash_auth_notice">联合登录</span>
+    <div class="portal-hero-actions">
+      <a class="portal-action primary" href="/control">Control Center</a>
+      <a class="portal-action" href="/fleet">VPS Fleet</a>
     </div>
-  </footer>
+  </section>
 
+  <section class="portal-section portal-monitor">
+    <div class="dash-section-header"><h2 class="dash-section-title">🩺 Machine & Service Monitor</h2><a class="dash-section-link" href="/control">Full control →</a></div>
+    <div class="portal-monitor-grid">
+      <a class="portal-monitor-card" href="/fleet"><span class="wb-dot ok"></span><b>VPS Fleet</b><em>6 machines · Seoul / RackNerd / SEA / Frankfurt / BJ / LA</em></a>
+      <a class="portal-monitor-card" href="/control"><span class="wb-dot ok"></span><b>Service Health</b><em>Brain, Gateway, Honcho, anotify, Sub2API</em></a>
+      <a class="portal-monitor-card" href="/control"><span class="wb-dot{' wait' if _s2pool.get('total', 0) == 0 else ' ok'}"></span><b>Account Pool</b><em>{_s2pool.get('healthy', 0)} healthy · {_s2pool.get('total', 0)} total</em></a>
+      <a class="portal-monitor-card" href="{_html.escape(os.environ.get('BRAIN_SERVICE_STATUS_URL', '#'), quote=True)}" target="_blank" rel="noopener"><span class="wb-dot ok"></span><b>Uptime Kuma</b><em>external status board</em></a>
+    </div>
+  </section>
+
+  <section class="portal-section portal-projects">
+    <div class="dash-section-header"><h2 class="dash-section-title">🧩 Project Frontends</h2><a class="dash-section-link" href="/hub">All modules →</a></div>
+    <div class="portal-project-grid">
+      <a class="portal-project-card primary" href="/proposals"><span>🧠</span><b>Brain Proposals</b><em>proposal lifecycle · decision flow · evidence</em></a>
+      <a class="portal-project-card" href="/proposals?tab=knowledge"><span>🌳</span><b>Knowledge</b><em>{canonized} canonized · {refined} refined · {draft} draft</em></a>
+      <a class="portal-project-card" href="/gallery"><span>🎨</span><b>viz-skills Gallery</b><em>{chart_count} figure templates and visual assets</em></a>
+      <a class="portal-project-card" href="/linuxdo"><span>📡</span><b>Daily Signals</b><em>{len(_linuxdo_items)} curated items · updated {_html.escape(_linuxdo_updated)}</em></a>
+    </div>
+  </section>
+
+  <section class="portal-section portal-daily">
+    <div class="dash-section-header"><h2 class="dash-section-title">📰 Daily Hot Signals</h2><a class="dash-section-link" href="/linuxdo">Board →</a></div>
+    <div class="wb-news-grid portal-news-grid">
+      {linuxdo_home_items}
+    </div>
+  </section>
 </div>
 
 <style>
-/* ---- AxonHub-style Dashboard ---- */
-.dash-wrap {{
-  max-width: 860px;
-  margin: 0 auto;
-  padding: var(--sp-lg) var(--sp-lg) var(--sp-xl);
-  animation: pageEnter .4s var(--ease-out);
-}}
-
-/* Greeting */
-.dash-greeting {{
-  padding: var(--sp-xl) 0 var(--sp-lg);
-}}
-.dash-greeting h1 {{
-  font-size: 28px;
-  font-weight: 800;
-  color: var(--ink);
-  letter-spacing: -0.5px;
-  margin: 0 0 4px;
-}}
-.dash-greeting-date {{
-  font-size: 14px;
-  color: var(--ink-muted);
-  margin: 0;
-}}
-
-/* Stat Cards — AxonHub watermark style */
-.dash-stat-grid {{
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--sp-md);
-  margin-bottom: var(--sp-lg);
-  animation: staggerFade .3s var(--ease-out) .06s both;
-}}
-@media (max-width: 720px) {{
-  .dash-stat-grid {{ grid-template-columns: repeat(2, 1fr); gap: var(--sp-sm); }}
-}}
-.dash-stat-card {{
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-  padding: var(--sp-lg) var(--sp-md);
-  position: relative;
-  overflow: hidden;
-  transition: all var(--duration) var(--ease-out);
-  min-height: 100px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}}
-.dash-stat-card:hover {{
-  border-color: var(--border-hover);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md), 0 0 0 1px var(--border-hover);
-}}
-.dash-stat-card[data-accent="primary"] {{ border-left: 3px solid var(--primary); }}
-.dash-stat-card[data-accent="success"] {{ border-left: 3px solid var(--primary); }}
-.dash-stat-card[data-accent="info"] {{ border-left: 3px solid var(--info); }}
-.dash-stat-card[data-accent="warning"] {{ border-left: 3px solid var(--warning); }}
-.dash-stat-watermark {{
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  opacity: 0.06;
-  pointer-events: none;
-}}
-.dash-stat-watermark svg {{ width: 56px; height: 56px; }}
-.dash-stat-value {{
-  font-size: 2.2rem;
-  font-weight: 800;
-  line-height: 1;
-  color: var(--ink);
-  letter-spacing: -0.03em;
-  font-variant-numeric: tabular-nums;
-}}
-.dash-stat-label {{
-  font-size: .72rem;
-  color: var(--ink-muted);
-  text-transform: uppercase;
-  letter-spacing: .08em;
-  font-weight: 600;
-  margin-top: 6px;
-}}
-
-/* Section headers */
-.dash-section {{
-  margin-bottom: var(--sp-lg);
-  animation: staggerFade .3s var(--ease-out) .12s both;
-}}
-.dash-section-header {{
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--sp-sm);
-}}
-.dash-section-title {{
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--ink);
-  margin: 0;
-  letter-spacing: -0.01em;
-}}
-.dash-section-link {{
-  font-size: .82rem;
-  color: var(--primary);
-  text-decoration: none;
-  font-weight: 500;
-  transition: color var(--duration);
-}}
-.dash-section-link:hover {{ color: var(--ink); }}
-
-/* Activity Table — AxonHub style */
-.dash-table-wrap {{
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-  overflow: hidden;
-}}
-.dash-activity-table {{
-  width: 100%;
-  border-collapse: collapse;
-  font-size: .88rem;
-}}
-.dash-activity-table thead {{
-  background: var(--surface);
-}}
-.dash-activity-table th {{
-  padding: 10px 14px;
-  text-align: left;
-  color: var(--ink-muted);
-  font-size: .72rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: .06em;
-  border-bottom: 1px solid var(--border);
-}}
-.dash-activity-table td {{
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--border);
-  vertical-align: middle;
-}}
-.dash-activity-table tbody tr:last-child td {{
-  border-bottom: none;
-}}
-.dash-activity-table tbody tr {{
-  transition: background var(--duration);
-}}
-.dash-activity-table tbody tr:hover {{
-  background: var(--card-hover);
-}}
-.dash-stage-badge {{
-  font-size: 11px;
-  font-weight: 600;
-  padding: 2px 10px;
-  border-radius: var(--r-pill);
-  white-space: nowrap;
-  display: inline-block;
-}}
-.dash-activity-summary {{
-  color: var(--ink);
-  max-width: 380px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}}
-.dash-activity-time {{
-  font-size: .78rem;
-  color: var(--ink-dim);
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}}
-.dash-activity-empty {{
-  text-align: center;
-  color: var(--ink-dim);
-  padding: var(--sp-lg);
-  font-size: .9rem;
-}}
-
-/* Quick Access — horizontal tile row */
-.dash-quick-row {{
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--sp-sm);
-}}
-@media (max-width: 720px) {{
-  .dash-quick-row {{ grid-template-columns: 1fr 1fr; }}
-}}
-.dash-quick-tile {{
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding: 20px 12px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-  text-decoration: none;
-  color: var(--ink);
-  font-size: .88rem;
-  font-weight: 600;
-  transition: all .2s var(--ease-out);
-  text-align: center;
-}}
-.dash-quick-tile:hover {{
-  border-color: var(--primary);
-  transform: translateY(-2px) scale(1.02);
-  box-shadow: var(--shadow-md), 0 0 0 1px var(--primary);
-  color: var(--ink);
-  text-decoration: none;
-}}
-.dash-quick-tile-icon {{
-  width: 44px;
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--r-md);
-}}
-.dash-quick-tile-icon svg {{ width: 22px; height: 22px; }}
-
-/* Health bar footer */
-.dash-health-bar {{
-  display: flex;
-  gap: var(--sp-xl);
-  padding: var(--sp-md) 0;
-  border-top: 1px solid var(--border);
-  margin-top: var(--sp-md);
-  animation: staggerFade .3s var(--ease-out) .2s both;
-}}
-.dash-health-indicator {{
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: .82rem;
-  color: var(--ink-muted);
-  font-weight: 500;
-}}
-.dash-health-dot {{
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}}
-
-/* Responsive */
-@media (max-width: 640px) {{
-  .dash-greeting h1 {{ font-size: 22px; }}
-  .dash-stat-value {{ font-size: 1.6rem; }}
-  .dash-stat-card {{ padding: var(--sp-md); min-height: 80px; }}
-  .dash-activity-table {{ font-size: .82rem; }}
-  .dash-activity-summary {{ max-width: 200px; }}
-}}
+.workbench-page.portal-v2{{max-width:1120px;margin:0 auto;padding:var(--sp-lg);animation:pageEnter .35s var(--ease-out)}}
+.portal-hero{{display:flex;justify-content:space-between;gap:var(--sp-lg);align-items:flex-end;border:1px solid var(--border);border-radius:var(--r-lg);background:linear-gradient(135deg,var(--card),var(--surface));padding:var(--sp-xl);box-shadow:var(--shadow-sm);margin-bottom:var(--sp-lg)}}
+.portal-hero h1{{font-size:2.15rem;margin:0 0 6px;color:var(--ink);letter-spacing:-.045em}}.portal-hero p{{margin:0;color:var(--ink-muted);line-height:1.7}}
+.wb-kicker{{font-size:.72rem;text-transform:uppercase;letter-spacing:.12em;color:var(--primary);font-weight:800;margin-bottom:8px}}
+.portal-hero-actions{{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}}.portal-action{{text-decoration:none;border:1px solid var(--border);background:var(--card);color:var(--ink);border-radius:var(--r-pill);padding:8px 13px;font-size:.78rem;font-weight:800}}.portal-action.primary{{background:var(--primary);border-color:var(--primary);color:#fff}}
+.portal-section{{margin-bottom:var(--sp-lg)}}.portal-monitor-grid{{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--sp-md);background:var(--card);border:1px solid var(--border);border-top:0;border-radius:0 0 var(--r-md) var(--r-md);padding:var(--sp-md)}}
+.portal-monitor-card{{display:flex;flex-direction:column;gap:8px;text-decoration:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:var(--sp-lg);transition:border-color var(--duration),transform var(--duration),box-shadow var(--duration)}}.portal-monitor-card:hover{{border-color:var(--primary);transform:translateY(-2px);box-shadow:var(--shadow-sm)}}.portal-monitor-card b{{color:var(--ink)}}.portal-monitor-card em{{font-style:normal;color:var(--ink-muted);font-size:.8rem;line-height:1.45}}
+.portal-project-grid{{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--sp-md);background:var(--card);border:1px solid var(--border);border-top:0;border-radius:0 0 var(--r-md) var(--r-md);padding:var(--sp-md)}}.portal-project-card{{display:flex;flex-direction:column;gap:8px;text-decoration:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:var(--sp-lg);transition:border-color var(--duration),transform var(--duration),box-shadow var(--duration)}}.portal-project-card:hover{{border-color:var(--primary);transform:translateY(-2px);box-shadow:var(--shadow-sm)}}.portal-project-card.primary{{background:linear-gradient(135deg,var(--primary-muted),var(--surface));border-color:rgba(196,163,90,.45)}}.portal-project-card span{{font-size:1.5rem}}.portal-project-card b{{color:var(--ink);font-size:1rem}}.portal-project-card em{{font-style:normal;color:var(--ink-muted);font-size:.8rem;line-height:1.45}}
+.portal-news-grid{{grid-template-columns:repeat(2,minmax(0,1fr))}}.wb-news-grid{{display:grid;gap:var(--sp-md);background:var(--card);border:1px solid var(--border);border-top:0;border-radius:0 0 var(--r-md) var(--r-md);padding:var(--sp-md)}}.wb-news-item{{display:flex;flex-direction:column;gap:7px;text-decoration:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:var(--sp-md);min-height:82px}}.wb-news-item:hover{{border-color:var(--primary)}}.wb-news-item b{{color:var(--ink);font-size:.9rem;line-height:1.45}}.wb-news-item em{{font-style:normal;color:var(--ink-muted);font-size:.74rem}}.wb-news-item.muted{{opacity:.7}}
+.wb-dot{{width:8px;height:8px;border-radius:50%;display:inline-block;background:var(--ink-dim)}}.wb-dot.ok{{background:var(--success);box-shadow:0 0 8px rgba(16,185,129,.35)}}.wb-dot.wait{{background:var(--warning)}}
+.dash-section-header{{background:linear-gradient(135deg,#E8D5A0,#D4C5A0);padding:10px 16px;border:1px solid var(--border);border-bottom:none;border-radius:var(--r-md) var(--r-md) 0 0;display:flex;align-items:center;justify-content:space-between}}.dash-section-title{{font-size:.88rem;font-weight:700;color:#3D3830;margin:0;display:flex;align-items:center;gap:8px}}.dash-section-link{{font-size:.72rem;font-weight:600;background:rgba(255,255,255,.45);color:#6B5D4A;padding:2px 8px;border-radius:var(--r-pill);text-decoration:none}}
+@media(max-width:980px){{.portal-monitor-grid,.portal-project-grid{{grid-template-columns:repeat(2,minmax(0,1fr))}}.portal-hero{{align-items:flex-start;flex-direction:column}}.portal-hero-actions{{justify-content:flex-start}}}}
+@media(max-width:640px){{.portal-monitor-grid,.portal-project-grid,.portal-news-grid{{grid-template-columns:1fr}}}}
 </style>
 """
     _chartjs_tag = '<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js" crossorigin="anonymous"></script>' if home_need_chartjs else ''
-    return _page("Hermes Brain", body, nav_active="home", extra_js=_chartjs_tag + '<script>' + """
+    return _page("Hermes Brain", body, nav_active="workbench", extra_js=_chartjs_tag + '<script>' + """
 (function(){
   /* Greeting: time-of-day + display_name from localStorage */
   var h = new Date().getHours();
@@ -3625,12 +3745,12 @@ def home_page(*, node_counts: dict[str, int], chart_count: int, health_summary: 
     var data = """ + home_trend_data_js + """;
     if (!data || data.length === 0) return;
     var _cs = getComputedStyle(document.documentElement);
-    var _cPrimary = _cs.getPropertyValue('--primary').trim() || '#a78bfa';
-    var _cSuccess = _cs.getPropertyValue('--success').trim() || '#34d399';
-    var _cWarning = _cs.getPropertyValue('--warning').trim() || '#fbbf24';
-    var _cInkMuted = _cs.getPropertyValue('--ink-muted').trim() || '#8b90a5';
-    var _cInk = _cs.getPropertyValue('--ink').trim() || '#e2e4ed';
-    var _cBg = _cs.getPropertyValue('--bg').trim() || '#1a1a2e';
+    var _cPrimary = _cs.getPropertyValue('--primary').trim() || '#C4A35A';
+    var _cSuccess = _cs.getPropertyValue('--success').trim() || '#10b981';
+    var _cWarning = _cs.getPropertyValue('--warning').trim() || '#f59e0b';
+    var _cInkMuted = _cs.getPropertyValue('--ink-muted').trim() || '#71717a';
+    var _cInk = _cs.getPropertyValue('--ink').trim() || '#f4f4f5';
+    var _cBg = _cs.getPropertyValue('--bg').trim() || '#09090b';
     new Chart(el, {
       type: 'line',
       data: {
@@ -3639,7 +3759,7 @@ def home_page(*, node_counts: dict[str, int], chart_count: int, health_summary: 
           label: 'Tokens',
           data: data.map(function(d){ return d.tokens; }),
           borderColor: _cPrimary,
-          backgroundColor: 'rgba(167,139,250,.12)',
+          backgroundColor: 'rgba(59,130,246,.12)',
           fill: true, tension: 0.35, pointRadius: 3, pointHoverRadius: 6,
           pointBackgroundColor: _cPrimary, borderWidth: 2, yAxisID: 'y'
         },{
@@ -3859,187 +3979,591 @@ def dashboard_page(
     # --- Hero metrics (top strip) ---
     sub2api_available = st is not None
     if sub2api_available:
-        hero_cards = f"""<div class="dash-hero">
-  <div class="dash-metric dash-metricPrimary dash-metricAccent">
-    <div class="dash-num">{_format_tokens(today_tokens)}</div>
-    <div class="dash-label" data-i18n="dash_tokens">今日 Tokens</div>
-  </div>
-  <div class="dash-metric dash-metricSuccess">
-    <div class="dash-num">{today_requests}</div>
-    <div class="dash-label" data-i18n="dash_requests">今日请求数</div>
-  </div>
-  <div class="dash-metric{' dash-metricWarning' if today_cost > 50 else ''}">
-    <div class="dash-num">{_format_cost(today_cost)}</div>
-    <div class="dash-label" data-i18n="dash_cost">今日费用</div>
-  </div>
-  <div class="dash-metric">
-    <div class="dash-num">{_format_cost(weekly_cost)}</div>
-    <div class="dash-label" data-i18n="dash_week">本周费用</div>
-  </div>
-</div>"""
+        hero_cards = f"""  <div class="dash-grid-4">
+    <div class="dash-stat-card">
+      <div class="dash-stat-num accent-primary">{_format_tokens(today_tokens)}</div>
+      <div class="dash-stat-label" data-i18n="dash_tokens">今日 Tokens</div>
+    </div>
+    <div class="dash-stat-card">
+      <div class="dash-stat-num accent-success">{today_requests}</div>
+      <div class="dash-stat-label" data-i18n="dash_requests">今日请求数</div>
+    </div>
+    <div class="dash-stat-card">
+      <div class="dash-stat-num{' accent-warning' if today_cost > 50 else ''}">{_format_cost(today_cost)}</div>
+      <div class="dash-stat-label" data-i18n="dash_cost">今日费用</div>
+    </div>
+    <div class="dash-stat-card">
+      <div class="dash-stat-num">{_format_cost(weekly_cost)}</div>
+      <div class="dash-stat-label" data-i18n="dash_week">本周费用</div>
+    </div>
+  </div>"""
     else:
         hero_cards = ""
 
     # --- API Gateway detail section ---
     if sub2api_available:
-        # Compute health color class
         if error_accts > 0:
-            health_cls = "dash-metricDanger"
+            health_cls = "accent-warning"
+            health_label = acct_status[0]
         elif ratelimit_accts > 0:
-            health_cls = "dash-metricWarning"
+            health_cls = "accent-warning"
+            health_label = acct_status[0]
         else:
-            health_cls = "dash-metricSuccess"
-        api_section = f"""<div class="dash-api-section">
-  <div class="dash-api-header">
-    <h2>⚡ API Gateway <span style="font-size:.72rem;color:var(--ink-dim);font-weight:400;margin-left:4px">{normal_accts}/{total_accts} workers</span>{f'<span style="font-size:.68rem;color:var(--ink-dim);margin-left:6px">({admin_accts} admin excl.)</span>' if admin_accts > 0 else ''}</h2>
-    <div class="sec-api-status">
-      <span class="dot {'dot-green' if error_accts == 0 and ratelimit_accts == 0 else 'dot-amber' if ratelimit_accts > 0 else 'dot-red'}"></span>
-      <span style="color:{acct_status[1]}">{acct_status[0].replace('✅ ','').replace('⚠️ ','').replace('🔶 ','')}</span>
-      <span style="color:var(--ink-dim)">·</span>
-      <span style="color:var(--ink-muted)">{active_keys} keys</span>
-    </div>
-  </div>
-  <div class="dash-api-grid">
-    <div class="dash-api-card">
-      <div class="dash-num" style="color:var(--primary)">{_format_tokens(int(st.get('total_tokens', 0)))}</div>
-      <div class="dash-label" data-i18n="dash_total_tokens">累计 Tokens</div>
-    </div>
-    <div class="dash-api-card">
-      <div class="dash-num" style="color:var(--ink)">{int(st.get('total_requests', 0))}</div>
-      <div class="dash-label" data-i18n="dash_total_req">累计请求数</div>
-    </div>
-    <div class="dash-api-card">
-      <div class="dash-num" style="color:var(--ink-muted)">{int(st.get('total_users', 0))}</div>
-      <div class="dash-label" data-i18n="dash_users">用户数</div>
-    </div>
-    <div class="dash-api-card">
-      <div class="dash-num" style="color:var(--ink-dim)">{int(st.get('rpm', 0))}</div>
-      <div class="dash-label" data-i18n="dash_rpm">RPM(请求/分)</div>
-    </div>
-  </div>
-  {trend_chart}
-  <div class="dash-charts-row">
-    <div class="dash-trend-wrap">
-      <div class="dash-trend-label">7-Day Cost Breakdown</div>
-      <div class="dash-trend-chart-box"><canvas id="dash-cost-bar"></canvas></div>
-    </div>
-    <div class="dash-donut-wrap" style="flex-direction:column;align-items:center;gap:var(--sp-sm)">
-      <div class="dash-trend-label" style="margin-bottom:0">Worker Status</div>
-      <div class="dash-donut-canvas-wrap"><canvas id="dash-acct-donut" width="120" height="120"></canvas></div>
-      <div class="dash-donut-legend">
-        <div class="dash-donut-legend-item"><span class="dash-donut-legend-dot" style="background:var(--success)"></span><span>Normal</span><span class="dash-donut-legend-value">{normal_accts} <span style="color:var(--ink-dim);font-weight:400;font-size:.72rem">({normal_pct}%)</span></span></div>
-        <div class="dash-donut-legend-item"><span class="dash-donut-legend-dot" style="background:var(--warning)"></span><span>Rate-limited</span><span class="dash-donut-legend-value">{ratelimit_accts} <span style="color:var(--ink-dim);font-weight:400;font-size:.72rem">({rl_pct}%)</span></span></div>
-        <div class="dash-donut-legend-item"><span class="dash-donut-legend-dot" style="background:var(--danger)"></span><span>Errors</span><span class="dash-donut-legend-value">{error_accts}</span></div>
+            health_cls = "accent-success"
+            health_label = acct_status[0]
+        api_section = f"""  <div class="dash-section-card">
+    <div class="dash-section-header">
+      <h2>⚡ API Gateway <span style="font-size:.72rem;color:var(--ink-dim);font-weight:400">{normal_accts}/{total_accts} workers</span>{f'<span style="font-size:.68rem;color:var(--ink-dim);margin-left:6px">({admin_accts} admin excl.)</span>' if admin_accts > 0 else ''}</h2>
+      <div style="display:flex;align-items:center;gap:8px;font-size:.78rem">
+        <span style="color:{acct_status[1]}">{health_label.replace('✅ ','').replace('⚠️ ','').replace('🔶 ','')}</span>
+        <span style="color:var(--ink-dim)">· {active_keys} keys</span>
       </div>
     </div>
-  </div>
-</div>"""
+    <div class="dash-section-body">
+      <div class="dash-grid-4">
+        <div class="dash-stat-card">
+          <div class="dash-stat-num accent-primary">{_format_tokens(int(st.get('total_tokens', 0)))}</div>
+          <div class="dash-stat-label">累计 Tokens</div>
+        </div>
+        <div class="dash-stat-card">
+          <div class="dash-stat-num">{int(st.get('total_requests', 0))}</div>
+          <div class="dash-stat-label">累计请求数</div>
+        </div>
+        <div class="dash-stat-card">
+          <div class="dash-stat-num">{int(st.get('total_users', 0))}</div>
+          <div class="dash-stat-label">用户数</div>
+        </div>
+        <div class="dash-stat-card">
+          <div class="dash-stat-num">{int(st.get('rpm', 0))}</div>
+          <div class="dash-stat-label">RPM(请求/分)</div>
+        </div>
+      </div>
+      {trend_chart}
+      <div class="dash-grid-2">
+        <div>
+          <div class="dash-trend-label">7-Day Cost Breakdown</div>
+          <div class="dash-trend-chart-box"><canvas id="dash-cost-bar"></canvas></div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:var(--sp-sm)">
+          <div class="dash-trend-label">Worker Status</div>
+          <canvas id="dash-acct-donut" width="120" height="120"></canvas>
+          <div style="display:flex;gap:16px;font-size:.78rem">
+            <span style="color:var(--success)">Normal {normal_accts} ({normal_pct}%)</span>
+            <span style="color:var(--warning)">R-limited {ratelimit_accts} ({rl_pct}%)</span>
+            <span style="color:var(--danger)">Errors {error_accts}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>"""
     else:
-        api_section = """<div class="dash-api-section">
-  <div class="dash-api-header"><h2>⚡ API Gateway</h2></div>
-  <span class="sec-empty">Sub2API data unavailable</span>
-</div>"""
+        api_section = """  <div class="dash-section-card">
+    <div class="dash-section-header"><h2>⚡ API Gateway</h2></div>
+    <div class="dash-section-body"><div class="dash-empty">Sub2API data unavailable</div></div>
+  </div>"""
 
     body = f"""
-<div class="sec-header">
-  <h1>Dashboard</h1>
-  <span class="sec-refresh" id="refresh-indicator">Live</span>
-  <button class="sec-pause-btn" id="pause-btn" onclick="toggleRefresh()" title="Pause auto-refresh">⏸</button>
-  <span class="refresh-info" id="last-updated"></span>
-</div>
+<style>
+.pf-tab-bar{{display:flex;gap:0;border-bottom:1px solid var(--border);background:var(--card);padding:0 18px;position:sticky;top:0;z-index:30}}
+.pf-tab{{padding:10px 18px;font-size:.84rem;font-weight:700;color:var(--ink-muted);text-decoration:none;border-bottom:3px solid transparent;transition:color .15s,border-color .15s;cursor:pointer;display:flex;align-items:center;gap:6px}}
+.pf-tab:hover{{color:var(--ink)}}
+.pf-tab.active{{color:var(--primary);border-bottom-color:var(--primary)}}
+.pf-tab-badge{{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-pill);padding:1px 7px;font-size:.68rem;color:var(--ink-muted)}}
+.pf-tab.active .pf-tab-badge{{background:var(--primary);color:#fff;border-color:var(--primary)}}
+.pf-tab-content{{display:none}}
+/* ---- Dashboard v2: Clean grid, no hacks ---- */
+.dashboard-page {{
+  max-width: 960px;
+  width: 100%;
+  margin: 0 auto;
+  padding: var(--sp-lg);
+  box-sizing: border-box;
+}}
+.dash-header-row {{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--sp-lg);
+  flex-wrap: wrap;
+  gap: var(--sp-sm);
+}}
+.dash-header-row h1 {{
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--ink);
+}}
+.dash-header-controls {{
+  display: flex;
+  align-items: center;
+  gap: var(--sp-sm);
+  font-size: .82rem;
+  color: var(--ink-muted);
+}}
+.dash-header-controls .dash-live {{
+  color: var(--success);
+  font-weight: 600;
+}}
+.dash-header-controls button {{
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--ink-muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  font-size: .82rem;
+}}
+.dash-header-controls button:hover {{
+  background: var(--card-hover);
+  color: var(--ink);
+}}
+
+/* 4-column card grid */
+.dash-grid-4 {{
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--sp-md);
+  margin-bottom: var(--sp-lg);
+}}
+@media (max-width: 720px) {{
+  .dash-grid-4 {{ grid-template-columns: repeat(2, 1fr); }}
+}}
+
+/* Stat metric card */
+.dash-stat-card {{
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--sp-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: border-color var(--duration), box-shadow var(--duration);
+}}
+.dash-stat-card:hover {{
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-sm);
+}}
+.dash-stat-card .dash-stat-num {{
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--ink);
+}}
+.dash-stat-card .dash-stat-num.accent-primary {{ color: var(--primary); }}
+.dash-stat-card .dash-stat-num.accent-success {{ color: var(--success); }}
+.dash-stat-card .dash-stat-num.accent-warning {{ color: var(--warning); }}
+.dash-stat-card .dash-stat-label {{
+  font-size: .72rem;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  font-weight: 600;
+}}
+
+/* Section card (service status, api gateway) */
+.dash-section-card {{
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  margin-bottom: var(--sp-lg);
+  overflow: hidden;
+}}
+.dash-section-header {{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-sm) var(--sp-md);
+  border-bottom: 1px solid var(--border);
+}}
+.dash-section-header h2 {{
+  margin: 0;
+  font-size: .88rem;
+  font-weight: 600;
+  color: var(--ink);
+}}
+.dash-section-header a {{
+  font-size: .76rem;
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 500;
+}}
+.dash-section-body {{
+  padding: var(--sp-md);
+}}
+
+/* Service status grid */
+.dash-svc-grid-new {{
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--sp-sm);
+}}
+
+/* Service card */
+.dash-svc-card-new {{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  transition: border-color var(--duration), box-shadow var(--duration);
+}}
+.dash-svc-card-new:hover {{
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-sm);
+}}
+.dash-svc-card-new .svc-icon {{
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  flex-shrink: 0;
+}}
+.dash-svc-card-new .svc-icon.ic-uptime {{ background: var(--info-muted); color: var(--info); }}
+.dash-svc-card-new .svc-icon.ic-n8n {{ background: var(--primary-muted); color: var(--primary); }}
+.dash-svc-card-new .svc-icon.ic-files {{ background: var(--warning-muted); color: var(--warning); }}
+.dash-svc-card-new .svc-icon.ic-brain {{ background: var(--danger-muted); color: var(--danger); }}
+.dash-svc-card-new .svc-info {{
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}}
+.dash-svc-card-new .svc-name {{
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--ink);
+}}
+.dash-svc-card-new .svc-status {{
+  font-size: .72rem;
+  color: var(--success);
+  font-weight: 500;
+}}
+.dash-svc-card-new .svc-status.offline {{ color: var(--danger); }}
+.dash-svc-card-new .svc-latency {{
+  margin-left: auto;
+  font-size: .72rem;
+  color: var(--ink-dim);
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+}}
+
+/* Resource card */
+.dash-res-card-new {{
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--sp-md) var(--sp-lg);
+}}
+.dash-res-card-new .res-label {{
+  font-size: .72rem;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  font-weight: 600;
+  margin-bottom: 6px;
+}}
+.dash-res-card-new .res-value {{
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.2;
+}}
+.dash-res-card-new .res-bar {{
+  height: 4px;
+  background: var(--border-hover);
+  border-radius: 2px;
+  margin-top: 8px;
+  overflow: hidden;
+}}
+.dash-res-card-new .res-bar-fill {{
+  height: 100%;
+  border-radius: 2px;
+  transition: width .5s ease;
+}}
+.dash-res-card-new .res-sub {{
+  margin-top: 4px;
+  font-size: .72rem;
+  color: var(--ink-dim);
+}}
+
+/* 2-column VPS grid */
+.dash-grid-2 {{
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--sp-md);
+  margin-bottom: var(--sp-lg);
+}}
+@media (max-width: 720px) {{
+  .dash-grid-2 {{ grid-template-columns: 1fr; }}
+}}
+
+/* VPS panel */
+.dash-vps-panel {{
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}}
+.dash-vps-header {{
+  display: flex;
+  align-items: center;
+  gap: var(--sp-sm);
+  padding: var(--sp-sm) var(--sp-md);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}}
+.dash-vps-header h3 {{
+  margin: 0;
+  font-size: .88rem;
+  font-weight: 600;
+  color: var(--ink);
+}}
+.dash-vps-header .vps-badge {{
+  font-size: .72rem;
+  color: var(--ink-dim);
+  background: var(--border-hover);
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+}}
+.dash-vps-body {{
+  padding: var(--sp-md);
+}}
+.dash-vps-section {{
+  margin-bottom: var(--sp-md);
+}}
+.dash-vps-section:last-child {{ margin-bottom: 0; }}
+.dash-vps-section h4 {{
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--ink-muted);
+  margin: 0 0 var(--sp-sm);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}}
+.dash-vps-stat {{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: .82rem;
+}}
+.dash-vps-stat:last-child {{ border-bottom: none; }}
+.dash-vps-stat .vps-stat-label {{ color: var(--ink-muted); }}
+.dash-vps-stat .vps-stat-value {{ color: var(--ink); font-weight: 500; }}
+
+/* Empty state */
+.dash-empty {{
+  color: var(--ink-dim);
+  font-size: .82rem;
+  padding: var(--sp-md);
+  text-align: center;
+}}
+
+/* Design inspiration workbench */
+.dash-workbench-grid {{
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--sp-md);
+}}
+.dash-workbench-card {{
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: var(--sp-md);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  text-decoration: none;
+  color: var(--ink);
+  transition: border-color var(--duration), box-shadow var(--duration), transform var(--duration);
+}}
+.dash-workbench-card:hover {{
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+}}
+.dash-workbench-icon {{
+  width: 34px;
+  height: 34px;
+  border-radius: var(--r-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary-muted);
+  color: var(--primary);
+  font-size: 1.05rem;
+  flex-shrink: 0;
+}}
+.dash-workbench-title {{
+  display: block;
+  font-size: .88rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 4px;
+}}
+.dash-workbench-desc {{
+  display: block;
+  font-size: .76rem;
+  line-height: 1.5;
+  color: var(--ink-muted);
+}}
+.dash-workbench-chip {{
+  display: inline-flex;
+  margin-top: 8px;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--ink-dim);
+  font-size: .68rem;
+  font-weight: 700;
+}}
+@media (max-width: 880px) {{
+  .dash-workbench-grid {{ grid-template-columns: 1fr; }}
+}}
+
+/* Skeleton loading */
+.dash-svc-skeleton-new {{
+  height: 56px;
+  background: var(--surface);
+  border-radius: var(--r-md);
+  animation: skPulse 1.5s ease-in-out infinite;
+}}
+@keyframes skPulse {{
+  0%, 100% {{ opacity: .4; }}
+  50% {{ opacity: .8; }}
+}}
+
+</style>
+<div class="dashboard-page">
+  <div class="dash-header-row">
+    <h1>Control Center</h1>
+    <div class="dash-header-controls">
+      <span class="dash-live" id="refresh-indicator">Live</span>
+      <button id="pause-btn" onclick="toggleRefresh()">⏸</button>
+      <span id="last-updated"></span>
+    </div>
+  </div>
 
 {hero_cards}
 
-<div class="dash-uptime-section">
-  <div class="dash-uptime-card">
-    <div class="dash-uptime-header">
-      <h3>📊 <span data-i18n="dash_monitor_title_inner">服务监控</span></h3>
-      <a href="#" target="_blank" rel="noopener" class="dash-uptime-link">打开 Uptime Kuma ↗</a>
+  <div class="dash-section-card">
+    <div class="dash-section-header">
+      <h2>🖥 Service Runtime & Resource Envelope</h2>
+      <a href="{_html.escape(os.environ.get('BRAIN_SERVICE_STATUS_URL', '#'), quote=True)}" target="_blank" rel="noopener">Uptime Kuma ↗</a>
     </div>
-    <div class="dash-uptime-grid">
-      <a href="#" target="_blank" rel="noopener" class="dash-uptime-item">
-        <div class="dash-uptime-icon">🟢</div>
-        <div class="dash-uptime-info">
-          <div class="dash-uptime-name">Uptime Kuma</div>
-          <div class="dash-uptime-desc">全栈服务状态监控 · 历史可用性数据</div>
-        </div>
-        <div class="dash-uptime-arrow">→</div>
-      </a>
+    <div class="dash-section-body">
+      <div class="dash-svc-grid-new" id="svc-grid">
+        <div class="dash-svc-skeleton-new"></div>
+        <div class="dash-svc-skeleton-new"></div>
+        <div class="dash-svc-skeleton-new"></div>
+        <div class="dash-svc-skeleton-new"></div>
+      </div>
     </div>
   </div>
-  <div class="dash-uptime-note">
-    <span class="note-icon">🔗</span>
-    <span><strong data-i18n="dash_auth_notice">联合登录</strong> — <span data-i18n="dash_auth_notice2">与本系统共享凭据</span></span>
-  </div>
-</div>
 
-<div class="dash-resource-section" id="resource-section">
-  <div class="dash-res-card">
-    <div class="dash-res-label">CPU</div>
-    <div class="dash-res-value" id="res-cpu">—</div>
-    <div class="dash-res-bar"><div class="dash-res-fill" id="res-cpu-bar" style="width:0;background:var(--primary)"></div></div>
+  <div class="dash-grid-4" id="resource-section">
+    <div class="dash-res-card-new">
+      <div class="res-label">CPU</div>
+      <div class="res-value" id="res-cpu">—</div>
+      <div class="res-bar"><div class="res-bar-fill" id="res-cpu-bar" style="background:var(--primary)"></div></div>
+    </div>
+    <div class="dash-res-card-new">
+      <div class="res-label">Memory</div>
+      <div class="res-value" id="res-mem">—</div>
+      <div class="res-bar"><div class="res-bar-fill" id="res-mem-bar" style="background:var(--success)"></div></div>
+      <div class="res-sub" id="res-mem-sub"></div>
+    </div>
+    <div class="dash-res-card-new">
+      <div class="res-label">Disk</div>
+      <div class="res-value" id="res-disk">—</div>
+      <div class="res-bar"><div class="res-bar-fill" id="res-disk-bar" style="background:var(--warning)"></div></div>
+      <div class="res-sub" id="res-disk-sub"></div>
+    </div>
+    <div class="dash-res-card-new">
+      <div class="res-label">Load Avg</div>
+      <div class="res-value" id="res-load">—</div>
+      <div class="res-sub" id="res-load-sub"></div>
+    </div>
   </div>
-  <div class="dash-res-card">
-    <div class="dash-res-label">Memory</div>
-    <div class="dash-res-value" id="res-mem">—</div>
-    <div class="dash-res-bar"><div class="dash-res-fill" id="res-mem-bar" style="width:0;background:var(--success)"></div></div>
-    <div class="dash-res-sub" id="res-mem-sub"></div>
-  </div>
-  <div class="dash-res-card">
-    <div class="dash-res-label">Disk</div>
-    <div class="dash-res-value" id="res-disk">—</div>
-    <div class="dash-res-bar"><div class="dash-res-fill" id="res-disk-bar" style="width:0;background:var(--warning)"></div></div>
-    <div class="dash-res-sub" id="res-disk-sub"></div>
-  </div>
-  <div class="dash-res-card">
-    <div class="dash-res-label">Load Avg</div>
-    <div class="dash-res-value" id="res-load">—</div>
-    <div class="dash-res-sub" id="res-load-sub"></div>
-  </div>
-</div>
 
 {api_section}
 
-<div class="sec-kanban">
-
-  <div class="sec-col">
-    <div class="sec-col-header">🏠 DO VPS <span class="sec-badge">:{ssh_port}</span> {f2b_badge}</div>
-    <div class="sec-section">
-      <div class="sec-section-title">Overview</div>
-      <div class="sec-card">
-        <div class="sec-stat-row"><span class="stat-label">Uptime</span><span class="stat-value">{_html.escape(uptime)}</span></div>
+  <div class="dash-section-card">
+    <div class="dash-section-header">
+      <h2>🧪 Business Probes <span style="font-size:.72rem;color:var(--ink-dim);font-weight:400">usable accounts · proxy chain · notification path</span></h2>
+      <a href="/proposals?tab=knowledge">Open Hub ↗</a>
+    </div>
+    <div class="dash-section-body">
+      <div class="dash-workbench-grid">
+        <a class="dash-workbench-card" href="/control">
+          <span class="dash-workbench-icon">▣</span>
+          <span><span class="dash-workbench-title">Sub2API Usability</span><span class="dash-workbench-desc">关注账号池是否能实际服务请求，而不是只看进程在线。</span><span class="dash-workbench-chip">workers · token refresh</span></span>
+        </a>
+        <a class="dash-workbench-card" href="/control">
+          <span class="dash-workbench-icon">◆</span>
+          <span><span class="dash-workbench-title">Proxy Chain Reality</span><span class="dash-workbench-desc">代理状态以实际出口和链路可用性为准，避免 VPS 本机直连误判。</span><span class="dash-workbench-chip">egress · routing</span></span>
+        </a>
+        <a class="dash-workbench-card" href="/control">
+          <span class="dash-workbench-icon">✦</span>
+          <span><span class="dash-workbench-title">Notification Pipeline</span><span class="dash-workbench-desc">关注 anotify/cron 是否有真实投递证据；正常静默，异常突出。</span><span class="dash-workbench-chip">silent by default</span></span>
+        </a>
       </div>
-      <div class="sec-sysctl-grid">{_sysctl_grid(do_sysctl)}</div>
-    </div>
-    <div class="sec-section">
-      <div class="sec-section-title">Top Attackers</div>
-      <div class="sec-card">{attacker_rows if attacker_rows else '<span class="sec-empty">No recent attackers</span>'}</div>
-    </div>
-    <div class="sec-section">
-      <div class="sec-section-title">Firewall Rules ({len(ufw_rules)})</div>
-      <div class="sec-card">{do_ufw_rows if do_ufw_rows else '<span class="sec-empty">No rules</span>'}</div>
     </div>
   </div>
 
-  <div class="sec-col">
-    <div class="sec-col-header">🌐 Proxy VPS <span class="sec-badge">:{pr_ssh_port}</span> {pr_badge}</div>
-    <div class="sec-section">
-      <div class="sec-section-title">Overview</div>
-      <div class="sec-card">
-        <div class="sec-stat-row"><span class="stat-label">Uptime</span><span class="stat-value">{_html.escape(pr_uptime)}</span></div>
+  <div class="dash-grid-2">
+    <div class="dash-vps-panel">
+      <div class="dash-vps-header">
+        <h3>🏠 DO VPS</h3>
+        <span class="vps-badge">:{ssh_port}</span>
+        {f2b_badge}
       </div>
-      <div class="sec-sysctl-grid">{_sysctl_grid(pr_sysctl_items)}</div>
+      <div class="dash-vps-body">
+        <div class="dash-vps-section">
+          <h4>Overview</h4>
+          <div class="dash-vps-stat"><span class="vps-stat-label">Uptime</span><span class="vps-stat-value">{_html.escape(uptime)}</span></div>
+          {_sysctl_grid(do_sysctl)}
+        </div>
+        <div class="dash-vps-section">
+          <h4>Top Attackers</h4>
+          {attacker_rows or '<div class="dash-empty">No recent attackers</div>'}
+        </div>
+        <div class="dash-vps-section">
+          <h4>Firewall Rules ({len(ufw_rules)})</h4>
+          {do_ufw_rows or '<div class="dash-empty">No rules</div>'}
+        </div>
+      </div>
     </div>
-    <div class="sec-section">
-      <div class="sec-section-title">Proxy Traffic</div>
-      {traffic_rows if traffic_rows else '<div class="sec-card"><span class="sec-empty">No inbound data</span></div>'}
-    </div>
-    <div class="sec-section">
-      <div class="sec-section-title">Firewall Rules ({len(pr_ufw_rules)})</div>
-      <div class="sec-card">{pr_ufw_rows if pr_ufw_rows else '<span class="sec-empty">No rules</span>'}</div>
+    <div class="dash-vps-panel">
+      <div class="dash-vps-header">
+        <h3>🌐 Proxy VPS</h3>
+        <span class="vps-badge">:{pr_ssh_port}</span>
+        {pr_badge}
+      </div>
+      <div class="dash-vps-body">
+        <div class="dash-vps-section">
+          <h4>Overview</h4>
+          <div class="dash-vps-stat"><span class="vps-stat-label">Uptime</span><span class="vps-stat-value">{_html.escape(pr_uptime)}</span></div>
+          {_sysctl_grid(pr_sysctl_items)}
+        </div>
+        <div class="dash-vps-section">
+          <h4>Proxy Traffic</h4>
+          {traffic_rows or '<div class="dash-empty">No inbound data</div>'}
+        </div>
+        <div class="dash-vps-section">
+          <h4>Firewall Rules ({len(pr_ufw_rules)})</h4>
+          {pr_ufw_rows or '<div class="dash-empty">No rules</div>'}
+        </div>
+      </div>
     </div>
   </div>
-
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js" crossorigin="anonymous"></script>
@@ -4052,11 +4576,11 @@ var _acctDonut = null;
 
 // --- Chart.js theme ---
 var _cs = getComputedStyle(document.documentElement);
-var _cPrimary = _cs.getPropertyValue('--primary').trim() || '#a78bfa';
-var _cSuccess = _cs.getPropertyValue('--success').trim() || '#34d399';
-var _cInkMuted = _cs.getPropertyValue('--ink-muted').trim() || '#8b90a5';
-var _cInk = _cs.getPropertyValue('--ink').trim() || '#e2e4ed';
-var _cBg = _cs.getPropertyValue('--bg').trim() || '#1a1a2e';
+var _cPrimary = _cs.getPropertyValue('--primary').trim() || '#C4A35A';
+var _cSuccess = _cs.getPropertyValue('--success').trim() || '#10b981';
+var _cInkMuted = _cs.getPropertyValue('--ink-muted').trim() || '#71717a';
+var _cInk = _cs.getPropertyValue('--ink').trim() || '#f4f4f5';
+var _cBg = _cs.getPropertyValue('--bg').trim() || '#09090b';
 Chart.defaults.color = _cInkMuted;
 Chart.defaults.borderColor = 'rgba(255,255,255,.06)';
 Chart.defaults.font.family = '-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif';
@@ -4066,8 +4590,12 @@ function _initTrendChart() {{
   var el = document.getElementById('dash-trend-chart');
   if (!el) return;
   var data = {trend_data_js};
-  if (!data || data.length === 0) return;
-  var _cWarning = _cs.getPropertyValue('--warning').trim() || '#fbbf24';
+  if (!data || data.length === 0) {{
+    var box = el.parentElement;
+    if (box) box.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--ink-dim);font-size:.85rem">No trend data — API gateway has not recorded any activity yet</div>';
+    return;
+  }}
+  var _cWarning = _cs.getPropertyValue('--warning').trim() || '#f59e0b';
   _trendChart = new Chart(el, {{
     type: 'line',
     data: {{
@@ -4076,7 +4604,7 @@ function _initTrendChart() {{
         label: 'Tokens',
         data: data.map(function(d){{ return d.tokens; }}),
         borderColor: _cPrimary,
-        backgroundColor: 'rgba(167,139,250,.12)',
+        backgroundColor: 'rgba(59,130,246,.12)',
         fill: true,
         tension: 0.35,
         pointRadius: 3,
@@ -4141,12 +4669,16 @@ function _initAcctDonut() {{
   var el = document.getElementById('dash-acct-donut');
   if (!el) return;
   var n = {normal_accts}, r = {ratelimit_accts}, e = {error_accts};
-  if (n+r+e === 0) return;
+  if (n+r+e === 0) {{
+    var wrap = el.parentElement;
+    if (wrap) wrap.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;width:100px;height:100px;color:var(--ink-dim);font-size:.75rem;text-align:center">No worker data</div>';
+    return;
+  }}
   _acctDonut = new Chart(el, {{
     type: 'doughnut',
     data: {{
       labels: ['Normal', 'Rate-limited', 'Errors'],
-      datasets: [{{ data: [n, r, e], backgroundColor: [_cSuccess, _cs.getPropertyValue('--warning').trim() || '#fbbf24', _cs.getPropertyValue('--danger').trim() || '#f87171'], borderWidth: 0, hoverOffset: 4 }}]
+      datasets: [{{ data: [n, r, e], backgroundColor: [_cSuccess, _cs.getPropertyValue('--warning').trim() || '#f59e0b', _cs.getPropertyValue('--danger').trim() || '#ef4444'], borderWidth: 0, hoverOffset: 4 }}]
     }},
     options: {{
       responsive: false,
@@ -4163,9 +4695,13 @@ function _initCostBar() {{
   var el = document.getElementById('dash-cost-bar');
   if (!el) return;
   var data = {trend_data_js};
-  if (!data || data.length === 0) return;
-  var _cWarning = _cs.getPropertyValue('--warning').trim() || '#fbbf24';
-  var _cDanger = _cs.getPropertyValue('--danger').trim() || '#f87171';
+  if (!data || data.length === 0) {{
+    var box = el.parentElement;
+    if (box) box.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--ink-dim);font-size:.85rem">No cost breakdown — API gateway has not recorded any activity yet</div>';
+    return;
+  }}
+  var _cWarning = _cs.getPropertyValue('--warning').trim() || '#f59e0b';
+  var _cDanger = _cs.getPropertyValue('--danger').trim() || '#ef4444';
   var avgCost = data.reduce(function(s,d){{ return s + d.cost; }}, 0) / data.length;
   new Chart(el, {{
     type: 'bar',
@@ -4246,8 +4782,8 @@ function toggleRefresh() {{
     if (_secTimer) clearTimeout(_secTimer);
   }}
 }}
-function checkRefresh() {{
-  fetch('/api/dashboard/data').then(function(r){{ return r.json(); }}).then(function(data) {{
+  function checkRefresh() {{
+  fetch('/api/dashboard/data', {{credentials: 'same-origin'}}).then(function(r){{ return r.json(); }}).then(function(data) {{
     var sig = JSON.stringify(data);
     // Update "last updated" timestamp
     var now = new Date();
@@ -4270,9 +4806,694 @@ _initAcctDonut();
 _initCostBar();
 _checkResources();
 checkRefresh();
+
+/* Service health kanban */
+(function() {{
+  var svcUrls = {_json.dumps({
+    'Brain': '/knowledge',
+    'n8n': os.environ.get('BRAIN_SERVICE_AUTOMATION_URL', '#'),
+    'Uptime Kuma': os.environ.get('BRAIN_SERVICE_STATUS_URL', '#'),
+    'File Browser': os.environ.get('BRAIN_SERVICE_FILES_URL', '#'),
+  })};
+  var svcIcons = {{
+    'Brain': '🧠',
+    'n8n': '🔄',
+    'Uptime Kuma': '📊',
+    'File Browser': '📁'
+  }};
+  function loadSvcHealth() {{
+    fetch('/api/dashboard/health').then(function(r){{return r.json()}}).then(function(data) {{
+      var grid = document.getElementById('svc-grid');
+      if (!grid) return;
+      var services = data.services || [];
+      grid.innerHTML = '';
+      services.forEach(function(svc) {{
+        var card = document.createElement('div');
+        card.className = 'dash-svc-card-new';
+        var url = svcUrls[svc.name] || '#';
+        var icon = svcIcons[svc.name] || '🔹';
+        card.innerHTML = '<div class="svc-icon ic-' + svc.name.toLowerCase().replace(/ /g, '-') + '">' + icon + '</div>' +
+          '<div class="svc-info"><div class="svc-name">' + svc.name + '</div>' +
+          '<div class="svc-status' + (svc.alive ? '' : ' offline') + '">' + (svc.alive ? 'Online' : 'Offline') + '</div></div>' +
+          '<div class="svc-latency">' + (svc.alive ? svc.latency_ms + 'ms' : '—') + '</div>';
+        card.style.cursor = 'pointer';
+        card.onclick = function() {{ window.open(url, '_blank'); }};
+        grid.appendChild(card);
+      }});
+    }}).catch(function() {{
+      var grid = document.getElementById('svc-grid');
+      if (grid) grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--ink-dim);font-size:.8rem;padding:20px">Health check unavailable</div>';
+    }});
+  }}
+  loadSvcHealth();
+  setInterval(loadSvcHealth, 15000);
+}})();
 </script>"""
 
-    return _page("Dashboard", body, nav_active="home")
+    return _page("Control Center", body, nav_active="control")
+
+
+def proposal_lifecycle_page(overview: dict, tab="flow", review_html="", knowledge_html="", graph_data=None) -> str:
+    """Render the knowledge graph page (v3) — single unified view replacing old 3-tab flow.
+
+    Data: graph_data from get_knowledge_graph() — nodes + edges with lineage.
+    Layout: left filters | center canvas graph | right detail panel.
+    """
+    import json as _json
+
+    overview = overview if isinstance(overview, dict) else {}
+    graph_data = graph_data if isinstance(graph_data, dict) else {"nodes": [], "edges": [], "stats": {}}
+
+    nodes_json = _json.dumps(graph_data.get("nodes", []), ensure_ascii=False)
+    edges_json = _json.dumps(graph_data.get("edges", []), ensure_ascii=False)
+    stats = graph_data.get("stats", {})
+    total_nodes = stats.get("total_nodes", len(graph_data.get("nodes", [])))
+    total_edges = stats.get("total_edges", len(graph_data.get("edges", [])))
+    stage_counts = stats.get("stage_counts", {})
+
+    # Stage colors for graph nodes
+    stage_colors = {
+        "canonized": "#C4A35A",
+        "pending": "#D4785A",
+        "refined": "#7BA7C9",
+        "verified": "#9BCE8F",
+        "draft": "#A8B5C4",
+        "deprecated": "#C49B9B",
+        "quarantined": "#E04040",
+    }
+    stage_colors_json = _json.dumps(stage_colors)
+
+    # Compute workbench stats from graph data
+    all_nodes = graph_data.get("nodes", [])
+    all_edges = graph_data.get("edges", [])
+
+    _edge_nodes = set()
+    _conflict_nodes = set()
+    for e in all_edges:
+        _edge_nodes.add(e.get("from_id",""))
+        _edge_nodes.add(e.get("to_id",""))
+        if e.get("edge_type") == "contradicts":
+            _conflict_nodes.add(e.get("from_id",""))
+            _conflict_nodes.add(e.get("to_id",""))
+
+    _cnt_rules = sum(1 for n in all_nodes if n.get("category") == "rule")
+    _cnt_workflows = sum(1 for n in all_nodes if n.get("category") in ("workflow_hint","workflow"))
+    _cnt_facts = sum(1 for n in all_nodes if n.get("category") == "fact")
+    _cnt_prefs = sum(1 for n in all_nodes if n.get("category") == "preference")
+    _cnt_pending = sum(1 for n in all_nodes if n.get("stage") in ("pending",))
+    _cnt_isolated = sum(1 for n in all_nodes if n.get("id") not in _edge_nodes)
+    _cnt_used = sum(1 for n in all_nodes if n.get("retrieval_count", 0) > 0)
+    _cnt_conflict = sum(1 for n in all_nodes if n.get("id") in _conflict_nodes)
+    _cnt_quarantined = sum(1 for n in all_nodes if n.get("stage") == "quarantined")
+    _cnt_dirty = sum(1 for n in all_nodes if n.get("dirty") or n.get("category") == "chat_session")
+    _cnt_stale = sum(1 for n in all_nodes if n.get("stage") in ("canonized","verified","refined") and not n.get("last_used_at"))
+
+    _embedding = overview.get("embeddings", {}) if isinstance(overview.get("embeddings"), dict) else {}
+    _embedding_entities = _embedding.get("entities", {}) if isinstance(_embedding.get("entities"), dict) else {}
+    _proposal_embedding = _embedding_entities.get("proposal", {})
+    _knowledge_embedding = _embedding_entities.get("knowledge", {})
+    _embedding_provider = _embedding.get("provider", {}) if isinstance(_embedding.get("provider"), dict) else {}
+    _embedding_ready = int(_embedding.get("ready", 0) or 0)
+    _embedding_total = int(_embedding.get("total", 0) or 0)
+    _embedding_pct = round((_embedding_ready / _embedding_total * 100.0) if _embedding_total else 100.0, 1)
+    _embedding_state = str(_embedding.get("state") or "not_configured")
+    _embedding_label = _embedding_state.replace("_", " ")
+    _embedding_model = str(_embedding_provider.get("model") or "—")
+    _proposal_sync = overview.get("proposal_sync", {}) if isinstance(overview.get("proposal_sync"), dict) else {}
+    _sync_approved = int(_proposal_sync.get("approved", 0) or 0)
+    _sync_linked = int(_proposal_sync.get("linked", 0) or 0)
+    _sync_missing = int(_proposal_sync.get("missing", 0) or 0)
+    _sync_pct = float(_proposal_sync.get("coverage", 100.0) or 0.0)
+    _sync_state = str(_proposal_sync.get("state") or ("healthy" if _sync_missing == 0 else "syncing"))
+
+    # Stats now shown inline in Workbench pills — no separate stat bar
+
+    body = f"""<style>
+.kg-page{{display:flex;height:calc(100vh - var(--header-h, 56px));overflow:hidden;background:var(--bg)}}
+.kg-left{{width:260px;min-width:200px;border-right:1px solid var(--border);background:var(--card);overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px}}
+.kg-left h3{{font-size:.82rem;margin:0 0 8px;color:var(--ink)}}
+.kg-stat-bar{{display:flex;gap:6px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--border)}}
+.kg-stat{{font-size:.7rem;color:var(--ink-muted);background:var(--surface);padding:3px 8px;border-radius:var(--r-pill);font-weight:600}}
+.kg-stat b{{color:var(--ink)}}
+.kg-filter{{display:flex;flex-direction:column;gap:6px}}
+.kg-filter{{display:flex;flex-direction:column;gap:6px}}
+.kg-filter input{{border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);color:var(--ink);padding:6px 10px;font-size:.76rem;outline:none;width:100%}}
+.kg-filter input:focus{{border-color:var(--primary)}}
+.kg-quick-link{{text-decoration:none}}
+.kg-pill{{display:block;font-size:.72rem;color:var(--ink-muted);background:var(--surface);padding:4px 10px;border-radius:var(--r-pill);font-weight:600;border:1px solid transparent;transition:all .12s}}
+.kg-pill b{{color:var(--ink)}}
+.kg-pill.active,.kg-pill:hover{{border-color:var(--primary);color:var(--primary)}}
+.kg-pill.active b,.kg-pill:hover b{{color:var(--primary)}}
+.kg-vector-card{{border:1px solid var(--border);background:var(--surface);border-radius:var(--r-md);padding:10px;display:flex;flex-direction:column;gap:7px}}
+.kg-vector-head{{display:flex;justify-content:space-between;align-items:center;font-size:.72rem;color:var(--ink-muted)}}
+.kg-vector-head b{{color:var(--ink)}}
+.kg-vector-state{{font-size:.62rem;text-transform:uppercase;letter-spacing:.04em;color:var(--success);font-weight:700}}
+.kg-vector-state[data-state="syncing"]{{color:var(--warning)}}
+.kg-vector-state[data-state="degraded"]{{color:var(--danger,#C94A4A)}}
+.kg-vector-state[data-state="disabled"],.kg-vector-state[data-state="not_configured"]{{color:var(--ink-muted)}}
+.kg-vector-bar{{height:5px;background:var(--border);border-radius:var(--r-pill);overflow:hidden}}
+.kg-vector-bar span{{display:block;height:100%;background:var(--primary);border-radius:inherit}}
+.kg-vector-meta{{font-size:.65rem;line-height:1.45;color:var(--ink-muted);word-break:break-word}}
+.kg-center{{flex:1;position:relative;overflow:hidden;background:radial-gradient(ellipse at center,var(--card),var(--surface))}}
+.kg-center canvas{{position:absolute;inset:0;width:100%;height:100%}}
+.kg-search{{position:absolute;top:12px;left:16px;z-index:10}}
+.kg-search input{{border:1px solid var(--border);border-radius:var(--r-pill);background:var(--card);color:var(--ink);padding:6px 14px;font-size:.78rem;outline:none;width:220px;box-shadow:var(--shadow-sm)}}
+.kg-search input:focus{{border-color:var(--primary)}}
+.kg-legend{{position:absolute;bottom:12px;left:16px;display:flex;gap:8px;flex-wrap:wrap;z-index:10;background:var(--card);padding:6px 12px;border-radius:var(--r-sm);border:1px solid var(--border)}}
+.kg-legend-item{{display:flex;align-items:center;gap:4px;font-size:.68rem;color:var(--ink-muted);cursor:pointer;font-weight:600}}
+.kg-legend-item span{{width:10px;height:10px;border-radius:50%;display:inline-block}}
+.kg-legend-item.dim{{opacity:.35}}
+.kg-help{{position:absolute;bottom:12px;right:16px;font-size:.65rem;color:var(--ink-muted);opacity:.5;z-index:10;pointer-events:none}}
+.kg-right{{width:380px;border-left:1px solid var(--border);background:var(--card);overflow-y:auto;display:none;flex-direction:column}}
+.kg-right.open{{display:flex}}
+.kg-right-head{{position:sticky;top:0;background:linear-gradient(135deg,#E8D5A0,#D4C5A0);padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;z-index:5}}
+.kg-right-head h2{{margin:0;font-size:.88rem;color:#3D3830;line-height:1.35;word-break:break-word}}
+.kg-right-close{{border:none;background:none;font-size:1.3rem;cursor:pointer;color:#5B5142;padding:0 4px;line-height:1}}
+.kg-right-body{{padding:16px;display:flex;flex-direction:column;gap:12px}}
+.kg-right-body .kg-row{{display:flex;justify-content:space-between;gap:10px;font-size:.76rem;color:var(--ink-muted);border-top:1px solid var(--border);padding-top:8px}}
+.kg-right-body .kg-row b{{color:var(--ink);text-align:right;word-break:break-word}}
+.kg-right-body .kg-content{{font-size:.78rem;color:var(--ink);line-height:1.6;white-space:pre-wrap;word-break:break-word;max-height:200px;overflow-y:auto;background:var(--surface);padding:10px;border-radius:var(--r-sm)}}
+.kg-actions{{display:flex;flex-wrap:wrap;gap:6px;padding-top:8px;border-top:1px solid var(--border)}}
+.kg-btn{{border:1px solid var(--border);border-radius:var(--r-sm);padding:6px 12px;font-size:.74rem;cursor:pointer;font-weight:600;background:var(--surface);color:var(--ink);transition:all .12s}}
+.kg-btn:hover{{border-color:var(--primary);background:var(--primary);color:#fff}}
+.kg-btn.danger:hover{{background:#C94A4A;border-color:#C94A4A}}
+.kg-edge-list{{font-size:.72rem;color:var(--ink-muted)}}
+.kg-edge-item{{display:flex;justify-content:space-between;align-items:center;padding:5px 8px;background:var(--surface);border-radius:var(--r-sm);margin-bottom:4px;font-size:.7rem}}
+.kg-edge-type{{font-weight:700;color:var(--primary);text-transform:uppercase;font-size:.65rem}}
+</style>
+<div class="kg-page">
+<div class="kg-left">
+  <h3>Workbench</h3>
+  <div class="kg-filter">
+    <a href="#" class="kg-quick-link" onclick="return kgSetFilter('all', this)"><span data-filter="all" class="kg-pill active"><b>{total_nodes}</b> all</span></a>
+    <a href="#" class="kg-quick-link" onclick="return kgSetFilter('pending', this)"><span data-filter="pending" class="kg-pill"><b>{_cnt_pending}</b> pending</span></a>
+    <a href="#" class="kg-quick-link" onclick="return kgSetFilter('isolated', this)"><span data-filter="isolated" class="kg-pill"><b>{_cnt_isolated}</b> isolated</span></a>
+    <a href="#" class="kg-quick-link" onclick="return kgSetFilter('used', this)"><span data-filter="used" class="kg-pill"><b>{_cnt_used}</b> recently used</span></a>
+    <a href="#" class="kg-quick-link" onclick="return kgSetFilter('conflict', this)"><span data-filter="conflict" class="kg-pill"><b>{_cnt_conflict}</b> conflicts</span></a>
+    <a href="#" class="kg-quick-link" onclick="return kgSetFilter('dirty', this)"><span data-filter="dirty" class="kg-pill"><b>{_cnt_dirty}</b> dirty</span></a>
+    <a href="#" class="kg-quick-link" onclick="return kgSetFilter('stale', this)"><span data-filter="stale" class="kg-pill"><b>{_cnt_stale}</b> stale</span></a>
+    <a href="#" class="kg-quick-link" onclick="return kgSetFilter('quarantined', this)"><span data-filter="quarantined" class="kg-pill"><b>{_cnt_quarantined}</b> quarantined</span></a>
+  </div>
+  <h3>Category</h3>
+  <div class="kg-filter">
+    <a href="#" class="kg-quick-link" onclick="return kgSetFilter('category:rule', this)"><span data-filter="category:rule" class="kg-pill"><b>{_cnt_rules}</b> rules</span></a>
+    <a href="#" class="kg-quick-link" onclick="return kgSetFilter('category:workflow', this)"><span data-filter="category:workflow" class="kg-pill"><b>{_cnt_workflows}</b> workflows</span></a>
+    <a href="#" class="kg-quick-link" onclick="return kgSetFilter('category:fact', this)"><span data-filter="category:fact" class="kg-pill"><b>{_cnt_facts}</b> facts</span></a>
+    <a href="#" class="kg-quick-link" onclick="return kgSetFilter('category:preference', this)"><span data-filter="category:preference" class="kg-pill"><b>{_cnt_prefs}</b> preferences</span></a>
+  </div>
+  <h3>Health</h3>
+  <div style="font-size:.72rem;color:var(--ink-muted);line-height:1.8;padding:0 4px">
+    <div>Quarantined: <b style="color:#E04040">{_cnt_quarantined}</b></div>
+    <div>Stale: <b>{_cnt_stale}</b></div>
+    <div>Dirty: <b>{_cnt_dirty}</b></div>
+    <div>Conflicts: <b>{_cnt_conflict}</b></div>
+  </div>
+  <h3>Automation</h3>
+  <div class="kg-vector-card" title="Approved proposals automatically materialized as maintained Knowledge">
+    <div class="kg-vector-head"><b>{_sync_linked} / {_sync_approved} linked</b><span class="kg-vector-state" data-state="{_sync_state}">{_sync_state}</span></div>
+    <div class="kg-vector-bar"><span style="width:{_sync_pct}%"></span></div>
+    <div class="kg-vector-meta">Approved Proposal → Knowledge<br>{_sync_missing} waiting · {_sync_pct}% coverage</div>
+  </div>
+  <h3>Vector Index</h3>
+  <div class="kg-vector-card" title="Persisted semantic vectors used by hybrid retrieval">
+    <div class="kg-vector-head"><b>{_embedding_ready} / {_embedding_total}</b><span class="kg-vector-state" data-state="{_html.escape(_embedding_state)}">{_html.escape(_embedding_label)}</span></div>
+    <div class="kg-vector-bar"><span style="width:{_embedding_pct}%"></span></div>
+    <div class="kg-vector-meta">Proposal {int(_proposal_embedding.get('ready', 0) or 0)}/{int(_proposal_embedding.get('total', 0) or 0)} · Knowledge {int(_knowledge_embedding.get('ready', 0) or 0)}/{int(_knowledge_embedding.get('total', 0) or 0)}<br>{_html.escape(_embedding_model)} · {_embedding_pct}% coverage</div>
+  </div>
+  <h3>Search</h3>
+  <div class="kg-filter">
+    <input type="text" id="kg-search-left" placeholder="Search..." oninput="kgApplyFilters()">
+  </div>
+</div>
+<div class="kg-center" id="kg-canvas-wrap">
+  <!-- search moved to left panel -->
+  <canvas id="kg-canvas"></canvas>
+  <div class="kg-legend" id="kg-legend"></div>
+  <div class="kg-help">Click node for details · Drag to pan · Scroll to zoom</div>
+</div>
+<div class="kg-right" id="kg-detail">
+  <div class="kg-right-head">
+    <h2 id="kg-detail-title"></h2>
+    <button class="kg-right-close" onclick="kgCloseDetail()">&times;</button>
+  </div>
+  <div class="kg-right-body" id="kg-detail-body"></div>
+</div>
+</div>
+<script>
+(function(){{
+  const NODES = {nodes_json};
+  const EDGES = {edges_json};
+  const STAGE_COLORS = {stage_colors_json};
+
+  const nodeMap = new Map();
+  const edgeList = [];
+  let selectedId = null;
+  let zoom = 0.6, panX = 0, panY = 0;
+  let dragging = false, dragStartX, dragStartY, panStartX, panStartY;
+  let nodeDragging = null, nodeDragStartX, nodeDragStartY;
+
+  NODES.forEach(function(n){{
+    nodeMap.set(n.id, {{
+      id: n.id, type: n.type, summary: n.summary, category: n.category,
+      domain: n.domain, stage: n.stage, confidence: n.confidence,
+      retrieval_count: n.retrieval_count, outcome_count: n.outcome_count,
+      source: n.source, created_at: n.created_at, refined_at: n.refined_at,
+      last_used_at: n.last_used_at,
+      x: Math.random()*800+100, y: Math.random()*500+100,
+      vx: 0, vy: 0
+    }});
+  }});
+
+  EDGES.forEach(function(e){{
+    var from = nodeMap.get(e.from_id), to = nodeMap.get(e.to_id);
+    if(from && to) edgeList.push({{from:from, to:to, type:e.edge_type}});
+  }});
+
+  const canvas = document.getElementById('kg-canvas');
+  const ctx = canvas.getContext('2d');
+  const wrap = document.getElementById('kg-canvas-wrap');
+
+  function resize() {{
+    canvas.width = wrap.clientWidth;
+    canvas.height = wrap.clientHeight;
+  }}
+  resize();
+  window.addEventListener('resize', resize);
+
+  // Build legend — only meaningful stages, no toggle
+  var legendEl = document.getElementById('kg-legend');
+  var legendHTML = '';
+  var legendStages = ['canonized', 'pending', 'draft', 'refined', 'verified', 'deprecated'];
+  legendStages.forEach(function(s){{
+    var c = STAGE_COLORS[s] || '#999';
+    legendHTML += '<span class="kg-legend-item"><span style="background:'+c+'"></span>'+s+'</span>';
+  }});
+  legendEl.innerHTML = legendHTML;
+
+  // Edge lookup for health classification
+  var edgeNodeIds = new Set();
+  var conflictNodeIds = new Set();
+  EDGES.forEach(function(e){{
+    edgeNodeIds.add(e.from_id);
+    edgeNodeIds.add(e.to_id);
+    if(e.edge_type === 'contradicts'){{
+      conflictNodeIds.add(e.from_id);
+      conflictNodeIds.add(e.to_id);
+    }}
+  }});
+
+  function kgMatchFilter(n, filter) {{
+    if(filter === 'all') return true;
+    if(filter === 'pending') return n.stage === 'pending';
+    if(filter === 'isolated') return !edgeNodeIds.has(n.id);
+    if(filter === 'used') return (n.retrieval_count || 0) > 0;
+    if(filter === 'conflict') return conflictNodeIds.has(n.id);
+    if(filter === 'dirty') return n.dirty || n.category === 'chat_session' || !n.summary || n.summary.length < 10;
+    if(filter === 'stale') return (n.stage === 'canonized' || n.stage === 'verified' || n.stage === 'refined') && !n.last_used_at;
+    if(filter === 'quarantined') return n.stage === 'quarantined';
+    if(filter.startsWith('category:')) {{
+      var cat = filter.split(':')[1];
+      return n.category === cat || (cat === 'workflow' && n.category === 'workflow_hint');
+    }}
+    return true;
+  }}
+
+  function kgSetFilter(filter, link) {{
+    window._kgActiveFilter = filter;
+    document.querySelectorAll('.kg-pill').forEach(function(el){{el.classList.remove('active');}});
+    var pill = link && link.querySelector ? link.querySelector('.kg-pill') : null;
+    if(pill) pill.classList.add('active');
+    kgApplyFilters();
+    return false;
+  }}
+  window.kgSetFilter = kgSetFilter;
+
+  function getFilteredNodes() {{
+    var srchEl = document.getElementById('kg-search-left');
+    var search = (srchEl ? srchEl.value : '').toLowerCase();
+    var result = [];
+    var activeFilter = window._kgActiveFilter || 'all';
+    nodeMap.forEach(function(n){{
+      if(!kgMatchFilter(n, activeFilter)) return;
+      if(search){{
+        var txt = (n.summary + ' ' + n.category + ' ' + n.domain + ' ' + n.type).toLowerCase();
+        if(txt.indexOf(search) < 0) return;
+      }}
+      result.push(n);
+    }});
+    return result;
+  }}
+
+  function draw() {{
+    var w = canvas.width, h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+    ctx.save();
+    ctx.translate(w/2 + panX, h/2 + panY);
+    ctx.scale(zoom, zoom);
+
+    var filtered = getFilteredNodes();
+    var filteredIds = new Set(filtered.map(function(n){{return n.id;}}));
+
+    // Draw edges
+    ctx.strokeStyle = 'rgba(150,120,60,.35)';
+    ctx.lineWidth = 1.5;
+    edgeList.forEach(function(e){{
+      if(!filteredIds.has(e.from.id) || !filteredIds.has(e.to.id)) return;
+      var sel = selectedId && (e.from.id === selectedId || e.to.id === selectedId);
+      if(sel){{ctx.strokeStyle = '#C4A35A'; ctx.lineWidth = 3;}}
+      else{{ctx.strokeStyle = 'rgba(150,120,60,.35)'; ctx.lineWidth = 1.5;}}
+      ctx.beginPath();
+      ctx.moveTo(e.from.x, e.from.y);
+      ctx.lineTo(e.to.x, e.to.y);
+      ctx.stroke();
+    }});
+
+    // Draw nodes
+    filtered.forEach(function(n){{
+      var r = Math.max(4, Math.min(12, 4 + (n.retrieval_count||0) * 0.5 + (n.outcome_count||0)));
+      var color = STAGE_COLORS[n.stage] || '#999';
+      var sel = n.id === selectedId;
+
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, r, 0, Math.PI*2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      if(sel){{
+        ctx.strokeStyle = '#C4A35A';
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+      }}
+
+      // Label for important nodes
+      if((n.retrieval_count||0) >= 2 || sel || n.confidence >= 0.8){{
+        var label = n.summary.length > 30 ? n.summary.slice(0,30)+'...' : n.summary;
+        ctx.fillStyle = '#3D3830';
+        ctx.font = (sel?'bold ':'')+'9px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(label, n.x, n.y + r + 12);
+      }}
+    }});
+
+    ctx.restore();
+  }}
+
+  // Physics simulation
+  function simulate() {{
+    var filtered = getFilteredNodes();
+    var cx = 0, cy = 0;
+    filtered.forEach(function(n){{cx += n.x; cy += n.y;}});
+    cx /= Math.max(1, filtered.length);
+    cy /= Math.max(1, filtered.length);
+
+    filtered.forEach(function(n){{
+      // Repulsion
+      filtered.forEach(function(m){{
+        if(n === m) return;
+        var dx = n.x - m.x, dy = n.y - m.y;
+        var dist = Math.sqrt(dx*dx + dy*dy) + 1;
+        if(dist > 200) return;
+        var force = 800/(dist*dist);
+        n.vx += force*dx/dist;
+        n.vy += force*dy/dist;
+      }});
+      // Center pull
+      n.vx += (cx - n.x)*0.001;
+      n.vy += (cy - n.y)*0.001;
+      // Damping
+      n.vx *= 0.9;
+      n.vy *= 0.9;
+      // Limit
+      var sp = Math.sqrt(n.vx*n.vx + n.vy*n.vy);
+      if(sp > 8){{n.vx = n.vx/sp*8; n.vy = n.vy/sp*8;}}
+      n.x += n.vx;
+      n.y += n.vy;
+    }});
+  }}
+
+  // Pan & zoom
+  wrap.addEventListener('mousedown', function(e){{
+    var rect = canvas.getBoundingClientRect();
+    var mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    // Check if clicking a node
+    var w = canvas.width, h = canvas.height;
+    var gx = (mx - w/2 - panX)/zoom, gy = (my - h/2 - panY)/zoom;
+    var hit = null;
+    getFilteredNodes().forEach(function(n){{
+      var r = Math.max(4, Math.min(12, 4 + (n.retrieval_count||0)*0.5));
+      var dx = gx - n.x, dy = gy - n.y;
+      if(dx*dx+dy*dy < (r+5)*(r+5)) hit = n;
+    }});
+    if(hit){{
+      selectedId = hit.id;
+      kgShowDetail(hit);
+      draw();
+      return;
+    }}
+    selectedId = null;
+    kgCloseDetail();
+    dragging = true;
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    panStartX = panX;
+    panStartY = panY;
+    wrap.style.cursor = 'grabbing';
+  }});
+
+  window.addEventListener('mousemove', function(e){{
+    if(!dragging) return;
+    panX = panStartX + (e.clientX - dragStartX);
+    panY = panStartY + (e.clientY - dragStartY);
+    draw();
+  }});
+
+  window.addEventListener('mouseup', function(){{
+    dragging = false;
+    wrap.style.cursor = '';
+  }});
+
+  wrap.addEventListener('wheel', function(e){{
+    e.preventDefault();
+    var factor = e.deltaY < 0 ? 1.12 : 0.89;
+    zoom = Math.max(0.1, Math.min(4, zoom*factor));
+    draw();
+  }}, {{passive:false}});
+
+  function kgApplyFilters(){{draw();}}
+  window.kgApplyFilters = kgApplyFilters;
+
+  // Detail panel
+  function kgShowDetail(n){{
+    var detail = document.getElementById('kg-detail');
+    detail.classList.add('open');
+    setTimeout(function(){{ resize(); draw(); }}, 300);
+    document.getElementById('kg-detail-title').textContent = n.summary || n.id;
+    var body = document.getElementById('kg-detail-body');
+    var html = '<div class="kg-row"><span>Type</span><b>'+esc(n.type)+'</b></div>';
+    html += '<div class="kg-row"><span>Stage</span><b>'+esc(n.stage)+'</b></div>';
+    html += '<div class="kg-row"><span>Category</span><b>'+esc(n.category)+'</b></div>';
+    html += '<div class="kg-row"><span>Domain</span><b>'+esc(n.domain)+'</b></div>';
+    html += '<div class="kg-row"><span>Confidence</span><b>'+n.confidence+'</b></div>';
+    html += '<div class="kg-row"><span>Retrieved</span><b>'+(n.retrieval_count||0)+'x</b></div>';
+    html += '<div class="kg-row"><span>Outcomes</span><b>'+(n.outcome_count||0)+'</b></div>';
+    if(n.source) html += '<div class="kg-row"><span>Source</span><b>'+esc(n.source)+'</b></div>';
+    html += '<div class="kg-content">'+esc(n.summary)+'</div>';
+
+    // Connected edges
+    var connected = edgeList.filter(function(e){{return e.from.id===n.id||e.to.id===n.id;}});
+    if(connected.length){{
+      html += '<h4 style="font-size:.78rem;margin:10px 0 4px">Connections ('+connected.length+')</h4>';
+      connected.slice(0,10).forEach(function(e){{
+        var other = e.from.id===n.id ? e.to : e.from;
+        var dir = e.from.id===n.id ? '&rarr;' : '&larr;';
+        html += '<div class="kg-edge-item"><span>'+esc(other.summary||other.id).slice(0,30)+'</span><span class="kg-edge-type">'+dir+' '+e.type+'</span></div>';
+      }});
+      if(connected.length>10) html += '<div style="font-size:.7rem;color:var(--ink-muted)">+ '+(connected.length-10)+' more</div>';
+    }}
+
+    // Actions
+    html += '<div class="kg-actions">';
+    html += '<button class="kg-btn" onclick="kgAction(\\'approve\\',\\''+n.id+'\\')">Approve</button>';
+    html += '<button class="kg-btn" onclick="kgAction(\\'reject\\',\\''+n.id+'\\')">Reject</button>';
+    html += '<button class="kg-btn" onclick="window.open(\\'/review/'+n.id+'\\',\\'_blank\\')">View Details</button>';
+    html += '</div>';
+
+    body.innerHTML = html;
+  }}
+  window.kgShowDetail = kgShowDetail;
+
+  function kgCloseDetail(){{
+    document.getElementById('kg-detail').classList.remove('open');
+    selectedId = null;
+    setTimeout(function(){{ resize(); draw(); }}, 300);
+  }}
+  window.kgCloseDetail = kgCloseDetail;
+
+  function kgAction(action, id){{
+    var url = '/api/review/'+id+'/'+(action==='approve'?'approve-db-only':'reject');
+    fetch(url, {{method:'POST',headers:{{'Content-Type':'application/json'}}}})
+      .then(function(r){{return r.json();}})
+      .then(function(d){{alert(action+' done');}})
+      .catch(function(e){{alert('Error: '+e);}});
+  }}
+
+  function esc(v){{return String(v||'').replace(/[&<>"']/g,function(c){{return{{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}}[c];}});}}
+
+  // Animation loop
+  var simTick = 0;
+  function loop(){{
+    if(simTick < 300){{simulate();simTick++;}}
+    draw();
+    requestAnimationFrame(loop);
+  }}
+  loop();
+}})();
+</script>
+"""
+    return _page("Knowledge Graph", body, nav_active="knowledge")
+
+def brain_map_page() -> str:
+    """Compatibility wrapper for the former proposal map page."""
+    return proposal_lifecycle_page({
+        "stages": {},
+        "operations": {},
+        "active": [],
+        "timeline": [],
+        "thought_chains": [],
+        "retrieval_events": [],
+        "decision_chains": [],
+        "merge_count": 0,
+        "supersede_count": 0,
+    })
+
+
+def vps_fleet_page() -> str:
+    """Render VPS fleet dashboard."""
+    body = """
+<style>
+.fleet-page{padding:var(--sp-xl);max-width:1180px;margin:0 auto}.fleet-hero{border:1px solid var(--border);border-radius:var(--r-lg);background:linear-gradient(135deg,var(--card),var(--surface));padding:var(--sp-xl);box-shadow:var(--shadow-sm);margin-bottom:var(--sp-lg);display:flex;justify-content:space-between;gap:var(--sp-lg);align-items:flex-end}.fleet-hero h1{font-size:2rem;letter-spacing:-.04em;margin:0 0 8px;color:var(--ink)}.fleet-hero p{color:var(--ink-muted);line-height:1.7;max-width:760px;margin:0}.fleet-actions{display:flex;gap:8px;flex-wrap:wrap}.fleet-btn{border:1px solid var(--border);background:var(--card);color:var(--ink);border-radius:var(--r-pill);padding:7px 12px;font-size:.78rem;font-weight:800;cursor:pointer}.fleet-btn:hover{border-color:var(--primary);color:var(--primary)}.fleet-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--sp-md);margin-bottom:var(--sp-lg)}.fleet-stat{border:1px solid var(--border);border-radius:var(--r-md);background:var(--card);padding:var(--sp-lg)}.fleet-stat b{display:block;font-size:1.55rem;color:var(--ink);line-height:1}.fleet-stat span{display:block;margin-top:7px;color:var(--ink-muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;font-weight:800}.fleet-board{border:1px solid var(--border);border-radius:var(--r-md);background:var(--card);overflow:hidden}.fleet-head{display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,#E8D5A0,#D4C5A0);padding:10px 14px;border-bottom:1px solid var(--border)}.fleet-head h2{margin:0;color:#3D3830;font-size:.9rem}.fleet-updated{font-size:.74rem;color:#5B5142;font-weight:800}.fleet-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--sp-md);padding:var(--sp-md)}.fleet-card{border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);padding:var(--sp-md);transition:border-color var(--duration),transform var(--duration),box-shadow var(--duration)}.fleet-card:hover{border-color:var(--primary);transform:translateY(-2px);box-shadow:var(--shadow-sm)}.fleet-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px}.fleet-name{font-size:1rem;font-weight:900;color:var(--ink)}.fleet-role{font-size:.74rem;color:var(--ink-muted);margin-top:3px;line-height:1.45}.fleet-badge{font-size:.66rem;font-weight:900;border:1px solid var(--border);border-radius:var(--r-pill);padding:2px 7px;background:var(--card);color:var(--ink-muted);white-space:nowrap}.fleet-badge.ok{color:var(--success);background:var(--success-muted)}.fleet-badge.warn{color:var(--warning);background:var(--warning-muted)}.fleet-badge.err{color:var(--danger);background:var(--danger-muted)}.fleet-meta{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:12px 0}.fleet-kv{border:1px solid var(--border);border-radius:var(--r-sm);background:var(--card);padding:7px 8px}.fleet-kv span{display:block;color:var(--ink-dim);font-size:.64rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em}.fleet-kv b{display:block;margin-top:3px;color:var(--ink);font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fleet-bar{height:5px;background:var(--border-hover);border-radius:999px;overflow:hidden;margin-top:6px}.fleet-fill{height:100%;border-radius:999px;background:var(--primary);width:0}.fleet-fill.mem{background:var(--success)}.fleet-fill.disk{background:var(--warning)}.fleet-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.fleet-tag{font-size:.66rem;font-weight:800;color:var(--ink-muted);background:var(--card);border:1px solid var(--border);border-radius:var(--r-pill);padding:2px 7px}.fleet-error{color:var(--danger);font-size:.78rem;margin-top:8px}.fleet-empty{padding:var(--sp-xl);text-align:center;color:var(--ink-muted)}@media(max-width:980px){.fleet-grid{grid-template-columns:1fr 1fr}.fleet-stats{grid-template-columns:repeat(2,1fr)}}@media(max-width:680px){.fleet-hero{flex-direction:column;align-items:flex-start}.fleet-grid,.fleet-stats{grid-template-columns:1fr}}
+</style>
+<div class="fleet-page">
+  <section class="fleet-hero"><div><h1>VPS Fleet Dashboard</h1><p>VPS 大队实时清单：角色、地区、规格、SSH 可达性、CPU/内存/磁盘和用途。这里不放密钥，只展示运维态势。</p></div><div class="fleet-actions"><button class="fleet-btn" onclick="loadFleet(true)">刷新</button><a class="fleet-btn" href="/control">Control Center</a></div></section>
+  <section class="fleet-stats">
+    <div class="fleet-stat"><b id="fleet-total">—</b><span>Total Nodes</span></div>
+    <div class="fleet-stat"><b id="fleet-online">—</b><span>Reachable</span></div>
+    <div class="fleet-stat"><b id="fleet-cpu">—</b><span>Total vCPU</span></div>
+    <div class="fleet-stat"><b id="fleet-mem">—</b><span>Total Memory</span></div>
+  </section>
+  <section class="fleet-board"><div class="fleet-head"><h2>Server Inventory</h2><span class="fleet-updated" id="fleet-updated">loading…</span></div><div class="fleet-grid" id="fleet-grid"><div class="fleet-empty">Loading fleet status…</div></div></section>
+</div>
+<script>
+function pct(n,d){if(!d)return 0;return Math.max(0,Math.min(100,Math.round(n/d*100)));}
+function fmtMem(mb){if(!mb&&mb!==0)return '—';return mb>=1024?(mb/1024).toFixed(1)+'G':Math.round(mb)+'M';}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function card(v){var ok=v.ok;var memPct=pct(v.mem_used_mb||0,v.mem_total_mb||0);var diskPct=pct(v.disk_used_gb||0,v.disk_total_gb||0);var tags=(v.tags||[]).map(function(t){return '<span class="fleet-tag">'+esc(t)+'</span>';}).join('');return '<div class="fleet-card"><div class="fleet-top"><div><div class="fleet-name">'+esc(v.name)+'</div><div class="fleet-role">'+esc(v.role||'')+'</div></div><span class="fleet-badge '+(ok?'ok':'err')+'">'+(ok?'online':'offline')+'</span></div><div class="fleet-meta"><div class="fleet-kv"><span>Region</span><b>'+esc(v.region||'—')+'</b></div><div class="fleet-kv"><span>Spec</span><b>'+esc(v.spec||'—')+'</b></div><div class="fleet-kv"><span>Host</span><b>'+esc(v.hostname||v.host||'—')+'</b></div><div class="fleet-kv"><span>Uptime</span><b>'+esc(v.uptime||'—')+'</b></div><div class="fleet-kv"><span>Memory</span><b>'+fmtMem(v.mem_used_mb)+' / '+fmtMem(v.mem_total_mb)+'</b><div class="fleet-bar"><div class="fleet-fill mem" style="width:'+memPct+'%"></div></div></div><div class="fleet-kv"><span>Disk</span><b>'+(v.disk_used_gb||'—')+'G / '+(v.disk_total_gb||'—')+'G</b><div class="fleet-bar"><div class="fleet-fill disk" style="width:'+diskPct+'%"></div></div></div></div><div class="fleet-tags">'+tags+'</div>'+(v.error?'<div class="fleet-error">'+esc(v.error)+'</div>':'')+'</div>';}
+function loadFleet(force){var grid=document.getElementById('fleet-grid');if(force)grid.innerHTML='<div class="fleet-empty">Refreshing…</div>';fetch('/api/vps/fleet').then(function(r){return r.json();}).then(function(d){var items=d.items||[];grid.innerHTML=items.map(card).join('')||'<div class="fleet-empty">No VPS data</div>';document.getElementById('fleet-total').textContent=d.summary.total;document.getElementById('fleet-online').textContent=d.summary.online;document.getElementById('fleet-cpu').textContent=d.summary.vcpu;document.getElementById('fleet-mem').textContent=fmtMem(d.summary.mem_total_mb);document.getElementById('fleet-updated').textContent=d.checked_at||'';}).catch(function(e){grid.innerHTML='<div class="fleet-empty">Failed: '+esc(e)+'</div>';});}
+loadFleet(false);setInterval(function(){loadFleet(false);},60000);
+</script>
+"""
+    return _page("VPS Fleet", body, nav_active="hub")
+
+def resources_page() -> str:
+    """Render the Hub inventory landing page."""
+    body = """
+<style>
+.hub-page{padding:var(--sp-xl);max-width:1180px;margin:0 auto}.hub-hero{border:1px solid var(--border);border-radius:var(--r-lg);background:linear-gradient(135deg,var(--card),var(--surface));padding:var(--sp-xl);box-shadow:var(--shadow-sm);margin-bottom:var(--sp-lg)}.hub-hero h1{font-size:2rem;letter-spacing:-.04em;margin:0 0 8px;color:var(--ink)}.hub-hero p{color:var(--ink-muted);line-height:1.7;max-width:820px;margin:0}.hub-section{margin-bottom:var(--sp-lg)}.hub-section-head{display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,#E8D5A0,#D4C5A0);border:1px solid var(--border);border-bottom:0;border-radius:var(--r-md) var(--r-md) 0 0;padding:10px 14px}.hub-section-head h2{margin:0;color:#3D3830;font-size:.9rem}.hub-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--sp-md);background:var(--card);border:1px solid var(--border);border-top:0;border-radius:0 0 var(--r-md) var(--r-md);padding:var(--sp-md)}.hub-card{display:block;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);padding:var(--sp-lg);text-decoration:none;transition:border-color var(--duration),transform var(--duration),box-shadow var(--duration)}.hub-card:hover{border-color:var(--primary);transform:translateY(-2px);box-shadow:var(--shadow-sm)}.hub-card h3{font-size:1rem;color:var(--ink);margin:0 0 8px}.hub-card p{font-size:.82rem;color:var(--ink-muted);line-height:1.6;margin:0 0 12px}.hub-icon{font-size:1.4rem;margin-bottom:10px}.hub-tags{display:flex;gap:6px;flex-wrap:wrap}.hub-tag{font-size:.66rem;font-weight:700;color:var(--ink-muted);background:var(--card);border:1px solid var(--border);border-radius:var(--r-pill);padding:2px 7px}.hub-tag.active{color:var(--success);background:var(--success-muted)}.hub-tag.maint{color:var(--warning);background:var(--warning-muted)}@media(max-width:900px){.hub-grid{grid-template-columns:1fr}}
+</style>
+<div class="hub-page">
+  <section class="hub-hero"><h1>Daily Management Hub</h1><p>日常服务、工具、文档和常用入口的统一库存。这里不显示密钥；只显示可点击入口、非敏感标签和维护状态。</p></section>
+  <section class="hub-section"><div class="hub-section-head"><h2>Project Modules</h2></div><div class="hub-grid">
+    <a class="hub-card" href="/"><div class="hub-icon">🧠</div><h3>Brain Portal</h3><p>个人日常管理中心，承载 Workbench / Knowledge / Hub / Control。</p><div class="hub-tags"><span class="hub-tag active">active</span><span class="hub-tag">project</span><span class="hub-tag">local</span></div></a>
+    <a class="hub-card" href="/gallery"><div class="hub-icon">🖼</div><h3>viz-skills / Gallery</h3><p>科研图表模板、可视化资产和交互式图表模块；同时在 Knowledge 中作为模板库入口。</p><div class="hub-tags"><span class="hub-tag active">active</span><span class="hub-tag">visualization</span><span class="hub-tag">tool</span></div></a>
+    <a class="hub-card" href="/control"><div class="hub-icon">⚡</div><h3>Sub2API</h3><p>API 网关、账号池和 token 刷新相关状态从 Control 查看。</p><div class="hub-tags"><span class="hub-tag maint">maintenance</span><span class="hub-tag">service</span><span class="hub-tag">vps</span></div></a>
+    <a class="hub-card" href="/proposals?tab=knowledge&domain=devops"><div class="hub-icon">🤖</div><h3>Hermes Tools</h3><p>Hermes fork、技能、cron、通知和自建工具的知识入口。</p><div class="hub-tags"><span class="hub-tag active">active</span><span class="hub-tag">project</span><span class="hub-tag">doc</span></div></a>
+    <a class="hub-card" href="/linuxdo"><div class="hub-icon">📡</div><h3>Linux.do Daily Board</h3><p>每天静默学习 L 站，把最值得回看的资源、工具和讨论沉淀到 Brain 看板，不再 Telegram 速报。</p><div class="hub-tags"><span class="hub-tag active">active</span><span class="hub-tag">learning</span><span class="hub-tag">automation</span></div></a>
+  </div></section>
+  <section class="hub-section"><div class="hub-section-head"><h2>Services & Panels</h2></div><div class="hub-grid">
+    <a class="hub-card" href="/fleet"><div class="hub-icon">🖥️</div><h3>VPS Fleet</h3><p>VPS 大队实时清单：Seoul、RackNerd、SEA、Frankfurt、BJ、LA 的规格、角色和资源状态。</p><div class="hub-tags"><span class="hub-tag active">active</span><span class="hub-tag">vps</span><span class="hub-tag">dashboard</span></div></a>
+    <a class="hub-card" href="__BRAIN_STATUS_URL__" target="_blank" rel="noopener"><div class="hub-icon">📈</div><h3>Uptime Kuma</h3><p>外部服务可用性监控面板。</p><div class="hub-tags"><span class="hub-tag">service</span><span class="hub-tag">external</span></div></a>
+    <a class="hub-card" href="__BRAIN_FILES_URL__" target="_blank" rel="noopener"><div class="hub-icon">📁</div><h3>File Browser</h3><p>文件上传、导出和资源管理入口。</p><div class="hub-tags"><span class="hub-tag">service</span><span class="hub-tag">web</span></div></a>
+    <a class="hub-card" href="/control"><div class="hub-icon">🛡</div><h3>Control Center</h3><p>业务健康、代理、通知、账号池和运维信号。</p><div class="hub-tags"><span class="hub-tag active">active</span><span class="hub-tag">ops</span></div></a>
+  </div></section>
+  <section class="hub-section"><div class="hub-section-head"><h2>Docs & Knowledge Files</h2></div><div class="hub-grid">
+    <a class="hub-card" href="/proposals?tab=knowledge&category=resource"><div class="hub-icon">📚</div><h3>Resource Notes</h3><p>沉淀在知识库里的资源类节点。</p><div class="hub-tags"><span class="hub-tag">doc</span><span class="hub-tag">knowledge</span></div></a>
+    <a class="hub-card" href="/proposals?tab=knowledge&stage=canonized"><div class="hub-icon">✅</div><h3>Canonized Core</h3><p>正典知识不再是独立页面，而是 Knowledge 的内部筛选。</p><div class="hub-tags"><span class="hub-tag active">active</span><span class="hub-tag">filter</span></div></a>
+    <a class="hub-card" href="/settings"><div class="hub-icon">⚙</div><h3>Portal Settings</h3><p>显示、登录、语言、主题与调试入口。</p><div class="hub-tags"><span class="hub-tag">settings</span><span class="hub-tag">local</span></div></a>
+  </div></section>
+</div>
+"""
+    body = body.replace(
+        "__BRAIN_STATUS_URL__",
+        _html.escape(os.environ.get("BRAIN_SERVICE_STATUS_URL", "#"), quote=True),
+    ).replace(
+        "__BRAIN_FILES_URL__",
+        _html.escape(os.environ.get("BRAIN_SERVICE_FILES_URL", "#"), quote=True),
+    )
+    return _page("Hub", body, nav_active="hub")
+
+
+def linuxdo_board_page(board: dict | None = None) -> str:
+    """Render the quiet Linux.do daily learning board."""
+    board = board or {}
+    items = board.get("items", []) if isinstance(board, dict) else []
+    updated_raw = str(board.get("updated_at", "")) if isinstance(board, dict) else ""
+    updated = updated_raw.replace("T", " ").replace("+00:00", " UTC")[:22] if updated_raw else "尚未生成"
+    total_seen = int(board.get("total_seen_today", 0) or 0) if isinstance(board, dict) else 0
+    total_candidates = int(board.get("total_candidates", 0) or 0) if isinstance(board, dict) else 0
+    fetch_errors = board.get("fetch_errors", []) if isinstance(board, dict) else []
+
+    def _tier_label(tier: str) -> tuple[str, str]:
+        if tier == "must_read":
+            return "必看", "must"
+        if tier == "worth_reading":
+            return "值得看", "worth"
+        return "观察", "watch"
+
+    cards = ""
+    for item in items:
+        title = _html.escape(str(item.get("title", "")))
+        url = _html.escape(str(item.get("url", "#")))
+        category = _html.escape(str(item.get("category", "")))
+        views = int(item.get("views", 0) or 0)
+        likes = int(item.get("likes", 0) or 0)
+        score = int(item.get("score", 0) or 0)
+        keywords = item.get("keywords", []) or []
+        keyword_html = "".join(f'<span class="ld-tag">{_html.escape(str(kw))}</span>' for kw in keywords[:5])
+        tier_label, tier_cls = _tier_label(str(item.get("tier", "watch")))
+        seen_cls = " seen" if item.get("seen_before") else ""
+        cards += f"""<a class="ld-card{seen_cls}" href="{url}" target="_blank" rel="noopener">
+  <div class="ld-card-top"><span class="ld-tier {tier_cls}">{tier_label}</span><span class="ld-cat">{category}</span><span class="ld-score">score {score}</span></div>
+  <h3>{title}</h3>
+  <div class="ld-meta"><span>👁 {views}</span><span>❤ {likes}</span>{'<span>已见过</span>' if item.get('seen_before') else '<span>新候选</span>'}</div>
+  <div class="ld-tags">{keyword_html if keyword_html else '<span class="ld-tag muted">hot</span>'}</div>
+</a>"""
+
+    if not cards:
+        cards = '<div class="ld-empty">今天还没有筛出高价值 L 站线索；cron 会继续静默更新。</div>'
+
+    error_html = ""
+    if fetch_errors:
+        error_html = f'<div class="ld-alert">部分 feed 拉取失败：{_html.escape(", ".join(map(str, fetch_errors)))}</div>'
+
+    body = f"""
+<style>
+.ld-page{{padding:var(--sp-xl);max-width:1180px;margin:0 auto}}
+.ld-hero{{border:1px solid var(--border);border-radius:var(--r-lg);background:linear-gradient(135deg,var(--card),var(--surface));padding:var(--sp-xl);box-shadow:var(--shadow-sm);margin-bottom:var(--sp-lg);display:flex;justify-content:space-between;gap:var(--sp-lg);align-items:flex-end}}
+.ld-hero h1{{font-size:2rem;letter-spacing:-.04em;margin:0 0 8px;color:var(--ink)}}.ld-hero p{{color:var(--ink-muted);line-height:1.7;max-width:780px;margin:0}}
+.ld-stats{{display:flex;gap:8px;flex-wrap:wrap}}.ld-pill{{border:1px solid var(--border);border-radius:var(--r-pill);background:var(--card);padding:7px 11px;color:var(--ink-muted);font-size:.76rem;font-weight:700;white-space:nowrap}}
+.ld-board{{border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden;background:var(--card)}}.ld-head{{display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,#E8D5A0,#D4C5A0);padding:10px 14px;border-bottom:1px solid var(--border)}}.ld-head h2{{margin:0;color:#3D3830;font-size:.9rem}}.ld-head span{{font-size:.74rem;color:#5B5142;font-weight:700}}
+.ld-grid{{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--sp-md);padding:var(--sp-md)}}.ld-card{{display:block;text-decoration:none;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);padding:var(--sp-md);transition:border-color var(--duration),transform var(--duration),box-shadow var(--duration)}}.ld-card:hover{{border-color:var(--primary);transform:translateY(-2px);box-shadow:var(--shadow-sm)}}.ld-card.seen{{opacity:.78}}
+.ld-card-top{{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px}}.ld-tier,.ld-cat,.ld-score,.ld-tag{{font-size:.66rem;font-weight:800;border:1px solid var(--border);border-radius:var(--r-pill);padding:2px 7px;background:var(--card);color:var(--ink-muted)}}.ld-tier.must{{color:var(--danger);background:var(--danger-muted)}}.ld-tier.worth{{color:var(--primary);background:var(--primary-muted)}}.ld-tier.watch{{color:var(--info);background:rgba(59,130,246,.12)}}
+.ld-card h3{{font-size:.96rem;line-height:1.45;color:var(--ink);margin:0 0 10px}}.ld-meta{{display:flex;gap:10px;flex-wrap:wrap;color:var(--ink-muted);font-size:.75rem;margin-bottom:10px}}.ld-tags{{display:flex;gap:6px;flex-wrap:wrap}}.ld-tag.muted{{opacity:.65}}
+.ld-empty{{padding:var(--sp-xl);color:var(--ink-muted);text-align:center}}.ld-alert{{border:1px solid var(--warning);background:var(--warning-muted);color:var(--warning);border-radius:var(--r-md);padding:10px 12px;margin-bottom:var(--sp-md);font-size:.82rem}}
+@media(max-width:900px){{.ld-hero{{flex-direction:column;align-items:flex-start}}.ld-grid{{grid-template-columns:1fr}}}}
+</style>
+<div class="ld-page">
+  <section class="ld-hero"><div><h1>Linux.do Daily Board</h1><p>不再做 L 站监控式 Telegram 速报；每天静默筛一遍，把最值得回看、学习、沉淀的线索放在这里。</p></div><div class="ld-stats"><span class="ld-pill">更新：{_html.escape(updated)}</span><span class="ld-pill">扫描：{total_seen}</span><span class="ld-pill">候选：{total_candidates}</span><span class="ld-pill">展示：{len(items)}</span></div></section>
+  {error_html}
+  <section class="ld-board"><div class="ld-head"><h2>今日最值得看</h2><span>silent by default · board first</span></div><div class="ld-grid">{cards}</div></section>
+</div>
+"""
+    return _page("Linux.do Daily Board", body, nav_active="hub")
 
 
 # ---------------------------------------------------------------------------
@@ -4462,140 +5683,17 @@ _secTimer = setTimeout(function(){{ location.reload(); }}, 30000);
 </script>"""
 
     return _page("Security Monitor", body, nav_active="home")
-
-
-# ---------------------------------------------------------------------------
-# Settings Page
-# ---------------------------------------------------------------------------
-
-def services_page() -> str:
-    """Render the Services portal page — AxonHub-style service status cards with live health check."""
-    services = [
-        ("n8n", "自动化工作流", "可视化编排API与任务，连接500+服务", os.environ.get("BRAIN_SVC_N8N_URL", "#"), "#ef4444",
-         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>',
-         os.environ.get("BRAIN_SVC_N8N_HOST", "")),
-        ("Uptime Kuma", "服务监控", "实时状态监控、告警通知与SLA追踪", os.environ.get("BRAIN_SVC_UPTIME_URL", "#"), "#22c55e",
-         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>',
-         os.environ.get("BRAIN_SVC_UPTIME_HOST", "")),
-        ("File Browser", "文件管理", "浏览、上传与管理工作文件", os.environ.get("BRAIN_SVC_FILES_URL", "#"), "#3b82f6",
-         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>',
-         os.environ.get("BRAIN_SVC_FILES_HOST", "")),
-    ]
-    cards = []
-    for name, title, desc, url, color, icon, host in services:
-        cards.append(f'''<a href="{_html.escape(url)}" target="_blank" rel="noopener" class="svc-card" data-host="{_html.escape(host)}">
-  <div class="svc-card-header">
-    <div class="svc-card-icon" style="background:{color}18;color:{color}">{icon}</div>
-    <div class="svc-card-info">
-      <h3 class="svc-card-name">{_html.escape(name)}</h3>
-      <p class="svc-card-title">{_html.escape(title)}</p>
-    </div>
-    <div class="svc-card-arrow">{_ICON_EXTERNAL}</div>
-  </div>
-  <p class="svc-card-desc">{_html.escape(desc)}</p>
-  <div class="svc-card-footer">
-    <div class="svc-health-indicator">
-      <span class="svc-health-dot" data-host="{_html.escape(host)}"></span>
-      <span class="svc-health-status" data-host="{_html.escape(host)}" data-i18n-default="svc_detecting">检测中...</span>
-    </div>
-    <span class="svc-health-lat" data-host="{_html.escape(host)}">—</span>
-  </div>
-</a>''')
-
-    hosts_json = _json.dumps([h for _, _, _, _, _, _, h in services])
-    name_to_host_json = _json.dumps({n: h for n, _, _, _, _, _, h in services})
-    body = f"""
-<div class="svc-wrap">
-  <div class="svc-page-header">
-    <h1 class="svc-page-title" data-i18n="svc_title">🔗 服务中心</h1>
-    <p class="svc-page-desc" data-i18n="svc_desc">所有外部服务运行在独立服务器上，点击卡片直接跳转</p>
-  </div>
-  <div class="svc-grid">
-    {''.join(cards)}
-  </div>
-</div>
-
-<style>
-.svc-wrap{{max-width:860px;margin:0 auto;padding:0 var(--sp-lg) var(--sp-xl);animation:pageEnter .4s var(--ease-out)}}
-.svc-page-header{{margin-bottom:var(--sp-lg);animation:staggerFade .3s var(--ease-out) .05s both}}
-.svc-page-title{{font-size:1.3rem;font-weight:800;color:var(--ink);margin:0 0 4px;letter-spacing:-.02em}}
-.svc-page-desc{{font-size:.88rem;color:var(--ink-muted);margin:0}}
-.svc-grid{{display:grid;grid-template-columns:1fr;gap:var(--sp-md);animation:staggerFade .3s var(--ease-out) .1s both}}
-@media(min-width:720px){{.svc-grid{{grid-template-columns:1fr 1fr}}}}
-/* AxonHub-style service card */
-.svc-card{{display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:0;text-decoration:none;color:var(--ink);transition:all var(--duration) var(--ease-out);overflow:hidden;position:relative}}
-.svc-card:hover{{border-color:var(--border-hover);transform:translateY(-2px);box-shadow:var(--shadow-lg),0 0 0 1px var(--border-hover)}}
-.svc-card-header{{display:flex;align-items:center;gap:14px;padding:var(--sp-md) var(--sp-md) var(--sp-sm)}}
-.svc-card-icon{{width:44px;height:44px;border-radius:var(--r-md);display:flex;align-items:center;justify-content:center;flex-shrink:0}}
-.svc-card-icon svg{{width:24px;height:24px}}
-.svc-card-info{{flex:1;min-width:0}}
-.svc-card-name{{font-size:1rem;font-weight:700;margin:0;color:var(--ink);letter-spacing:-.01em}}
-.svc-card-title{{font-size:.82rem;color:var(--primary);margin:2px 0 0;font-weight:500}}
-.svc-card-arrow{{color:var(--ink-dim);flex-shrink:0;transition:transform var(--duration),color var(--duration)}}
-.svc-card-arrow svg{{width:16px;height:16px}}
-.svc-card:hover .svc-card-arrow{{color:var(--primary);transform:translateX(3px)}}
-.svc-card-desc{{font-size:.82rem;color:var(--ink-muted);margin:0;padding:0 var(--sp-md) var(--sp-sm);line-height:1.5}}
-.svc-card-footer{{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-sm) var(--sp-md);border-top:1px solid var(--border);background:var(--surface);font-size:.78rem}}
-.svc-health-indicator{{display:flex;align-items:center;gap:6px}}
-.svc-health-dot{{width:8px;height:8px;border-radius:50%;background:var(--ink-dim);transition:background .3s,box-shadow .3s}}
-.svc-health-dot.alive{{background:var(--success);box-shadow:0 0 8px rgba(52,211,153,.5)}}
-.svc-health-dot.dead{{background:var(--danger);box-shadow:0 0 8px rgba(248,113,113,.4)}}
-.svc-health-dot.checking{{background:var(--warning);animation:pulse 1.5s infinite}}
-.svc-health-status{{font-weight:500;color:var(--ink-muted)}}
-.svc-health-dot.alive + .svc-health-status,.svc-health-dot.alive ~ .svc-health-status{{color:var(--success)}}
-.svc-health-dot.dead + .svc-health-status,.svc-health-dot.dead ~ .svc-health-status{{color:var(--danger)}}
-.svc-health-lat{{font-family:var(--font-mono);font-size:.72rem;color:var(--ink-dim)}}
-</style>
-
-<script>
-(function(){{
-  var hosts = {hosts_json};
-  // Set all dots to "checking" state
-  hosts.forEach(function(h){{
-    document.querySelectorAll('.svc-health-dot[data-host="'+h+'"]').forEach(function(d){{d.classList.add('checking')}});
-  }});
-  // Server-side health check via local API (same-origin, no CORS issues)
-  var nameToHost = {name_to_host_json};
-  fetch('/api/health').then(function(r){{return r.json()}}).then(function(data){{
-    for (var name in data) {{
-      var h = nameToHost[name];
-      if (!h) continue;
-      var info = data[name];
-      var alive = info.alive;
-      var ms = info.ms;
-      document.querySelectorAll('.svc-health-dot[data-host="'+h+'"]').forEach(function(d){{
-        d.classList.remove('checking');
-        d.classList.add(alive?'alive':'dead');
-        d.style.background = alive ? 'var(--success)' : 'var(--danger)';
-        if (alive) d.style.boxShadow = '0 0 8px rgba(52,211,153,.5)';
-      }});
-      document.querySelectorAll('.svc-health-status[data-host="'+h+'"]').forEach(function(s){{
-        s.textContent = alive ? _t('svc_online') : _t('svc_offline');
-        s.style.color = alive ? 'var(--success)' : 'var(--danger)';
-      }});
-      document.querySelectorAll('.svc-health-lat[data-host="'+h+'"]').forEach(function(l){{
-        l.textContent = alive ? ms+'ms' : '—';
-      }});
-    }}
-  }}).catch(function(){{
-    hosts.forEach(function(h){{
-      document.querySelectorAll('.svc-health-dot[data-host="'+h+'"]').forEach(function(d){{
-        d.classList.remove('checking'); d.style.background='var(--ink-dim)';
-      }});
-      document.querySelectorAll('.svc-health-status[data-host="'+h+'"]').forEach(function(s){{
-        s.textContent=_t('svc_unknown');
-      }});
-    }});
-  }});
-}})();
-</script>
-"""
-
-    return _page("Services", body, nav_active="services")
-
-
-def profile_page(*, error: str = "", success: str = "") -> str:
-    """Render the Profile page — AxonHub-style grouped settings with avatar card."""
+def profile_page(*, error: str = "", success: str = "", profile: dict | None = None) -> str:
+    """Render the Settings page with account preferences and avatar."""
+    profile = profile or {}
+    display_name = str(profile.get("display_name") or "探索者")
+    avatar_url = str(profile.get("avatar_url") or "")
+    theme = str(profile.get("theme") or "light")
+    lang = str(profile.get("lang") or "zh")
+    profile_json = _json.dumps(
+        {"display_name": display_name, "avatar_url": avatar_url, "theme": theme, "lang": lang},
+        ensure_ascii=False,
+    )
     error_html = f'<div class="pf-alert pf-alert-error">{_html.escape(error)}</div>' if error else ""
     success_html = f'<div class="pf-alert pf-alert-success">{_html.escape(success)}</div>' if success else ""
 
@@ -4608,7 +5706,7 @@ def profile_page(*, error: str = "", success: str = "") -> str:
       <div class="pf-avatar" id="profile-avatar">👤</div>
     </div>
     <div class="pf-avatar-info">
-      <h2 class="pf-avatar-name" id="profile-display-name">探索者</h2>
+      <h2 class="pf-avatar-name" id="profile-display-name">{_html.escape(display_name)}</h2>
       <p class="pf-avatar-role" data-i18n="pf_brain_user">Hermes Brain 用户</p>
       <div class="pf-avatar-badges">
         <span class="pf-badge pf-badge-primary" data-i18n="pf_admin">管理员</span>
@@ -4629,12 +5727,12 @@ def profile_page(*, error: str = "", success: str = "") -> str:
     <form class="pf-form" id="prefs-form">
       <div class="pf-field">
         <label class="pf-label" for="display-name" data-i18n="pf_name">显示名称</label>
-        <input type="text" name="display_name" class="pf-input" placeholder="你的名字" id="display-name" data-i18n-ph="pf_name_ph">
+        <input type="text" name="display_name" class="pf-input" placeholder="你的名字" id="display-name" data-i18n-ph="pf_name_ph" value="{_html.escape(display_name)}">
       </div>
       <div class="pf-field">
         <label class="pf-label" for="avatar-url" data-i18n="pf_avatar">头像链接</label>
         <div style="display:flex;gap:8px;align-items:center">
-          <input type="text" name="avatar_url" class="pf-input" placeholder="输入头像图片URL" id="avatar-url" data-i18n-ph="pf_avatar_ph" style="flex:1">
+          <input type="text" name="avatar_url" class="pf-input" placeholder="输入头像图片URL" id="avatar-url" data-i18n-ph="pf_avatar_ph" style="flex:1" value="{_html.escape(avatar_url)}">
           <label for="avatar-file-input" class="pf-btn pf-btn-secondary" style="cursor:pointer;white-space:nowrap;margin:0" data-i18n="pf_avatar_upload">上传图片</label>
           <input type="file" id="avatar-file-input" accept="image/*" style="display:none">
         </div>
@@ -4642,7 +5740,7 @@ def profile_page(*, error: str = "", success: str = "") -> str:
       <div class="pf-field">
         <label class="pf-label" for="theme-select" data-i18n="pf_theme">主题</label>
         <select name="theme" class="pf-input" id="theme-select">
-          <option value="dark" data-i18n="pf_theme_dark">深色 Dracula</option>
+          <option value="modern-dark" data-i18n="pf_theme_dark">现代暗色</option>
           <option value="light" data-i18n="pf_theme_light">浅色 Light</option>
         </select>
       </div>
@@ -4732,23 +5830,24 @@ def profile_page(*, error: str = "", success: str = "") -> str:
 </div>
 
 <style>
-.pf-wrap{{max-width:860px;margin:0 auto;padding:0 var(--sp-lg) var(--sp-xl);animation:pageEnter .4s var(--ease-out)}}
+.pf-wrap{{max-width:960px;margin:0 auto;padding:0 var(--sp-lg) var(--sp-xl);animation:pageEnter .4s var(--ease-out)}}
 
 /* Avatar card */
-.pf-avatar-card{{display:flex;align-items:center;gap:20px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-xl);padding:var(--sp-lg);margin-bottom:var(--sp-md);animation:staggerFade .3s var(--ease-out) .05s both}}
-.pf-avatar-ring{{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--info));padding:3px;flex-shrink:0}}
+.pf-avatar-card{{display:flex;align-items:center;gap:20px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-xl);padding:var(--sp-lg);margin-bottom:var(--sp-md);animation:staggerFade .3s var(--ease-out) .05s both;transition:box-shadow .3s}}
+.pf-avatar-card:hover{{box-shadow:0 0 24px rgba(196,163,90,.12),0 4px 12px rgba(0,0,0,.3)}}
+.pf-avatar-ring{{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#C4A35A,#7c3aed);padding:3px;flex-shrink:0;animation:glowPulse 3s ease-in-out infinite}}
 .pf-avatar{{width:100%;height:100%;border-radius:50%;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:1.8rem;overflow:hidden}}
 .pf-avatar-info{{flex:1;min-width:0}}
 .pf-avatar-name{{font-size:1.2rem;font-weight:800;margin:0;letter-spacing:-.01em}}
 .pf-avatar-role{{font-size:.85rem;color:var(--ink-muted);margin:2px 0 8px}}
 .pf-avatar-badges{{display:flex;gap:8px}}
-.pf-badge{{display:inline-flex;align-items:center;padding:2px 10px;border-radius:9999px;font-size:.72rem;font-weight:600;letter-spacing:.02em}}
-.pf-badge-primary{{background:rgba(189,147,249,.15);color:var(--primary)}}
+.pf-badge{{display:inline-flex;align-items:center;padding:var(--sp-xs) 10px;border-radius:9999px;font-size:.72rem;font-weight:600;letter-spacing:.02em}}
+.pf-badge-primary{{background:rgba(59,130,246,.15);color:var(--primary)}}
 .pf-badge-info{{background:rgba(80,250,123,.15);color:var(--success)}}
 
 /* Section card */
-.pf-section{{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:0;margin-bottom:var(--sp-md);overflow:hidden;animation:staggerFade .3s var(--ease-out) both;transition:border-color var(--duration)}}
-.pf-section:hover{{border-color:var(--border-hover)}}
+.pf-section{{background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);padding:0;margin-bottom:var(--sp-md);overflow:hidden;animation:staggerFade .3s var(--ease-out) both;transition:border-color var(--duration),box-shadow var(--duration)}}
+.pf-section:hover{{border-color:rgba(196,163,90,.15);box-shadow:0 0 16px rgba(196,163,90,.08)}}
 .pf-section-head{{display:flex;align-items:center;gap:14px;padding:var(--sp-md) var(--sp-md) var(--sp-sm);border-bottom:1px solid var(--border)}}
 .pf-section-icon{{font-size:1.2rem;flex-shrink:0}}
 .pf-section-title{{font-size:1rem;font-weight:700;margin:0;color:var(--ink)}}
@@ -4762,16 +5861,16 @@ def profile_page(*, error: str = "", success: str = "") -> str:
 @media(max-width:520px){{.pf-field-row{{grid-template-columns:1fr}}}}
 .pf-label{{font-size:.82rem;font-weight:500;color:var(--ink-muted)}}
 .pf-input{{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:10px 14px;color:var(--ink);font-size:.92rem;outline:none;transition:border-color .15s,box-shadow .15s}}
-.pf-input:focus{{border-color:var(--primary);box-shadow:0 0 0 3px rgba(189,147,249,.2)}}
+.pf-input:focus{{border-color:var(--primary);box-shadow:0 0 0 3px rgba(196,163,90,.2),0 0 16px rgba(196,163,90,.08)}}
 
 /* Buttons */
 .pf-btn{{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 20px;border-radius:var(--r-md);font-size:.92rem;font-weight:600;cursor:pointer;transition:all var(--duration) var(--ease-out);border:none;min-height:42px}}
-.pf-btn-primary{{background:var(--primary);color:var(--surface)}}
-.pf-btn-primary:hover{{opacity:.85;transform:translateY(-1px)}}
+.pf-btn-primary{{background:linear-gradient(135deg,#C4A35A,#3b6fdb);color:var(--surface)}}
+.pf-btn-primary:hover{{opacity:.9;box-shadow:0 0 20px rgba(196,163,90,.25);transform:translateY(-1px)}}
 .pf-btn-danger{{border:1px solid var(--danger);background:rgba(248,113,113,.08);color:var(--danger)}}
-.pf-btn-danger:hover{{background:rgba(248,113,113,.18);transform:translateY(-1px)}}
+.pf-btn-danger:hover{{background:rgba(248,113,113,.18);border-color:var(--danger)}}
 .pf-btn-secondary{{background:var(--surface);border:1px solid var(--border);color:var(--ink)}}
-.pf-btn-secondary:hover{{border-color:var(--primary);color:var(--primary);transform:translateY(-1px)}}
+.pf-btn-secondary:hover{{border-color:var(--primary);color:var(--primary)}}
 .pf-btn svg{{width:16px;height:16px}}
 
 /* Alert */
@@ -4796,13 +5895,21 @@ def profile_page(*, error: str = "", success: str = "") -> str:
 </style>
 
 <script>
-(function(){{var n=localStorage.getItem('hermes_display_name');
-var t=localStorage.getItem('hermes_theme');
-var a=localStorage.getItem('hermes_avatar_url');
-var l=localStorage.getItem('hermes_lang')||'zh';
+var SERVER_PROFILE={profile_json};
+(function(){{
+var n=SERVER_PROFILE.display_name||localStorage.getItem('hermes_display_name')||'';
+var t=SERVER_PROFILE.theme||localStorage.getItem('hermes_theme')||'light';
+var a=SERVER_PROFILE.avatar_url||localStorage.getItem('hermes_avatar_url')||'';
+var l=SERVER_PROFILE.lang||localStorage.getItem('hermes_lang')||'zh';
+localStorage.setItem('hermes_display_name',n);
+localStorage.setItem('hermes_theme',t);
+localStorage.setItem('hermes_avatar_url',a);
+localStorage.setItem('hermes_lang',l);
 if(n){{document.getElementById('display-name').value=n;document.getElementById('profile-display-name').textContent=n;
 var sb=document.getElementById('sidebar-username');if(sb)sb.textContent=n;}}
 if(t)document.getElementById('theme-select').value=t;
+if(t==='light')document.documentElement.setAttribute('data-theme','light');
+else document.documentElement.setAttribute('data-theme','modern-dark');
 if(a){{document.getElementById('avatar-url').value=a;applyAvatar(a);}}
 document.getElementById('lang-select').value=l;
 applyI18n(l);
@@ -4870,11 +5977,19 @@ function changePassword(e){{
   return false;
 }}
 
-function savePrefs(){{
-  var n=document.getElementById('display-name').value;
-  var t=document.getElementById('theme-select').value;
-  var a=document.getElementById('avatar-url').value;
-  var l=document.getElementById('lang-select').value;
+function showPrefsToast(text, ok){{
+  var toast=document.createElement('div');
+  toast.textContent=text;
+  toast.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:'+(ok?'var(--success)':'var(--danger)')+';color:var(--surface);padding:10px 24px;border-radius:9999px;font-size:.88rem;font-weight:600;z-index:9999;animation:pageEnter .3s var(--ease-out)';
+  document.body.appendChild(toast);
+  setTimeout(function(){{toast.style.opacity='0';toast.style.transition='opacity .3s';setTimeout(function(){{toast.remove()}},300)}},1800);
+}}
+
+function applyProfilePrefs(p){{
+  var n=p.display_name||'';
+  var t=p.theme||'light';
+  var a=p.avatar_url||'';
+  var l=p.lang||'zh';
   localStorage.setItem('hermes_display_name',n);
   localStorage.setItem('hermes_theme',t);
   localStorage.setItem('hermes_avatar_url',a);
@@ -4882,14 +5997,21 @@ function savePrefs(){{
   document.getElementById('profile-display-name').textContent=n||_t('pf_explorer');
   var sb=document.getElementById('sidebar-username');if(sb)sb.textContent=n||_t('nav_user');
   if(t==='light')document.documentElement.setAttribute('data-theme','light');
-  else document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme','modern-dark');
   applyAvatar(a);
   applyI18n(l);
-  var toast=document.createElement('div');
-  toast.textContent=_t('pf_saved');
-  toast.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--success);color:var(--surface);padding:10px 24px;border-radius:9999px;font-size:.88rem;font-weight:600;z-index:9999;animation:pageEnter .3s var(--ease-out)';
-  document.body.appendChild(toast);
-  setTimeout(function(){{toast.style.opacity='0';toast.style.transition='opacity .3s';setTimeout(function(){{toast.remove()}},300)}},1800);
+}}
+
+function savePrefs(){{
+  var data=new URLSearchParams();
+  data.set('display_name',document.getElementById('display-name').value);
+  data.set('theme',document.getElementById('theme-select').value);
+  data.set('avatar_url',document.getElementById('avatar-url').value);
+  data.set('lang',document.getElementById('lang-select').value);
+  fetch('/api/settings/profile',{{method:'POST',headers:{{'Content-Type':'application/x-www-form-urlencoded'}},body:data.toString()}})
+    .then(function(r){{if(!r.ok)throw new Error('save failed');return r.json();}})
+    .then(function(d){{applyProfilePrefs(d.profile||{{}});showPrefsToast(_t('pf_saved'),true);}})
+    .catch(function(){{showPrefsToast(_t('toast_network_error'),false);}});
 }}
 </script>
 
@@ -4898,10 +6020,9 @@ function savePrefs(){{
     return _page("My Profile", body, nav_active="profile")
 
 
-def settings_page(*, error: str = "", success: str = "") -> str:
-    """Render user settings page — redirects to profile page."""
-    # Delegate to profile_page for unified experience
-    return profile_page(error=error, success=success)
+def settings_page(*, error: str = "", success: str = "", profile: dict | None = None) -> str:
+    """Render the unified settings page."""
+    return profile_page(error=error, success=success, profile=profile)
 
 
 # ---------------------------------------------------------------------------
@@ -5002,7 +6123,7 @@ def knowledge_tree_page(
     stats_html = ""
     for key, label, num, color in stat_cards:
         active_cls = " dash-card-active" if key == active_stage else ""
-        href = f"/knowledge?stage={key}" if key != "all" else "/knowledge"
+        href = f"/proposals?tab=knowledge&stage={key}" if key != "all" else "/proposals?tab=knowledge"
         if active_category:
             href += f"&category={active_category}"
         if active_domain:
@@ -5065,7 +6186,7 @@ def knowledge_tree_page(
 
                 uses_text = f"🔍 {retrieval_count}" if retrieval_count > 0 else ""
 
-                group_cards += f"""<a href="/knowledge/{_html.escape(nid)}" class="card">
+                group_cards += f"""<a href="/knowledge/{_html.escape(nid)}" class="card" data-nid="{_html.escape(nid)}" data-summary="{_html.escape(summary[:200])}" data-stage="{_html.escape(stage)}" data-category="{_html.escape(category)}" data-domain="{_html.escape(ndomain)}" data-confidence="{confidence}" data-content="{_html.escape(str(n.get('content',''))[:500])}" onclick="event.preventDefault();openNodePreview(this)">
   <div class="card-top">{_stage_badge(stage)} {_kn_category_badge(category)} <span class="badge badge-rule" style="font-size:.65rem">{_html.escape(ndomain)}</span></div>
   <div class="card-preview">{_html.escape(preview)}</div>
   <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
@@ -5089,10 +6210,19 @@ def knowledge_tree_page(
 </div>"""
 
     body = f"""
-<h1 style="padding:16px 16px 0;font-size:1.2rem;font-weight:700;letter-spacing:-.02em;display:flex;align-items:center;gap:8px">🌳 <span data-i18n="kn_title">{_pt("kn_title")}</span> <span class="kn-info-btn" onclick="showStageHelp()" title="Stage definitions">ⓘ</span></h1>
+<section class="kn-module-hero">
+  <div><h1>Knowledge</h1><p>日常笔记、规则和资源沉淀入口；复杂图谱先降级为轻量索引。</p></div>
+</section>
+<div class="kn-systems-nav">
+  <a class="wb-launch-card" href="/proposals"><span>🧬</span><b>Proposal Lifecycle</b><em>refine, merge, retrieval loop</em></a>
+  <a class="wb-launch-card" href="/proposals?tab=knowledge&stage=canonized"><span>✅</span><b>Canonized Core</b><em>stable rules and facts</em></a>
+  <a class="wb-launch-card" href="/gallery"><span>🖼</span><b>Gallery</b><em>figure templates and visual assets</em></a>
+  <a class="wb-launch-card" href="/hub"><span>📦</span><b>Hub</b><em>projects, tools, services, docs</em></a>
+</div>
+<div class="kn-library-head"><h2>Brain Knowledge Library</h2><span>这些节点是 Proposal Lifecycle 的基础，先聚焦 Knowledge Proposal 演化链路。</span></div>
 <div class="dash-grid">{stats_html}</div>
 <div style="padding:0 16px 8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-  <form method="get" action="/knowledge" style="display:flex;gap:8px;flex-wrap:wrap;flex:1" id="kn-filter-form" onsubmit="return false">
+  <form method="get" action="/proposals?tab=knowledge" style="display:flex;gap:8px;flex-wrap:wrap;flex:1" id="kn-filter-form">
     <input type="hidden" name="stage" value="{_html.escape(active_stage)}">
     <select name="category" class="kn-filter-select" onchange="this.form.submit()">{cat_options}</select>
     <select name="domain" class="kn-filter-select" onchange="this.form.submit()">{dom_options}</select>
@@ -5108,6 +6238,16 @@ def knowledge_tree_page(
 <div id="kn-card-grid">{cards_html}</div>
 
 <style>
+.kn-module-hero{{margin:16px 16px 8px;padding:12px 16px;display:flex;justify-content:space-between;gap:var(--sp-lg);align-items:center}}
+.kn-module-hero h1{{font-size:1.25rem;letter-spacing:-.02em;margin:0;color:var(--ink)}}
+.kn-module-hero p{{margin:6px 0 0;color:var(--ink-muted);font-size:.84rem;line-height:1.6}}
+.kn-systems-nav{{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--sp-md);padding:0 16px 8px}}
+.kn-systems-nav .wb-launch-card{{display:flex;flex-direction:column;gap:8px;text-decoration:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:var(--sp-lg);transition:border-color var(--duration),transform var(--duration),box-shadow var(--duration)}}
+.kn-systems-nav .wb-launch-card:hover{{border-color:var(--primary);transform:translateY(-2px);box-shadow:var(--shadow-sm)}}
+.kn-systems-nav .wb-launch-card span{{font-size:1.5rem}}.kn-systems-nav .wb-launch-card b{{color:var(--ink);font-size:1rem}}.kn-systems-nav .wb-launch-card em{{font-style:normal;color:var(--ink-muted);font-size:.8rem;line-height:1.45}}
+.kn-library-head{{padding:4px 16px 10px;display:flex;justify-content:space-between;gap:12px;align-items:center}}.kn-library-head h2{{margin:0;color:var(--ink);font-size:1rem}}.kn-library-head span{{color:var(--ink-muted);font-size:.78rem}}
+@media(max-width:900px){{.kn-module-hero{{padding:12px 16px}}.kn-systems-nav{{grid-template-columns:repeat(2,minmax(0,1fr))}}}}
+@media(max-width:560px){{.kn-systems-nav{{grid-template-columns:1fr}}}}
 .dash-card-active{{border-color:var(--primary)!important;background:var(--primary-muted)!important}}
 .dash-card-active .label{{color:var(--primary)!important;font-weight:600}}
 .kn-action-btn.danger{{background:var(--danger-muted);color:var(--danger);border-color:var(--danger)}}
@@ -5122,10 +6262,11 @@ def knowledge_tree_page(
 .kn-filter-select:focus{{border-color:var(--border-focus)}}
 .kn-search-input{{
   flex:1;min-width:160px;padding:8px 14px;border:1px solid var(--border);border-radius:var(--r-md);
-  background:var(--surface);color:var(--ink);font-size:.84rem;outline:none;min-height:40px;
+  background:var(--card);
+  color:var(--ink);font-size:.84rem;outline:none;min-height:40px;
   transition:border-color var(--duration),box-shadow var(--duration)
 }}
-.kn-search-input:focus{{border-color:var(--border-focus);box-shadow:0 0 0 3px rgba(167,139,250,.2)}}
+.kn-search-input:focus{{border-color:var(--primary);box-shadow:0 0 0 3px rgba(196,163,90,.2),0 0 16px rgba(196,163,90,.08)}}
 .kn-search-input::placeholder{{color:var(--ink-dim)}}
 .kn-domain-group{{margin-bottom:8px}}
 .kn-domain-header{{
@@ -5134,7 +6275,7 @@ def knowledge_tree_page(
   padding:10px 14px;cursor:pointer;font-size:.9rem;font-weight:600;color:var(--ink);
   transition:background var(--duration),border-color var(--duration)
 }}
-.kn-domain-header:hover{{background:var(--card-hover);border-color:var(--primary);box-shadow:0 0 0 1px var(--primary)}}
+.kn-domain-header:hover{{background:var(--card-hover);border-color:rgba(196,163,90,.3);box-shadow:0 0 16px rgba(196,163,90,.1),0 0 0 1px rgba(196,163,90,.2)}}
 .kn-domain-toggle{{font-size:.7rem;transition:transform .2s ease}}
 .kn-domain-group.collapsed .kn-domain-toggle{{transform:rotate(-90deg)}}
 .kn-domain-icon{{font-size:1.1rem}}
@@ -5147,16 +6288,16 @@ def knowledge_tree_page(
 }}
 .kn-domain-group.collapsed .kn-domain-cards{{max-height:0;opacity:0;padding:0;border:0;pointer-events:none}}
 .kn-conf-bar{{
-  flex:1;height:6px;background:var(--border-hover);border-radius:3px;overflow:hidden;min-width:60px
+  flex:1;height:6px;background:var(--border-hover);border-radius:var(--r-sm);overflow:hidden;min-width:60px
 }}
-.kn-conf-fill{{height:100%;border-radius:3px;transition:width .3s var(--ease-out)}}
+.kn-conf-fill{{height:100%;border-radius:var(--r-sm);transition:width .3s var(--ease-out)}}
 .kn-conf-label{{font-size:.72rem;color:var(--ink-muted);font-weight:600;min-width:32px;text-align:right}}
-.kn-action-btn{{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border:1px solid var(--border);border-radius:var(--r-pill);background:var(--primary-muted);color:var(--primary);font-size:.84rem;font-weight:600;cursor:pointer;min-height:40px;transition:all var(--duration)}}
-.kn-action-btn:hover{{background:rgba(167,139,250,.25);border-color:var(--border-focus)}}
+.kn-action-btn{{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border:1px solid var(--border);border-radius:var(--r-pill);background:linear-gradient(135deg,rgba(196,163,90,.15),rgba(196,163,90,.05));color:var(--primary);font-size:.84rem;font-weight:600;cursor:pointer;min-height:40px;transition:all var(--duration)}}
+.kn-action-btn:hover{{background:rgba(196,163,90,.25);border-color:var(--border-focus);box-shadow:0 0 16px rgba(196,163,90,.15)}}
 .kn-action-btn.secondary{{background:var(--surface);color:var(--ink-muted);border-color:var(--border)}}
 .kn-action-btn.secondary:hover{{color:var(--ink);border-color:var(--border-hover);background:var(--card)}}
 .kn-modal-form textarea,.kn-modal-form input,.kn-modal-form select{{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);color:var(--ink);font-size:.84rem;margin-bottom:8px;min-height:40px;outline:none}}
-.kn-modal-form textarea:focus,.kn-modal-form input:focus,.kn-modal-form select:focus{{border-color:var(--border-focus);box-shadow:0 0 0 3px rgba(167,139,250,.2)}}
+.kn-modal-form textarea:focus,.kn-modal-form input:focus,.kn-modal-form select:focus{{border-color:var(--primary);box-shadow:0 0 0 3px rgba(196,163,90,.2),0 0 16px rgba(196,163,90,.08)}}
 .kn-modal-form textarea{{min-height:120px;resize:vertical}}
 .kn-modal-form label{{display:block;font-size:.78rem;color:var(--ink-muted);margin-bottom:2px;text-transform:uppercase;letter-spacing:.04em}}
 </style>
@@ -5306,9 +6447,81 @@ function showToast(msg, type) {{
   setTimeout(function(){{ t.classList.add('show'); }},10);
   setTimeout(function(){{ t.classList.remove('show'); setTimeout(function(){{ t.remove(); }},300); }},2500);
 }}
+/* Node Preview Modal */
+function openNodePreview(el) {{
+  var overlay = document.getElementById('nodePreviewOverlay');
+  var nid = el.getAttribute('data-nid');
+  var summary = el.getAttribute('data-summary');
+  var stage = el.getAttribute('data-stage');
+  var category = el.getAttribute('data-category');
+  var domain = el.getAttribute('data-domain');
+  var confidence = parseFloat(el.getAttribute('data-confidence')||'0');
+  var content = el.getAttribute('data-content') || '';
+  document.getElementById('np-title').textContent = summary || 'Untitled';
+  document.getElementById('np-badges').innerHTML =
+    '<span class="badge badge-'+(stage==='canonized'?'primary':stage==='verified'?'success':stage==='refined'?'info':stage==='deprecated'?'risk-low':'warning')+'">'+stage+'</span>' +
+    '<span class="badge badge-rule">'+category+'</span>' +
+    '<span class="badge badge-rule">'+domain+'</span>';
+  document.getElementById('np-content').textContent = content || 'No content preview available.';
+  document.getElementById('np-stage').textContent = stage;
+  document.getElementById('np-category').textContent = category;
+  document.getElementById('np-domain').textContent = domain;
+  document.getElementById('np-confidence').textContent = Math.round(confidence*100) + '%';
+  document.getElementById('np-id').textContent = nid;
+  document.getElementById('np-link').href = '/knowledge/' + nid;
+  document.getElementById('np-copy').onclick = function() {{
+    navigator.clipboard.writeText(content || summary || '').then(function(){{ showToast('Copied preview', 'approve'); }});
+  }};
+  document.querySelectorAll('.np-tab').forEach(function(btn){{ btn.classList.toggle('active', btn.dataset.mode === 'text'); }});
+  overlay.classList.add('open');
+}}
+function setNodePreviewMode(mode) {{
+  var contentEl = document.getElementById('np-content');
+  document.querySelectorAll('.np-tab').forEach(function(btn){{ btn.classList.toggle('active', btn.dataset.mode === mode); }});
+  if (mode === 'html') {{
+    contentEl.textContent = 'HTML artifact rendering is reserved for trusted generated nodes. Current node is shown as safe text.';
+  }} else if (mode === 'meta') {{
+    contentEl.textContent = 'Stage: ' + document.getElementById('np-stage').textContent + '\\nCategory: ' + document.getElementById('np-category').textContent + '\\nDomain: ' + document.getElementById('np-domain').textContent + '\\nConfidence: ' + document.getElementById('np-confidence').textContent + '\\nID: ' + document.getElementById('np-id').textContent;
+  }} else {{
+    var active = document.querySelector('#kn-card-grid .card[data-nid="' + document.getElementById('np-id').textContent + '"]');
+    contentEl.textContent = active ? (active.getAttribute('data-content') || 'No content preview available.') : 'No content preview available.';
+  }}
+}}
+function closeNodePreview() {{
+  document.getElementById('nodePreviewOverlay').classList.remove('open');
+}}
 </script>
+<!-- Node Preview Modal HTML -->
+<div class="node-preview-overlay" id="nodePreviewOverlay" onclick="if(event.target===this)closeNodePreview()">
+  <div class="node-preview-modal" id="nodePreviewModal">
+    <div class="node-preview-head">
+      <h3 id="np-title"></h3>
+      <div class="node-preview-badges" id="np-badges"></div>
+      <div class="np-artifact-tabs">
+        <button class="np-tab active" data-mode="text" onclick="setNodePreviewMode('text')">Text</button>
+        <button class="np-tab" data-mode="meta" onclick="setNodePreviewMode('meta')">Metadata</button>
+        <button class="np-tab" data-mode="html" onclick="setNodePreviewMode('html')">HTML Artifact</button>
+      </div>
+    </div>
+    <div class="node-preview-workspace">
+      <div class="node-preview-content" id="np-content"></div>
+      <aside class="node-preview-side">
+        <div class="np-side-card"><div class="np-side-label">Stage</div><div class="np-side-value" id="np-stage"></div></div>
+        <div class="np-side-card"><div class="np-side-label">Category</div><div class="np-side-value" id="np-category"></div></div>
+        <div class="np-side-card"><div class="np-side-label">Domain</div><div class="np-side-value" id="np-domain"></div></div>
+        <div class="np-side-card"><div class="np-side-label">Confidence</div><div class="np-side-value" id="np-confidence"></div></div>
+        <div class="np-side-card"><div class="np-side-label">Node ID</div><div class="np-side-value" id="np-id"></div></div>
+      </aside>
+    </div>
+    <div class="node-preview-actions">
+      <button id="np-copy" type="button">Copy</button>
+      <button onclick="closeNodePreview()">Close</button>
+      <a id="np-link" href="#">Open Full View →</a>
+    </div>
+  </div>
+</div>
 """
-    return _page("Knowledge Tree", body, nav_active="knowledge")
+    return _page("Knowledge Tree", body, nav_active="knowledge", show_fab=True)
 
 
 # ---------------------------------------------------------------------------
@@ -5457,8 +6670,8 @@ def knowledge_detail_page(
         conf_color = "var(--danger)"
     confidence_html = (
         f'<div style="display:flex;align-items:center;gap:12px">'
-        f'<div style="flex:1;height:10px;background:var(--border-hover);border-radius:5px;overflow:hidden">'
-        f'<div style="width:{pct}%;height:100%;background:{conf_color};border-radius:5px;transition:width .4s var(--ease-out)"></div>'
+        f'<div style="flex:1;height:10px;background:var(--border-hover);border-radius:var(--r-sm);overflow:hidden">'
+        f'<div style="width:{pct}%;height:100%;background:{conf_color};border-radius:var(--r-sm);transition:width .4s var(--ease-out)"></div>'
         f'</div>'
         f'<span style="font-size:1.1rem;font-weight:700;color:{conf_color}">{pct}%</span>'
         f'</div>'
@@ -5635,7 +6848,7 @@ def knowledge_detail_page(
 
     body = f"""
 <div class="detail-header">
-  <a href="/knowledge" class="back-link" data-i18n="kd_back">{_pt("kd_back")}</a>
+  <a href="/proposals?tab=knowledge" class="back-link" data-i18n="kd_back">{_pt("kd_back")}</a>
   <span class="detail-title">{_html.escape(summary[:60])}</span>
   {_stage_badge(stage)}
   {_kn_category_badge(category)}
@@ -5770,7 +6983,7 @@ def knowledge_detail_page(
 .kn-tl-item::before{{
   content:'';position:absolute;left:-22px;top:24px;bottom:0;
   width:2px;background:linear-gradient(to bottom,var(--primary) 0%,var(--border) 100%);
-  border-radius:1px
+  border-radius:var(--r-sm)
 }}
 .kn-tl-item:last-child::before{{display:none}}
 .kn-tl-dot{{
@@ -5785,9 +6998,9 @@ def knowledge_detail_page(
 }}
 .kn-tl-content::before{{
   content:'';position:absolute;left:0;top:8px;bottom:8px;width:3px;
-  border-radius:2px;background:var(--primary);opacity:.4;transition:opacity var(--duration)
+  border-radius:var(--r-sm);background:var(--primary);opacity:.4;transition:opacity var(--duration)
 }}
-.kn-tl-content:hover{{border-color:var(--primary);box-shadow:0 2px 12px rgba(167,139,250,.12)}}
+.kn-tl-content:hover{{border-color:var(--primary);box-shadow:0 2px 12px rgba(59,130,246,.12)}}
 .kn-tl-content:hover::before{{opacity:1}}
 .kn-tl-header{{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}}
 .kn-tl-time{{font-size:.72rem;color:var(--ink-dim);font-family:var(--font-mono)}}

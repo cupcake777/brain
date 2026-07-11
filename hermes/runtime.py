@@ -28,6 +28,56 @@ class RebuildResult:
     projects_updated: list[str]
 
 
+def sync_proposal_to_brain_context(
+    proposal: dict,
+    proposal_id: str,
+    *,
+    logger: logging.Logger | None = None,
+) -> bool:
+    """Sync a proposal's suggested_memory to ~/.hermes/brain-context.md.
+
+    Module-level so both HermesRuntime and app.py API endpoints can share
+    the same implementation without duplication.
+    """
+    try:
+        suggested = str(proposal.get("suggested_memory", "")).strip()
+        if not suggested:
+            return False
+
+        category = str(proposal.get("category", "fact"))
+        summary = str(proposal.get("summary", ""))[:120]
+        pid = proposal_id[:12]
+
+        context_file = Path.home() / ".hermes" / "brain-context.md"
+        context_file.parent.mkdir(parents=True, exist_ok=True)
+
+        existing = ""
+        if context_file.exists():
+            existing = context_file.read_text(encoding="utf-8")
+
+        if pid in existing or summary[:60] in existing:
+            return False
+
+        entry = f"\n### [{category}] {summary[:100]}\n{suggested}\n<!-- proposal:{pid} -->\n"
+
+        # Keep only top 50 entries
+        entries = existing.split("<!-- proposal:")
+        if len(entries) > 50:
+            header = entries[0] if not entries[0].startswith("<!--") else ""
+            entries = entries[-49:]
+            existing = header + "<!-- proposal:" + "<!-- proposal:".join(entries)
+
+        context_file.write_text(existing + entry, encoding="utf-8")
+        if logger is not None:
+            logger.info("brain-context.md: wrote %s (%s)", pid, category)
+        else:
+            print(f"[brain.sync] wrote {pid} ({category}) to brain-context.md", flush=True)
+        return True
+    except Exception as exc:
+        print(f"[brain.sync] FAILED: {exc}", flush=True)
+        return False
+
+
 class HermesRuntime:
     def __init__(self, *, config: HermesConfig, repo: HermesRepository | None = None) -> None:
         self.config = config
@@ -55,6 +105,16 @@ class HermesRuntime:
             stale_hard_limit_days=self.config.stale_export_hard_limit_days,
         )
 
+    def _sync_to_brain_context(self, proposal_id: str) -> bool:
+        """Sync a proposal's suggested_memory to ~/.hermes/brain-context.md."""
+        try:
+            proposal = self.repo.get_proposal(proposal_id)
+        except KeyError:
+            return False
+        return sync_proposal_to_brain_context(
+            proposal, proposal_id, logger=logging.getLogger(__name__),
+        )
+
     def run_scan_cycle(self) -> ScanCycleResult:
         processed: list[str] = []
         skipped: list[str] = []
@@ -77,6 +137,8 @@ class HermesRuntime:
                     ingested_count += 1  # count new pending proposals
                 else:
                     ingested_count += 1  # count auto-approved as well
+                # Sync approved knowledge to agent context immediately
+                self._sync_to_brain_context(outcome.proposal_id)
             except Exception as exc:  # noqa: BLE001
                 failed.append(name)
                 logging.warning("skipping invalid proposal %s: %s", name, exc)
@@ -105,6 +167,9 @@ class HermesRuntime:
 
         # Always rebuild KNOWLEDGE.md from canonized knowledge nodes
         self.exporter.build_knowledge_export()
+
+        # Export brain-context.md so HPC agents can pull it via HTTP
+        self.exporter.export_brain_context()
 
         project_keys = self.repo.list_exportable_project_keys()
         for project_key in project_keys:
@@ -136,6 +201,20 @@ class HermesRuntime:
         from hermes.integrate import retrospect
         result = retrospect(self.repo)
         logging.info("retrospect: %s", result)
+        return result
+
+    def run_knowledge_pipeline(self, *, backfill_embeddings: bool = True) -> dict:
+        """Materialize approved proposals and persist any missing vectors."""
+        from hermes.embedding import provider_config
+        from hermes.pipeline import sync_approved_proposals
+
+        result: dict[str, object] = {
+            "proposals": sync_approved_proposals(self.repo),
+            "embeddings": {"skipped": True, "reason": "provider disabled"},
+        }
+        if backfill_embeddings and provider_config()["enabled"]:
+            result["embeddings"] = self.repo.backfill_embeddings(entity_type="all", batch_size=32)
+        logging.info("knowledge pipeline: %s", result)
         return result
 
     def run_remote_dedup(self) -> dict:
@@ -179,6 +258,7 @@ class HermesRuntime:
         REMOTE_DEDUP_INTERVAL = 100  # every ~50 minutes at 30s intervals
         while True:
             self.run_scan_cycle()
+            self.run_knowledge_pipeline()
             self.rebuild_exports()
             # Run local retrospect every 10 cycles (~5 minutes)
             # auto-promotes draft→refined→canonized, finds merge candidates

@@ -83,13 +83,35 @@ class ProposalWriter:
 
 def load_front_matter(path: str | Path) -> tuple[dict[str, str], str]:
     text = Path(path).read_text(encoding="utf-8")
+    yaml_overlay: dict[str, str] = {}
+    bare_fallback = False
+
     if text.startswith("---\n"):
-        _, raw_front_matter, body = text.split("---\n", 2)
-        data = yaml.safe_load(raw_front_matter) or {}
-        missing = REQUIRED_FRONT_MATTER - set(data)
-        if missing:
-            raise ValueError(f"proposal is missing required fields: {sorted(missing)}")
-        return data, body.strip()
+        try:
+            _, raw_front_matter, body = text.split("---\n", 2)
+        except ValueError:
+            # Malformed YAML delimiter — treat as bare markdown
+            bare_fallback = True
+            body = text
+        else:
+            yaml_overlay = yaml.safe_load(raw_front_matter) or {}
+            if not isinstance(yaml_overlay, dict):
+                yaml_overlay = {}
+            missing = REQUIRED_FRONT_MATTER - set(yaml_overlay)
+            if missing:
+                # YAML frontmatter exists but incomplete — merge with bare markdown fallback
+                # instead of rejecting.  Codex often writes minimal YAML (e.g. only type: + scope:)
+                # and we auto-fill the rest from heading content.
+                bare_fallback = True
+                body = body.strip()
+            else:
+                return yaml_overlay, body.strip()
+    else:
+        bare_fallback = True
+        body = text
+
+    if not bare_fallback:
+        return yaml_overlay, body.strip()
 
     # --- Bare Markdown fallback: auto-generate front matter ---
     # Codex and other agents sometimes write proposals as plain Markdown
@@ -171,15 +193,19 @@ def load_front_matter(path: str | Path) -> tuple[dict[str, str], str]:
     )
 
     data = {
-        "proposal_id": str(uuid.uuid4()),
-        "source_agent": "bare-markdown",
-        "source_host": "auto-ingest",
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "project_key": "global",
-        "category": category,
-        "risk_level": risk,
-        "status": "submitted",
+        "proposal_id": yaml_overlay.get("proposal_id", str(uuid.uuid4())),
+        "source_agent": yaml_overlay.get("source_agent", yaml_overlay.get("type", "bare-markdown")),
+        "source_host": yaml_overlay.get("source_host", "auto-ingest"),
+        "created_at": yaml_overlay.get("created_at", datetime.now(timezone.utc).isoformat()),
+        "project_key": yaml_overlay.get("project_key", "global"),
+        "category": yaml_overlay.get("category", category),
+        "risk_level": yaml_overlay.get("risk_level", risk),
+        "status": yaml_overlay.get("status", "submitted"),
     }
+    # Preserve any extra YAML fields for downstream use
+    for k, v in yaml_overlay.items():
+        if k not in data:
+            data[k] = str(v)
     return data, canonical_body
 
 

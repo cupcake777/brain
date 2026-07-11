@@ -1,7 +1,25 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
+
+
+def build_config(sync_root: str | Path) -> HermesConfig:
+    """Build HermesConfig from sync_root plus optional env vars."""
+    root = Path(sync_root)
+    return HermesConfig(
+        sync_root=root,
+        db_path=root / "hermes.sqlite3",
+        auth_token=os.environ.get("HERMES_AUTH_TOKEN") or None,
+        auth_username=os.environ.get("HERMES_USERNAME") or None,
+        auth_password=os.environ.get("HERMES_PASSWORD") or None,
+        csrf_secret=os.environ.get("HERMES_CSRF_SECRET") or None,
+        tls_cert=os.environ.get("HERMES_TLS_CERT") or None,
+        tls_key=os.environ.get("HERMES_TLS_KEY") or None,
+        telegram_bot_token=os.environ.get("HERMES_TELEGRAM_BOT_TOKEN") or None,
+        telegram_chat_id=os.environ.get("HERMES_TELEGRAM_CHAT_ID") or None,
+    )
 
 
 @dataclass(frozen=True)

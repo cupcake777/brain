@@ -27,7 +27,7 @@ def test_review_endpoints_expose_pending_and_allow_approval(tmp_path) -> None:
         why_it_matters="Without it, approval is bottlenecked.",
         suggested_memory="Provide approve/reject/export actions in the web UI.",
         scope="project",
-        evidence="Manual design review.",
+        evidence='[{"source_type":"test","source_uri":"test://review-endpoints","quoted_excerpt":"Manual design review requirement."}]',
     )
     proposal_id = ingest.ingest_path(proposal_path).proposal_id
 
@@ -67,14 +67,17 @@ def test_review_html_pages_render_queue_and_detail(tmp_path) -> None:
         why_it_matters="Review should not require raw DB access.",
         suggested_memory="Provide a browser queue and detail view for pending proposals.",
         scope="global",
-        evidence="Design requirement.",
+        evidence='[{"source_type":"test","source_uri":"test://review-html","quoted_excerpt":"HTML review design requirement."}]',
     )
     proposal_id = ingest.ingest_path(proposal_path).proposal_id
 
-    queue = client.get("/review")
-    assert queue.status_code == 200
-    assert proposal_id in queue.text
-    assert "Pending proposals" in queue.text
+    queue = client.get("/review", follow_redirects=False)
+    assert queue.status_code == 301
+    assert queue.headers["location"] == "/proposals?tab=review"
+
+    proposals_page = client.get(queue.headers["location"])
+    assert proposals_page.status_code == 200
+    assert "Review" in proposals_page.text
 
     detail = client.get(f"/review/{proposal_id}")
     assert detail.status_code == 200

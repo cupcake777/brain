@@ -29,7 +29,7 @@ def _write_proposal(
         why_it_matters="Because it affects durable behavior.",
         suggested_memory=suggested_memory,
         scope="project",
-        evidence="Local test evidence.",
+        evidence='[{"source_type":"test","source_uri":"test://store-and-exports","quoted_excerpt":"Local structured test evidence."}]',
     )
 
 

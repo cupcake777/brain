@@ -19,9 +19,9 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 _API_BASE_URL = os.environ.get("BRAIN_API_URL", "http://127.0.0.1:8642")
-_API_KEY = os.environ.get("BRAIN_API_KEY", "hermes-webui-2026")
-_LLM_MODEL = os.environ.get("BRAIN_LLM_MODEL", "glm-5.1")
-_LLM_TIMEOUT = int(os.environ.get("BRAIN_LLM_TIMEOUT", "15"))
+_API_KEY = os.environ.get("BRAIN_API_KEY", "")
+_LLM_MODEL = os.environ.get("BRAIN_LLM_MODEL", "hermes-agent")
+_LLM_TIMEOUT = int(os.environ.get("BRAIN_LLM_TIMEOUT", "30"))
 _LLM_ENABLED = os.environ.get("BRAIN_LLM_ENABLED", "1").lower() not in ("0", "false", "no")
 
 # ---------------------------------------------------------------------------
@@ -54,7 +54,7 @@ def llm_check_contradiction(
     Returns dict with keys: is_contradiction, severity, resolution, explanation.
     Returns None if LLM is unavailable or disabled.
     """
-    if not _LLM_ENABLED:
+    if not _LLM_ENABLED or not _API_KEY:
         return None
 
     model = model or _LLM_MODEL

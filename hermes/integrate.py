@@ -89,15 +89,27 @@ def recompute_confidence(node: KnowledgeNode, repo: HermesRepository) -> float:
     evidence_list = json.loads(node.evidence) if isinstance(node.evidence, str) and node.evidence.strip().startswith("[") else (node.evidence if isinstance(node.evidence, list) else [])
     verified_list = json.loads(node.verified_by) if isinstance(node.verified_by, str) and node.verified_by.strip().startswith("[") else (node.verified_by if isinstance(node.verified_by, list) else [])
 
-    return compute_confidence(
+    outcome_bonus = min(node.outcome_count * 0.02, 0.12)
+    controversy_days = 0
+    if node.last_outcome_at:
+        try:
+            last_outcome = datetime.fromisoformat(node.last_outcome_at)
+            controversy_days = max(0, (now - last_outcome).days)
+        except ValueError:
+            controversy_days = days_since_creation
+    else:
+        controversy_days = days_since_creation
+
+    confidence = compute_confidence(
         category=node.category,
         source=node.source,
         evidence_count=len(evidence_list) + len(verified_list),
         retrieval_count=node.retrieval_count,
         correction_count=node.correction_count,
         days_since_creation=days_since_creation,
-        days_since_controversy=days_since_creation,  # Approximation: use age as proxy
+        days_since_controversy=controversy_days,
     )
+    return max(0.0, min(1.0, round(confidence + outcome_bonus, 3)))
 
 
 # ---------------------------------------------------------------------------
@@ -603,6 +615,14 @@ def integrate(
         retrieval_count=0,
         last_used_at=None,
         correction_count=0,
+        outcome_count=0,
+        last_outcome_at=None,
+        kind=category,
+        trigger_terms="[]",
+        use_when="",
+        avoid_when="",
+        success_signal="",
+        failure_signal="",
     )
     repo.insert_knowledge_node(node)
 
@@ -634,6 +654,116 @@ def integrate(
 # ---------------------------------------------------------------------------
 # Retrospect — periodic knowledge maintenance
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Quality gate for retrospect auto-canonize
+# ---------------------------------------------------------------------------
+
+import re as _re
+
+
+def _assess_node_quality(node) -> tuple[float, str]:
+    """Assess knowledge node quality before auto-canonize.
+
+    Returns (score, reason) where score 0.0-1.0.
+    Score < 0.4 → should NOT canonize (deprecate or keep in refined).
+    Score 0.4-0.6 → borderline, keep in refined longer.
+    Score > 0.6 → safe to canonize.
+    """
+    summary = (node.summary or "").strip()
+    content = (node.content or "").strip()
+    category = (node.category or "").strip()
+    full_text = f"{summary} {content}"
+
+    # --- Hard disqualifiers (immediate deprecate) ---
+
+    # 1. Test/placeholder entries
+    test_patterns = [
+        r"^this is a test\b",
+        r"^test content\b",
+        r"^test proposal\b",
+        r"^lorem ipsum\b",
+    ]
+    for pat in test_patterns:
+        if _re.match(pat, summary, _re.IGNORECASE):
+            return 0.0, f"test/placeholder entry"
+
+    # 2. UUID-only or hash-only content (no actual knowledge)
+    if _re.match(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", summary.strip()):
+        return 0.0, "UUID-only summary (no knowledge content)"
+
+    # 3. Raw chat session dumps (not refined knowledge)
+    if _re.match(r"^chat session on\b", summary, _re.IGNORECASE):
+        return 0.1, "raw chat session dump (not distilled knowledge)"
+
+    # 4. Empty or near-empty
+    if len(summary) < 15:
+        return 0.1, f"summary too short ({len(summary)} chars)"
+
+    # --- Soft quality signals ---
+
+    score = 0.5  # baseline
+
+    # 5. Missing operational metadata cannot become durable canon.
+    trigger_terms = (getattr(node, "trigger_terms", None) or "").strip()
+    use_when = (getattr(node, "use_when", None) or "").strip()
+    success_signal = (getattr(node, "success_signal", None) or "").strip()
+    if not trigger_terms or trigger_terms == "[]":
+        score -= 0.15
+    if len(use_when) < 20:
+        score -= 0.15
+    if len(success_signal) < 20:
+        score -= 0.10
+
+    # 6. Has actionable content (rules/hints should have verbs)
+    action_verbs = ["use", "do not", "never", "always", "prefer", "avoid",
+                    "check", "verify", "ensure", "must", "should", "when",
+                    "before", "after", "if", "用", "不要", "必须", "检查"]
+    has_action = any(v in full_text.lower() for v in action_verbs)
+    if has_action:
+        score += 0.15
+
+    # 6. Category validity
+    if category in ("rule", "workflow_hint"):
+        score += 0.1  # structured knowledge
+    elif category in ("fact",):
+        score += 0.05  # factual but less actionable
+    elif category in ("preference",):
+        score += 0.05
+    else:
+        score -= 0.1  # unknown category
+
+    # 7. Content length (too short = not useful, too long = probably raw dump)
+    content_len = len(content)
+    if content_len < 30:
+        score -= 0.15
+    elif content_len > 2000:
+        score -= 0.1  # suspiciously long, might be raw dump
+    elif 50 <= content_len <= 500:
+        score += 0.1  # sweet spot
+
+    # 8. Has evidence/observation (structured proposal)
+    has_sections = any(h in content for h in ["Observation:", "Evidence:", "Summary:"])
+    if has_sections:
+        score += 0.1
+
+    # 9. Confidence from integrate (if already scored low, penalize)
+    if node.confidence and node.confidence < 0.6:
+        score -= 0.1
+
+    # Clamp
+    score = max(0.0, min(1.0, score))
+
+    # Build reason
+    if score >= 0.6:
+        reason = f"quality OK (score={score:.2f})"
+    elif score >= 0.4:
+        reason = f"borderline quality (score={score:.2f}), needs more time or review"
+    else:
+        reason = f"low quality (score={score:.2f})"
+
+    return score, reason
+
 
 def retrospect(repo: HermesRepository, *, dry_run: bool = False) -> dict:
     """Periodic knowledge maintenance — replaces manual dedup/reweight.
@@ -703,11 +833,30 @@ def retrospect(repo: HermesRepository, *, dry_run: bool = False) -> dict:
                     repo.update_knowledge_node(node.id, stage="refined", refined_at=now.isoformat())
             continue
 
-        # refined → canonized: after 2 days, no contradictions
+        # refined → canonized: quality gate + time gate + no contradictions
         refined_at = _parse_dt(node.refined_at, created)
         days_refined = (now - refined_at).days
 
         if days_refined < 2:
+            continue
+
+        # Quality gate — reject low-quality entries
+        quality_score, quality_reason = _assess_node_quality(node)
+
+        if quality_score < 0.4:
+            # Low quality → deprecate immediately
+            actions["quality_rejected"] = actions.get("quality_rejected", 0) + 1
+            logger.info("retrospect quality reject: score=%.2f reason=%s [%s] %s",
+                        quality_score, quality_reason, node.id[:8], node.summary[:60])
+            if not dry_run:
+                repo.update_knowledge_node(node.id, stage="deprecated",
+                                           deprecated_at=now.isoformat())
+            continue
+        elif quality_score < 0.6:
+            # Borderline → keep in refined longer (skip this cycle)
+            actions["quality_deferred"] = actions.get("quality_deferred", 0) + 1
+            logger.info("retrospect quality defer: score=%.2f [%s] %s",
+                        quality_score, node.id[:8], node.summary[:60])
             continue
 
         # Check no active contradictions
@@ -721,6 +870,8 @@ def retrospect(repo: HermesRepository, *, dry_run: bool = False) -> dict:
 
         if not has_active_contradiction:
             actions["canonized"] += 1
+            logger.info("retrospect canonized: score=%.2f [%s] %s",
+                        quality_score, node.id[:8], node.summary[:60])
             if not dry_run:
                 repo.update_knowledge_node(node.id, stage="canonized", verified_at=now.isoformat())
 

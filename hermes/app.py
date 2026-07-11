@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import secrets
 import time as _time
@@ -23,14 +24,18 @@ from hermes.templates import (
     dashboard_page,
     gallery_detail_page,
     gallery_page,
+    home_page,
     knowledge_detail_page,
     knowledge_tree_page as knowledge_page,
+    linuxdo_board_page,
     login_page,
     profile_page,
+    proposal_lifecycle_page,
+    resources_page,
+    vps_fleet_page,
     review_detail_page,
     review_queue_page,
     security_page,
-    services_page,
     settings_page,
 )
 
@@ -47,6 +52,16 @@ def create_app(
     exporter = exporter or ExportCompiler(repo=repo, sync_root=sync_root)
     status_publisher = StatusPublisher(repo=repo, sync_root=sync_root)
     app = FastAPI(title="Hermes MVP")
+
+    @app.middleware("http")
+    async def _no_store_html_responses(request: Request, call_next):
+        response = await call_next(request)
+        content_type = response.headers.get("content-type", "")
+        if content_type.startswith("text/html"):
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+        return response
 
     # -- auth helpers (must be defined before middleware) ----------------------
     auth_enabled = bool(config.auth_token or config.auth_username)
@@ -115,12 +130,7 @@ def create_app(
     # JSON API endpoints (unchanged – tests depend on these)
     # ------------------------------------------------------------------
 
-    @app.get("/", response_class=HTMLResponse, response_model=None)
-    def root_redirect(request: Request):
-        if auth_enabled and not _has_valid_cookie(request):
-            return RedirectResponse("/login", status_code=303)
-        # Home page with overview cards
-        from hermes.templates import home_page
+    def _render_workbench_page() -> str:
         node_counts = {}
         for stage in ("draft", "refined", "verified", "canonized", "deprecated"):
             node_counts[stage] = len(repo.list_knowledge_nodes(stage=stage, limit=10000))
@@ -134,7 +144,6 @@ def create_app(
                 chart_count = len(_cat.get("templates", []))
         except Exception:
             pass
-        # Fetch 8 most recent knowledge nodes for the activity feed
         recent_nodes = []
         try:
             _nodes = repo.list_knowledge_nodes(limit=8)
@@ -144,14 +153,33 @@ def create_app(
             ]
         except Exception:
             pass
-        # Collect dashboard data for integrated home view
         dash_data = _collect_dashboard_data()
+        linuxdo_board = {}
+        board_path = Path.home() / "self/knowledge/daily-learnings/linuxdo-board.json"
+        if board_path.exists():
+            try:
+                import json as _json
+                linuxdo_board = _json.loads(board_path.read_text(encoding="utf-8"))
+            except Exception:
+                linuxdo_board = {"fetch_errors": ["failed to read board json"], "items": []}
         return home_page(
             node_counts=node_counts, chart_count=chart_count, health_summary={},
             recent_nodes=recent_nodes,
             do_status=dash_data["do"], proxy_status=dash_data["proxy_status"],
-            proxy_traffic=dash_data["proxy_traffic"], sub2api=dash_data["sub2api"],
+            proxy_traffic=dash_data["proxy_traffic"], sub2api=dash_data["sub2api"], linuxdo_board=linuxdo_board,
         )
+
+    @app.get("/", response_class=HTMLResponse, response_model=None)
+    def root_redirect(request: Request):
+        if auth_enabled and not _has_valid_cookie(request):
+            return RedirectResponse("/login", status_code=303)
+        return _render_workbench_page()
+
+    @app.get("/overview", response_class=HTMLResponse, response_model=None)
+    def overview_page(request: Request):
+        if auth_enabled and not _has_valid_cookie(request):
+            return RedirectResponse("/login", status_code=303)
+        return _render_workbench_page()
 
     @app.get("/health")
     def health() -> dict[str, str]:
@@ -171,6 +199,12 @@ def create_app(
         except ValueError:
             pass
         return ""
+
+    def _sync_proposal_to_agent(proposal: dict, repo: HermesRepository) -> bool:
+        """Sync approved proposal's suggested_memory to agent-accessible context."""
+        from hermes.runtime import sync_proposal_to_brain_context
+        pid = str(proposal.get("proposal_id", ""))
+        return sync_proposal_to_brain_context(proposal, pid)
 
     @app.get("/api/review/pending")
     def review_pending() -> dict[str, object]:
@@ -199,6 +233,8 @@ def create_app(
             exporter.build_claude_md_export()
         else:
             exporter.build_project_export(str(proposal["project_key"]))
+        # Sync approved knowledge to agent memory
+        _sync_proposal_to_agent(proposal, repo)
         status_publisher.publish()
         next_id = _get_next_proposal_id(repo, state, proposal_id)
         return {"proposal_id": proposal_id, "state": "approved_for_export", "next_id": next_id}
@@ -215,6 +251,8 @@ def create_app(
             exporter.build_claude_md_export()
         else:
             exporter.build_project_export(str(proposal["project_key"]))
+        # Sync approved knowledge to agent memory
+        _sync_proposal_to_agent(proposal, repo)
         status_publisher.publish()
         next_id = _get_next_proposal_id(repo, state, proposal_id)
         return {"proposal_id": proposal_id, "state": "approved_for_export", "next_id": next_id}
@@ -231,15 +269,18 @@ def create_app(
     # ------------------------------------------------------------------
 
     @app.post("/api/proposals/submit")
-    async def submit_proposal(request: Request) -> dict[str, str]:
+    async def submit_proposal(request: Request) -> dict[str, object]:
         """Accept a proposal .md file from a remote agent.
 
         Body can be either:
         - JSON: {"content": "<full .md content>", "filename": "optional-name.md"}
         - Plain text: the raw .md content (Content-Type: text/markdown or text/plain)
 
-        The file is written to the proposals inbox and will be ingested
-        on the next watch cycle.
+        The file is written to the proposals inbox, then pre-validated:
+        - Checks for semantic duplicates of existing proposals.
+        - Validates evidence section and required structure.
+        - Returns detailed feedback so remote agents know whether the
+          proposal was accepted, rejected (and why), or is a duplicate.
         """
         import json as _json
         import uuid
@@ -274,7 +315,72 @@ def create_app(
         filepath = proposals_dir / safe_filename
         filepath.write_text(content, encoding="utf-8")
 
-        return {"status": "ok", "filename": safe_filename, "message": "Proposal written to inbox; will be ingested on next watch cycle"}
+        # ── Pre-validate: parse, check duplicates, validate evidence ──
+        result: dict[str, object] = {"filename": safe_filename, "file_written": True}
+
+        try:
+            from hermes.proposals import load_front_matter
+            from hermes.ingest import _parse_sections, _compute_semantic_hash
+            from hermes.evidence import validate_evidence
+
+            front_matter, body_text = load_front_matter(filepath)
+            proposal_id = str(front_matter["proposal_id"])
+
+            result["proposal_id"] = proposal_id
+
+            # Check exact duplicate (same proposal_id)
+            if repo.has_proposal(proposal_id):
+                stored = repo.get_proposal(proposal_id)
+                result["status"] = "duplicate"
+                result["existing_state"] = str(stored["state"])
+                result["existing_summary"] = str(stored["summary"])
+                result["message"] = (
+                    f"Proposal {proposal_id} already exists (state: {stored['state']}). "
+                    f"Review at /api/review/{proposal_id}"
+                )
+                return result
+
+            # Parse and validate sections
+            sections = _parse_sections(body_text)
+
+            # Check semantic duplicate (different proposal_id, same content)
+            semantic_hash = _compute_semantic_hash(body_text)
+            duplicate_of = repo.find_by_semantic_hash(semantic_hash, excluding=proposal_id)
+            if duplicate_of:
+                existing = repo.get_proposal(duplicate_of)
+                result["status"] = "duplicate"
+                result["existing_proposal_id"] = duplicate_of
+                result["existing_state"] = str(existing["state"])
+                result["existing_summary"] = str(existing["summary"])
+                result["message"] = (
+                    f"Proposal is a semantic duplicate of {duplicate_of} "
+                    f"(state: {existing['state']}). Review at /api/review/{duplicate_of}"
+                )
+                return result
+
+            # All validations passed
+            result["status"] = "validated"
+            result["category"] = front_matter.get("category", "unknown")
+            result["risk_level"] = front_matter.get("risk_level", "unknown")
+            result["summary"] = sections.get("Summary", "")
+            result["message"] = "Proposal is valid and will be ingested on next watch cycle."
+
+        except ValueError as exc:
+            # Validation failure — proposal file still written to inbox,
+            # but the agent should fix and resubmit.
+            result["status"] = "rejected"
+            result["reason"] = str(exc)
+            result["message"] = f"Proposal rejected by validation: {exc}"
+        except Exception as exc:
+            # Unexpected parse error — file written but couldn't pre-validate.
+            # The watch cycle will retry, so this isn't fatal.
+            result["status"] = "accepted"
+            result["message"] = (
+                f"Proposal written to inbox but pre-validation failed "
+                f"(will retry on watch cycle): {exc}"
+            )
+
+        return result
 
     # ------------------------------------------------------------------
     # Export file endpoints
@@ -309,12 +415,180 @@ def create_app(
     # V2 Knowledge API endpoints
     # ------------------------------------------------------------------
 
+    # -- rate limiter for record-query (anti-metric-poisoning) -----------------
+    _record_query_cooldown: dict[str, float] = {}  # key -> last_hit_epoch
+    _RECORD_QUERY_COOLDOWN_SECS = 2.0  # min interval per agent+host combo
+
+    @app.post("/api/knowledge/record-query")
+    async def record_query(request: Request) -> dict:
+        """Record a knowledge query for retrieval tracking.
+
+        Accepts Form data (legacy) or JSON body (v3):
+        {
+            "query": "search terms",
+            "agent": "hermes-cli",
+            "session_id": "20260630_...",
+            "scope_level": "project",
+            "scope_key": "hermes",
+            "limit": 5
+        }
+        """
+        # Parse body - support both Form and JSON
+        content_type = request.headers.get("content-type", "")
+        if "application/json" in content_type:
+            body = await request.json()
+            query = str(body.get("query", ""))
+            agent = str(body.get("agent", "unknown"))
+            host = str(body.get("host", "unknown"))
+            session_id = str(body.get("session_id", ""))
+            limit = int(body.get("limit", 10))
+        else:
+            form = await request.form()
+            query = str(form.get("query", ""))
+            agent = str(form.get("agent", "unknown"))
+            host = str(form.get("host", "unknown"))
+            session_id = str(form.get("session_id", ""))
+            limit = 10
+        """Record a knowledge query for retrieval tracking.
+
+        Called by brain-query-hpc.sh (HPC) and brain-query CLI (VPS).
+        Increments retrieval_count for knowledge nodes matching the query.
+        PUBLIC endpoint — no auth required (only increments counters).
+        Rate-limited to 1 request per 2s per agent+host key.
+        """
+        # Rate limit check
+        import time as _time
+        agent_clean = (agent or "unknown").strip()
+        host_clean = (host or "unknown").strip()
+        rl_key = f"{agent_clean}:{host_clean}"
+        now = _time.monotonic()
+        last = _record_query_cooldown.get(rl_key, 0.0)
+        if now - last < _RECORD_QUERY_COOLDOWN_SECS:
+            return {"updated": 0, "error": "rate_limited", "retry_after": _RECORD_QUERY_COOLDOWN_SECS}
+        _record_query_cooldown[rl_key] = now
+        # Evict stale keys periodically (prevent unbounded growth)
+        if len(_record_query_cooldown) > 1000:
+            cutoff = now - _RECORD_QUERY_COOLDOWN_SECS * 60
+            stale = [k for k, v in _record_query_cooldown.items() if v < cutoff]
+            for k in stale:
+                del _record_query_cooldown[k]
+
+        if not query or not query.strip():
+            return {"updated": 0, "query": query}
+        try:
+            event = repo.record_retrieval_for_query(
+                query=query.strip(),
+                agent=agent_clean,
+                host=host_clean,
+                session_id=session_id,
+            )
+            return {"updated": event["updated"], "event_id": event["event_id"], "node_ids": event["node_ids"], "query": query[:100]}
+        except Exception as exc:
+            print(f"[brain.record-query] FAILED: {exc}", flush=True)
+            return {"updated": 0, "error": str(exc)}
+
+    @app.post("/api/knowledge/{node_id}/outcome")
+    async def record_outcome(node_id: str, request: Request) -> dict:
+        """Record an outcome (success/failure) for a knowledge node.
+
+        Body: {"success": true/false, "note": "optional explanation"}
+        """
+        body = await request.json()
+        success = bool(body.get("success", True))
+        note = str(body.get("note", ""))
+        event_id = body.get("event_id")
+        event_id = str(event_id) if event_id else None
+        node = repo.get_knowledge_node(node_id)
+        if node is None:
+            raise HTTPException(status_code=404, detail="node not found")
+        ok = repo.record_outcome(node_id, success=success, note=note, event_id=event_id)
+        updated = repo.get_knowledge_node(node_id)
+        event = repo.get_retrieval_event(event_id) if event_id else None
+        return {
+            "node_id": node_id,
+            "recorded": ok,
+            "event_id": event_id,
+            "event_outcome_recorded": bool(event and event.outcome_recorded_at),
+            "outcome_count": updated.outcome_count if updated else 0,
+            "confidence": updated.confidence if updated else 0,
+        }
+
+    @app.post("/api/knowledge/outcome")
+    async def record_outcome_v3(request: Request) -> dict:
+        """Record per-memory outcomes for a retrieval event (v3 protocol).
+
+        Body: {
+            "retrieval_log_id": "uuid-from-record-query",
+            "outcomes": [
+                {
+                    "memory_id": "node-uuid",
+                    "used": true,
+                    "helpfulness": "helpful",
+                    "user_validated": null,
+                    "task_success": "success"
+                }
+            ]
+        }
+        """
+        body = await request.json()
+        retrieval_log_id = str(body.get("retrieval_log_id", ""))
+        outcomes = body.get("outcomes", [])
+        if not retrieval_log_id:
+            raise HTTPException(status_code=400, detail="retrieval_log_id is required")
+        if not isinstance(outcomes, list) or not outcomes:
+            raise HTTPException(status_code=400, detail="outcomes must be a non-empty list")
+
+        recorded = repo.record_outcome_v3(retrieval_log_id, outcomes)
+        return {
+            "recorded": recorded,
+            "retrieval_log_id": retrieval_log_id,
+        }
+
+    @app.get("/api/knowledge/graph")
+    def knowledge_graph(limit: int = 200) -> dict:
+        """Return nodes and edges for the knowledge graph visualization (v3)."""
+        return repo.get_knowledge_graph(limit=limit)
+
+    @app.get("/api/knowledge/top")
+    def knowledge_top(limit: int = Query(default=10, le=50)) -> list[dict]:
+        """Return top knowledge nodes by composite signal score."""
+        nodes = repo.top_knowledge_nodes(limit=limit)
+        return [
+            {
+                "id": n.id,
+                "summary": n.summary[:120],
+                "category": n.category,
+                "domain": n.domain,
+                "stage": n.stage,
+                "confidence": n.confidence,
+                "retrieval_count": n.retrieval_count,
+                "outcome_count": n.outcome_count,
+            }
+            for n in nodes
+        ]
+
     @app.get("/api/knowledge/stats")
     def knowledge_stats() -> dict:
-        """Return node counts by stage."""
-        counts = repo.count_knowledge_nodes_by_stage()
-        total = sum(counts.values())
-        return {"total": total, "by_stage": counts}
+        """Return comprehensive knowledge stats including outcome metrics."""
+        return repo.knowledge_stats_full()
+
+    @app.get("/api/knowledge/embeddings")
+    def knowledge_embeddings() -> dict:
+        """Return persisted embedding coverage and provider readiness."""
+        return repo.embedding_status()
+
+    @app.get("/api/knowledge/pipeline")
+    def knowledge_pipeline() -> dict:
+        """Return Proposal→Knowledge automation and vector coverage."""
+        return {
+            "proposals": repo.proposal_sync_status(),
+            "embeddings": repo.embedding_status(),
+        }
+
+    @app.get("/api/knowledge/health")
+    def knowledge_health() -> dict:
+        """Return comprehensive health signals (v3): pending, conflicts, quarantined, stale, dirty."""
+        return repo.knowledge_health_report()
 
     @app.get("/api/knowledge/list")
     def knowledge_list(
@@ -340,6 +614,11 @@ def create_app(
                 "source": n.source,
                 "created_at": n.created_at,
                 "supersedes": n.supersedes,
+                "retrieval_count": n.retrieval_count,
+                "last_used_at": n.last_used_at,
+                "outcome_count": n.outcome_count,
+                "last_outcome_at": n.last_outcome_at,
+                "correction_count": n.correction_count,
             }
             for n in nodes
         ]
@@ -374,7 +653,10 @@ def create_app(
                 "verified_at": node.verified_at,
                 "deprecated_at": node.deprecated_at,
                 "retrieval_count": node.retrieval_count,
+                "last_used_at": node.last_used_at,
                 "correction_count": node.correction_count,
+                "outcome_count": node.outcome_count,
+                "last_outcome_at": node.last_outcome_at,
             },
             "thought_chains": [
                 {
@@ -559,16 +841,16 @@ def create_app(
     _VALID_STATES = {"pending", "approved_db_only", "approved_for_export", "rejected", "all"}
 
     @app.get("/review", response_class=HTMLResponse)
-    def review_queue_page_route(state: str = Query(default="pending")):
-        return RedirectResponse("/knowledge", status_code=301)
+    def review_queue_redirect():
+        return RedirectResponse("/proposals?tab=review", status_code=301)
 
     @app.get("/review/approved", response_class=HTMLResponse)
     def review_approved_redirect():
-        return RedirectResponse("/knowledge", status_code=301)
+        return RedirectResponse("/proposals?tab=review", status_code=301)
 
     @app.get("/review/rejected", response_class=HTMLResponse)
     def review_rejected_redirect():
-        return RedirectResponse("/knowledge", status_code=301)
+        return RedirectResponse("/proposals?tab=review", status_code=301)
 
     # ------------------------------------------------------------------
     # HTML pages – review detail
@@ -589,42 +871,8 @@ def create_app(
     _VALID_KN_STAGES = {"draft", "refined", "verified", "canonized", "deprecated", "all"}
 
     @app.get("/knowledge", response_class=HTMLResponse)
-    def knowledge_page_route(
-        stage: str = Query(default="all"),
-        category: str = Query(default=""),
-        domain: str = Query(default=""),
-        limit: int = Query(default=100, le=500),
-        offset: int = Query(default=0, ge=0),
-    ) -> str:
-        stage = stage if stage in _VALID_KN_STAGES else "all"
-        stage_counts = repo.count_knowledge_nodes_by_stage()
-        if stage == "all":
-            node_objs = repo.list_knowledge_nodes(
-                category=category or None,
-                domain=domain or None,
-                limit=limit,
-                offset=offset,
-            )
-        else:
-            node_objs = repo.list_knowledge_nodes(
-                stage=stage,
-                category=category or None,
-                domain=domain or None,
-                limit=limit,
-                offset=offset,
-            )
-        # Convert dataclasses to dicts for template rendering
-        from dataclasses import asdict
-        nodes = [asdict(n) for n in node_objs]
-        all_domains = sorted({n.get("domain", "general") for n in nodes}) if nodes else []
-        return knowledge_page(
-            nodes=nodes,
-            counts=stage_counts,
-            active_stage=stage,
-            active_category=category,
-            active_domain=domain,
-            domains=all_domains,
-        )
+    def knowledge_redirect():
+        return RedirectResponse("/proposals?tab=knowledge", status_code=301)
 
     @app.get("/knowledge/{node_id}", response_class=HTMLResponse)
     def knowledge_detail_page_route(node_id: str) -> str:
@@ -671,6 +919,8 @@ def create_app(
                 "retrieval_count": node.retrieval_count,
                 "correction_count": node.correction_count,
                 "last_used_at": node.last_used_at,
+                "outcome_count": node.outcome_count,
+                "last_outcome_at": node.last_outcome_at,
             },
             thought_chains=[
                 {
@@ -721,13 +971,13 @@ def create_app(
     _SUB2API_BASE = os.environ.get("SUB2API_BASE", "")
     _SUB2API_KEY = os.environ.get("SUB2API_KEY", "")
     if not _SUB2API_KEY:
-        _kpath = os.environ.get("SUB2API_KEY_FILE", os.path.expanduser("~/.brain-secrets/sub2api_admin_api_key.txt"))
+        _kpath = os.environ.get("SUB2API_KEY_FILE", os.path.expanduser("~/ops/.secrets/sub2api_admin_api_key.txt"))
         if os.path.exists(_kpath):
             _SUB2API_KEY = open(_kpath).read().strip()
 
     def _collect_sub2api_stats() -> dict:
         """Fetch Sub2API dashboard stats + 7d trend + groups from admin API.
-        
+
         Excludes admin/management accounts (non-openai platform) from the
         monitored worker pool so the dashboard only shows real upstream workers.
         """
@@ -766,6 +1016,20 @@ def create_app(
                 data = _json.loads(resp.read())
                 if data.get("code") == 0:
                     result["groups"] = data["data"].get("items", [])
+        except Exception:
+            pass
+        try:
+            import subprocess as _sp
+            import os as _os
+            _pool_proc = _sp.run(
+                [_os.path.expanduser("~/ops/bin/sub2api-pool.py")],
+                capture_output=True, text=True, timeout=15,
+            )
+            if _pool_proc.returncode == 0:
+                _pool_data = _json.loads(_pool_proc.stdout)
+                if "error" not in _pool_data:
+                    result["pool"] = _pool_data["pool"]
+                    result["platforms"] = _pool_data["platforms"]
         except Exception:
             pass
         return result
@@ -840,7 +1104,15 @@ def create_app(
         return _dash_cache.set(result)
 
     @app.get("/dashboard", response_class=HTMLResponse, response_model=None)
-    def dashboard_route() -> str:
+    def dashboard_route():
+        return RedirectResponse("/control", status_code=301)
+
+    @app.get("/ops", response_class=HTMLResponse, response_model=None)
+    def ops_route():
+        return RedirectResponse("/control", status_code=301)
+
+    @app.get("/control", response_class=HTMLResponse, response_model=None)
+    def control_route() -> str:
         data = _collect_dashboard_data()
         return dashboard_page(
             do_status=data["do"],
@@ -848,6 +1120,128 @@ def create_app(
             proxy_traffic=data["proxy_traffic"],
             sub2api=data["sub2api"],
         )
+
+    @app.get("/brain-map", response_class=HTMLResponse, response_model=None)
+    def brain_map_route():
+        return RedirectResponse("/proposals", status_code=301)
+
+    @app.get("/proposals", response_class=HTMLResponse, response_model=None)
+    def proposal_lifecycle_route(
+        tab: str = Query(default="flow"),
+    ) -> str:
+        if tab not in {"flow", "review", "knowledge"}:
+            tab = "flow"
+        overview = repo.proposal_lifecycle_overview()
+        graph_data = repo.get_knowledge_graph(limit=300)
+        return proposal_lifecycle_page(
+            overview=overview, tab=tab, graph_data=graph_data,
+        )
+
+
+    @app.get("/fleet", response_class=HTMLResponse, response_model=None)
+    def fleet_route() -> str:
+        return vps_fleet_page()
+
+    _fleet_cache: dict = {"data": None, "ts": 0.0}
+    _FLEET_TTL = 30.0
+    _VPS_FLEET = [
+        {"name":"Seoul","host":"local","region":"Seoul / Tencent","spec":"2C/4G","role":"control plane: Hermes + Brain + notifications + reverse proxy","tags":["control-plane","brain"]},
+        {"name":"RackNerd","target":os.environ.get("BRAIN_FLEET_RACKNERD_TARGET", "RACKNERD"),"region":"US / RackNerd","spec":"1C/2G/34G","role":"service and tunnel origin","tags":["service","tunnel"]},
+        {"name":"SEA","target":os.environ.get("BRAIN_FLEET_SEA_TARGET", "SEA"),"region":"Seattle / SEA","spec":"1C/1G/20G","role":"proxy node","tags":["proxy"]},
+        {"name":"Ali Frankfurt","target":os.environ.get("BRAIN_FLEET_FRA_TARGET", "FRANKFRUT"),"region":"Frankfurt / Aliyun","spec":"2C/1.6G/40G","role":"backup VPS","tags":["backup","eu"]},
+        {"name":"BJ","target":os.environ.get("BRAIN_FLEET_BJ_TARGET", "BJ"),"region":"Beijing / Tencent","spec":"4C/4G/60G","role":"resource node","tags":["cn","4c4g"]},
+        {"name":"LA","target":os.environ.get("BRAIN_FLEET_LA_TARGET", "LA"),"region":"LA / DediRock","spec":"1C/2G/30G","role":"standby node","tags":["idle","us-west"]},
+    ]
+
+    def _parse_fleet_probe(text: str) -> dict:
+        lines = [x.strip() for x in (text or "").splitlines() if x.strip()]
+        data = {}
+        for line in lines:
+            if "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            data[k.strip()] = v.strip()
+        def _num(key, default=0.0):
+            try:
+                return float(data.get(key, default))
+            except Exception:
+                return default
+        return {
+            "hostname": data.get("hostname", ""),
+            "vcpu": int(_num("vcpu", 0)),
+            "mem_total_mb": int(_num("mem_total_mb", 0)),
+            "mem_used_mb": int(_num("mem_used_mb", 0)),
+            "mem_avail_mb": int(_num("mem_avail_mb", 0)),
+            "disk_total_gb": int(_num("disk_total_gb", 0)),
+            "disk_used_gb": int(_num("disk_used_gb", 0)),
+            "disk_used_percent": int(_num("disk_used_percent", 0)),
+            "uptime": data.get("uptime", ""),
+        }
+
+    def _probe_vps(item: dict) -> dict:
+        import subprocess as _sp
+        base = dict(item)
+        probe = "printf 'hostname=%s\n' $(hostname); printf 'vcpu=%s\n' $(nproc); free -m | awk '/Mem:/ {printf \"mem_total_mb=%s\\nmem_used_mb=%s\\nmem_avail_mb=%s\\n\", $2,$3,$7}'; df -BG / | awk 'NR==2 {gsub(/G/,\"\",$2);gsub(/G/,\"\",$3);gsub(/%/,\"\",$5);printf \"disk_total_gb=%s\\ndisk_used_gb=%s\\ndisk_used_percent=%s\\n\", $2,$3,$5}'; printf 'uptime='; uptime -p"
+        try:
+            if item.get("host") == "local":
+                cmd = ["bash", "-lc", probe]
+            else:
+                target = item["target"]
+                cmd = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5", "-o", "StrictHostKeyChecking=accept-new", target, probe]
+            r = _sp.run(cmd, capture_output=True, text=True, timeout=12)
+            base["ok"] = r.returncode == 0
+            if r.returncode == 0:
+                base.update(_parse_fleet_probe(r.stdout))
+            else:
+                base["error"] = (r.stderr or r.stdout or "probe failed")[:180]
+        except Exception as exc:
+            base["ok"] = False
+            base["error"] = str(exc)[:180]
+        return base
+
+    @app.get("/api/vps/fleet", response_model=None)
+    def vps_fleet_api() -> dict:
+        now = _time.monotonic()
+        if _fleet_cache["data"] is not None and (now - _fleet_cache["ts"]) < _FLEET_TTL:
+            return _fleet_cache["data"]
+        items = []
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            for res in as_completed([pool.submit(_probe_vps, item) for item in _VPS_FLEET]):
+                items.append(res.result())
+        order = {item["name"]: idx for idx, item in enumerate(_VPS_FLEET)}
+        items.sort(key=lambda x: order.get(x.get("name"), 99))
+        online = [x for x in items if x.get("ok")]
+        summary = {
+            "total": len(items),
+            "online": len(online),
+            "vcpu": sum(int(x.get("vcpu") or 0) for x in online),
+            "mem_total_mb": sum(int(x.get("mem_total_mb") or 0) for x in online),
+            "disk_total_gb": sum(int(x.get("disk_total_gb") or 0) for x in online),
+        }
+        data = {"items": items, "summary": summary, "checked_at": _time.strftime("%Y-%m-%d %H:%M:%S UTC", _time.gmtime())}
+        _fleet_cache["data"] = data
+        _fleet_cache["ts"] = now
+        return data
+
+    @app.get("/hub", response_class=HTMLResponse, response_model=None)
+    def hub_route() -> str:
+        return resources_page()
+
+    @app.get("/linuxdo", response_class=HTMLResponse, response_model=None)
+    def linuxdo_route() -> str:
+        board_path = Path.home() / "self/knowledge/daily-learnings/linuxdo-board.json"
+        board = {}
+        if board_path.exists():
+            try:
+                import json as _json
+                board = _json.loads(board_path.read_text(encoding="utf-8"))
+            except Exception:
+                board = {"fetch_errors": ["failed to read board json"], "items": []}
+        return linuxdo_board_page(board)
+
+    @app.get("/resources", response_class=HTMLResponse, response_model=None)
+    def resources_route():
+        return RedirectResponse("/hub", status_code=301)
 
     @app.get("/api/dashboard/data", response_model=None)
     def dashboard_data_api() -> dict:
@@ -862,7 +1256,16 @@ def create_app(
     _HEALTH_TTL = 15.0
 
     _SERVICE_CHECKS = [
-        {"name": "Brain", "url": "http://127.0.0.1:8083/health", "port": 8083, "timeout": 2},
+        {"name": "Brain", "url": "http://127.0.0.1:8083/health", "port": 8083, "timeout": 2, "location": "local"},
+        *[
+            {"name": name, "url": url, "port": 443, "timeout": 5, "location": "remote"}
+            for name, url in (
+                ("n8n", os.environ.get("BRAIN_SERVICE_AUTOMATION_HEALTH_URL", "")),
+                ("Uptime Kuma", os.environ.get("BRAIN_SERVICE_UPTIME_HEALTH_URL", "")),
+                ("File Browser", os.environ.get("BRAIN_SERVICE_FILES_HEALTH_URL", "")),
+            )
+            if url
+        ],
     ]
 
     def _check_one_service(svc: dict) -> dict:
@@ -882,7 +1285,7 @@ def create_app(
         except Exception:
             alive = False
         latency_ms = round((_time.monotonic() - t0) * 1000)
-        return {"name": svc["name"], "port": svc["port"], "alive": alive, "latency_ms": latency_ms}
+        return {"name": svc["name"], "port": svc["port"], "alive": alive, "latency_ms": latency_ms, "location": svc.get("location", "unknown")}
 
     @app.get("/api/dashboard/health", response_model=None)
     def dashboard_health_api() -> dict:
@@ -921,18 +1324,25 @@ def create_app(
             return _res_cache["data"]
         try:
             import psutil
+            # Establish fresh baseline BEFORE measuring — psutil's first
+            # cpu_percent() call in a process uses import-time as baseline,
+            # which on long-running processes yields ~100% regardless of
+            # actual load.  A zero-interval call primes the internal counter.
+            psutil.cpu_percent(interval=None)
+            _time.sleep(0.3)
             cpu = psutil.cpu_percent(interval=0.5)
             mem = psutil.virtual_memory()
             disk = psutil.disk_usage("/")
             load = psutil.getloadavg()
+            GiB = 1024 ** 3
             result = {
                 "cpu_percent": round(cpu, 1),
                 "mem_percent": round(mem.percent, 1),
-                "mem_total_gb": round(mem.total / 1e9, 1),
-                "mem_used_gb": round(mem.used / 1e9, 1),
+                "mem_total_gb": round(mem.total / GiB, 1),
+                "mem_used_gb": round(mem.used / GiB, 1),
                 "disk_percent": round(disk.percent, 1),
-                "disk_total_gb": round(disk.total / 1e9, 1),
-                "disk_used_gb": round(disk.used / 1e9, 1),
+                "disk_total_gb": round(disk.total / GiB, 1),
+                "disk_used_gb": round(disk.used / GiB, 1),
                 "load_1m": round(load[0], 2),
                 "load_5m": round(load[1], 2),
                 "load_15m": round(load[2], 2),
@@ -956,7 +1366,7 @@ def create_app(
 
     def _fetch_quota_data() -> tuple[list[dict], dict, str, str | None]:
         """Fetch auth-files from Space and classify accounts.
-        
+
         Returns (accounts, summary, last_updated, error).
         """
         if not _QUOTA_API_BASE:
@@ -1051,14 +1461,16 @@ def create_app(
     # Grok token pool board – pulls live data from grok2api
     # ------------------------------------------------------------------
 
-    _GROK_API_BASE = "http://127.0.0.1:8000"
-    _GROK_API_KEY = os.environ.get("GROK_API_KEY", "grok2api")
+    _GROK_API_BASE = os.environ.get("GROK_API_BASE", "")
+    _GROK_API_KEY = os.environ.get("GROK_API_KEY", "")
 
     def _fetch_grok_data() -> tuple[list[dict], dict, str, str | None]:
         """Fetch token data from grok2api and classify tokens.
 
         Returns (tokens, summary, last_updated, error).
         """
+        if not _GROK_API_BASE or not _GROK_API_KEY:
+            return [], {}, "", None
         try:
             resp = httpx.get(
                 f"{_GROK_API_BASE}/admin/api/tokens?app_key={_GROK_API_KEY}",
@@ -1180,6 +1592,12 @@ def create_app(
         "embedding_with_loadings": ["散点", "降维", "载荷"],
         "aligned_event_matrix": ["热图", "神经信号", "事件对齐"],
         "time_aligned_events": ["线图/曲线", "神经信号", "事件对齐"],
+        "mean_difference_table": ["散点", "差异表达"],
+        "paired_feature_values": ["散点", "配对比较"],
+        "regional_association_table": ["散点", "GWAS/QTL"],
+        "interval_table": ["基因组", "区间标注"],
+        "circular_track_table": ["特殊图", "基因组"],
+        "paired_interval_table": ["特殊图", "比较基因组"],
         }
 
     # Chart id → Chinese description (v3 has no description; provide from title + input)
@@ -1213,6 +1631,13 @@ def create_app(
         "fiber_photometry": "光纤光度计热图：多trial z-score比较vehicle与drug",
         "syllable_frequency": "音节/行为频率比较：分组点图+SEM误差棒",
         "peri_event_raster": "事件对齐栅格图：per-trial轨迹+均值+热图",
+        "precision_recall_curve": "精确率-召回率曲线：不平衡数据集分类器评估",
+        "ma_plot": "MA图：差异表达与平均表达量的关系，检测系统偏差",
+        "paired_scatter": "配对散点图：前后/配对条件对比，连线显示配对关系",
+        "regional_association": "区域关联图(Locus Zoom)：GWAS区域信号与LD着色",
+        "genomic_segments": "基因组区间轨道：多类型特征的线性坐标标注",
+        "circos_plot": "圈图：多轨道圆形基因组概览",
+        "synteny_links": "共线性链接图：比较基因组学同源区段可视化",
     }
 
     def _load_catalog() -> dict:
@@ -1253,6 +1678,7 @@ def create_app(
                 "tags": tpl.get("tags", _SHAPE_TAGS.get(_shape, [])),
                 "template": tpl.get("template", ""),
                 "demo": tpl.get("demo_png", tpl.get("demo", "")),
+                "visual_grammar": tpl.get("visual_grammar", ""),
             }
             charts.append(entry)
 
@@ -1291,7 +1717,7 @@ def create_app(
             "template_files": files_found,
         }
 
-    
+
 
     @app.get("/api/gallery/catalog")
     def gallery_catalog_api(name: str = None, tier: str = None, status: str = None) -> dict:
@@ -1847,13 +2273,72 @@ def create_app(
     # Settings page
     # ------------------------------------------------------------------
 
+    _PROFILE_PATH = Path(os.environ.get("BRAIN_PROFILE_PATH", str(Path.home() / "ops/brain/profile.json")))
+    _PROFILE_DEFAULTS = {
+        "display_name": "探索者",
+        "avatar_url": "",
+        "theme": "light",
+        "lang": "zh",
+    }
+
+    def _read_profile() -> dict[str, str]:
+        profile = dict(_PROFILE_DEFAULTS)
+        try:
+            if _PROFILE_PATH.exists():
+                data = json.loads(_PROFILE_PATH.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    for key in profile:
+                        if isinstance(data.get(key), str):
+                            profile[key] = data[key]
+        except Exception:
+            pass
+        return profile
+
+    def _write_profile(profile: dict[str, str]) -> dict[str, str]:
+        cleaned = dict(_PROFILE_DEFAULTS)
+        for key in cleaned:
+            val = str(profile.get(key, "")).strip()
+            cleaned[key] = val
+        if cleaned["theme"] not in {"light", "modern-dark"}:
+            cleaned["theme"] = _PROFILE_DEFAULTS["theme"]
+        if cleaned["lang"] not in {"zh", "en"}:
+            cleaned["lang"] = _PROFILE_DEFAULTS["lang"]
+        if len(cleaned["display_name"]) > 40:
+            cleaned["display_name"] = cleaned["display_name"][:40]
+        if len(cleaned["avatar_url"]) > 300000:
+            raise HTTPException(status_code=413, detail="avatar too large")
+        _PROFILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = _PROFILE_PATH.with_suffix(".tmp")
+        tmp_path.write_text(json.dumps(cleaned, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp_path.replace(_PROFILE_PATH)
+        return cleaned
+
     @app.get("/settings", response_class=HTMLResponse)
     def settings_get() -> str:
-        return profile_page()
+        return settings_page(profile=_read_profile())
 
     @app.get("/profile", response_class=HTMLResponse)
-    def profile_get() -> str:
-        return profile_page()
+    def profile_get():
+        return RedirectResponse("/settings", status_code=301)
+
+    @app.get("/api/settings/profile")
+    def settings_profile_get() -> dict[str, str]:
+        return _read_profile()
+
+    @app.post("/api/settings/profile")
+    def settings_profile_post(
+        display_name: str = Form(""),
+        avatar_url: str = Form(""),
+        theme: str = Form("light"),
+        lang: str = Form("zh"),
+    ) -> dict[str, object]:
+        profile = _write_profile({
+            "display_name": display_name,
+            "avatar_url": avatar_url,
+            "theme": theme,
+            "lang": lang,
+        })
+        return {"ok": True, "profile": profile}
 
     @app.get("/api/health")
     def api_health():
@@ -1875,10 +2360,6 @@ def create_app(
             for f in as_completed(futures):
                 f.result()
         return results
-
-    @app.get("/services", response_class=HTMLResponse)
-    def services_get() -> str:
-        return services_page()
 
     @app.post("/settings/password")
     def settings_password(request: Request, current_password: str = Form(""), new_password: str = Form(""), confirm_password: str = Form("")):
@@ -1962,12 +2443,63 @@ def create_app(
             # Re-bind all template functions in this module's scope
             from hermes.templates import (
                 dashboard_page, gallery_page, knowledge_detail_page, knowledge_tree_page as knowledge_page,
-                login_page, profile_page,
+                linuxdo_board_page, login_page, profile_page,
                 review_detail_page, review_queue_page,
-                security_page, services_page, settings_page,
+                security_page, settings_page,
             )
             return {"ok": True, "message": "Templates reloaded successfully"}
         except Exception as e:
             return {"ok": False, "error": str(e)}
 
+    _start_bg_runtime_if_needed(repo, config, exporter)
+
     return app
+# ---------------------------------------------------------------------------
+# Background runtime loop: scan + retrospect + rebuild exports
+# Runs inside the serve process to avoid a second process competing for SQLite.
+# ---------------------------------------------------------------------------
+import threading as _threading
+import logging as _logging
+
+_bg_logger = _logging.getLogger("hermes.bg_runtime")
+_bg_logger.setLevel(_logging.INFO)
+
+_bg_started = False
+
+def _bg_runtime_loop(repo: HermesRepository, config: HermesConfig, exporter: ExportCompiler, *, interval: int = 120, retrospect_interval: int = 10):
+    """Background thread that periodically runs scan_cycle + rebuild + retrospect."""
+    from hermes.runtime import HermesRuntime
+    from hermes.ingest import IngestionService
+    runtime = HermesRuntime(config=config, repo=repo)
+    cycle = 0
+    _bg_logger.info("background runtime loop started (scan every %ds, retrospect every %d cycles)", interval, retrospect_interval)
+    while True:
+        try:
+            runtime.run_scan_cycle()
+            pipeline_result = runtime.run_knowledge_pipeline()
+            _bg_logger.info("knowledge pipeline cycle %d: %s", cycle, pipeline_result)
+            runtime.rebuild_exports()
+            if cycle % retrospect_interval == 0:
+                result = runtime.run_retrospect_cycle()
+                _bg_logger.info("retrospect cycle %d: %s", cycle, result)
+            cycle += 1
+        except Exception as exc:
+            _bg_logger.warning("background cycle %d error: %s", cycle, exc)
+        _threading.Event().wait(timeout=interval)
+
+
+def _start_bg_runtime_if_needed(repo: HermesRepository, config: HermesConfig, exporter: ExportCompiler):
+    """Start the background runtime loop once per process."""
+    global _bg_started
+    if _bg_started:
+        return
+    _bg_started = True
+    t = _threading.Thread(
+        target=_bg_runtime_loop,
+        args=(repo, config, exporter),
+        kwargs={"interval": 120, "retrospect_interval": 10},
+        daemon=True,
+        name="hermes-bg-runtime",
+    )
+    t.start()
+    _bg_logger.info("background runtime thread launched")
