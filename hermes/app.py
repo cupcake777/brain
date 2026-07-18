@@ -131,9 +131,28 @@ def create_app(
     # ------------------------------------------------------------------
 
     def _render_workbench_page() -> str:
-        node_counts = {}
-        for stage in ("draft", "refined", "verified", "canonized", "deprecated"):
-            node_counts[stage] = len(repo.list_knowledge_nodes(stage=stage, limit=10000))
+        """Render the Personal Workbench with live Brain and ops signals."""
+        try:
+            node_counts = repo.count_knowledge_nodes_by_stage()
+        except Exception:
+            node_counts = {"draft": 0, "refined": 0, "verified": 0, "canonized": 0, "deprecated": 0}
+        try:
+            proposal_counts = repo.counts_by_state()
+        except Exception:
+            proposal_counts = {"pending": 0, "approved_db_only": 0, "approved_for_export": 0, "rejected": 0, "superseded": 0}
+        try:
+            knowledge_health = repo.knowledge_health_report()
+        except Exception:
+            knowledge_health = {}
+        try:
+            lifecycle_overview = repo.proposal_lifecycle_overview(limit=12)
+        except Exception:
+            lifecycle_overview = {}
+        try:
+            pending_proposals = repo.list_proposals_by_state("pending")[:5]
+        except Exception:
+            pending_proposals = []
+
         import os as _os, yaml as _yaml
         _plotting_dir = _os.environ.get("BRAIN_PLOTTING_DIR", "")
         _cat_path = _os.path.join(_plotting_dir, "catalog.yaml")
@@ -148,7 +167,15 @@ def create_app(
         try:
             _nodes = repo.list_knowledge_nodes(limit=8)
             recent_nodes = [
-                {"id": n.id, "summary": n.summary, "stage": n.stage, "created_at": n.created_at}
+                {
+                    "id": n.id,
+                    "summary": n.summary,
+                    "stage": n.stage,
+                    "category": n.category,
+                    "created_at": n.created_at,
+                    "retrieval_count": n.retrieval_count,
+                    "outcome_count": n.outcome_count,
+                }
                 for n in _nodes
             ]
         except Exception:
@@ -163,10 +190,12 @@ def create_app(
             except Exception:
                 linuxdo_board = {"fetch_errors": ["failed to read board json"], "items": []}
         return home_page(
-            node_counts=node_counts, chart_count=chart_count, health_summary={},
+            node_counts=node_counts, chart_count=chart_count, health_summary=knowledge_health,
             recent_nodes=recent_nodes,
             do_status=dash_data["do"], proxy_status=dash_data["proxy_status"],
             proxy_traffic=dash_data["proxy_traffic"], sub2api=dash_data["sub2api"], linuxdo_board=linuxdo_board,
+            proposal_counts=proposal_counts, knowledge_health=knowledge_health,
+            lifecycle_overview=lifecycle_overview, pending_proposals=pending_proposals,
         )
 
     @app.get("/", response_class=HTMLResponse, response_model=None)
@@ -871,8 +900,35 @@ def create_app(
     _VALID_KN_STAGES = {"draft", "refined", "verified", "canonized", "deprecated", "all"}
 
     @app.get("/knowledge", response_class=HTMLResponse)
-    def knowledge_redirect():
-        return RedirectResponse("/proposals?tab=knowledge", status_code=301)
+    def knowledge_route(
+        stage: str = Query(default="all"),
+        category: str = Query(default=""),
+        domain: str = Query(default=""),
+        q: str = Query(default=""),
+    ) -> str:
+        if stage not in _VALID_KN_STAGES:
+            stage = "all"
+        node_stage = None if stage == "all" else stage
+        nodes = repo.list_knowledge_nodes(
+            stage=node_stage,
+            category=category or None,
+            domain=domain or None,
+            limit=500,
+        )
+        if q.strip():
+            needle = q.strip().lower()
+            nodes = [n for n in nodes if needle in (n.summary or "").lower() or needle in (n.content or "").lower()]
+        counts = repo.count_knowledge_nodes_by_stage()
+        all_nodes = repo.list_knowledge_nodes(limit=5000)
+        domains = sorted({n.domain for n in all_nodes if n.domain})
+        return knowledge_page(
+            nodes=[_asdict(n) for n in nodes],
+            counts=counts,
+            active_stage=stage,
+            active_category=category,
+            active_domain=domain,
+            domains=domains,
+        )
 
     @app.get("/knowledge/{node_id}", response_class=HTMLResponse)
     def knowledge_detail_page_route(node_id: str) -> str:

@@ -1220,7 +1220,7 @@ document.addEventListener('click',function(e){
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
   </button>
   <div class="fab-actions">
-    <button class="fab-action" data-tooltip="Add Knowledge" onclick="window.location.href='/proposals?tab=knowledge'">➕</button>
+    <button class="fab-action" data-tooltip="Add Knowledge" onclick="window.location.href='/knowledge'">➕</button>
     <button class="fab-action" data-tooltip="Search" onclick="openCmdPalette()">🔍</button>
     <button class="fab-action" data-tooltip="Export" onclick="fetch('/api/knowledge/export',{{method:'POST',headers:{{'Content-Type':'application/json'}}}}).then(function(r){{return r.json()}}).then(function(d){{alert(d.message||'Done!')}})">⬇️</button>
   </div>
@@ -1237,13 +1237,13 @@ function toggleTheme(){{
 /* Command Palette */
 var _cmdActions=[
   {{icon:'⌘',label:'Go to Workbench',href:'/',kbd:'g w'}},
-  {{icon:'🌳',label:'Go to Knowledge',href:'/proposals?tab=knowledge',kbd:'g k'}},
+  {{icon:'🌳',label:'Go to Knowledge',href:'/knowledge',kbd:'g k'}},
   {{icon:'▣',label:'Go to Hub',href:'/hub',kbd:'g h'}},
   {{icon:'🛡',label:'Go to Control',href:'/control',kbd:'g c'}},
   {{icon:'⚙',label:'Go to Settings',href:'/settings',kbd:'g s'}},
   {{icon:'🖼',label:'Open Gallery / viz-skills',href:'/gallery',kbd:'gallery'}},
   {{icon:'🧠',label:'Open Proposal Lifecycle',href:'/proposals',kbd:'brain'}},
-  {{icon:'➕',label:'Add Knowledge',action:function(){{window.location.href='/proposals?tab=knowledge';}},kbd:'n'}},
+  {{icon:'➕',label:'Add Knowledge',action:function(){{window.location.href='/knowledge';}},kbd:'n'}},
   {{icon:'⬇',label:'Export MD',action:function(){{fetch('/api/knowledge/export',{{method:'POST',headers:{{'Content-Type':'application/json'}}}}).then(function(r){{return r.json()}}).then(function(d){{alert(d.message||'Exported!')}});}},kbd:'e'}},
   {{icon:'🎨',label:'Toggle Theme',action:function(){{toggleTheme();}},kbd:'t'}},
   {{icon:'⌨',label:'Keyboard Shortcuts',action:function(){{document.getElementById('shortcutsOverlay').classList.add('open');}},kbd:'?'}}
@@ -1318,7 +1318,7 @@ document.addEventListener('keydown',function(e){{
   if(_gPending){{
     _gPending=false;clearTimeout(_gTimer);
     if(e.key==='w'){{window.location.href='/';return;}}
-    if(e.key==='k'){{window.location.href='/proposals?tab=knowledge';return;}}
+    if(e.key==='k'){{window.location.href='/knowledge';return;}}
     if(e.key==='h'){{window.location.href='/hub';return;}}
     if(e.key==='c'){{window.location.href='/control';return;}}
     if(e.key==='s'){{window.location.href='/settings';return;}}
@@ -1389,7 +1389,7 @@ def _nav(*, active: str = "home") -> str:
 
     nav_items = [
         ("workbench", "Workbench", "/", _ICON_HOME),
-        ("knowledge", "Knowledge", "/proposals?tab=knowledge", _ICON_KNOWLEDGE),
+        ("knowledge", "Knowledge", "/knowledge", _ICON_KNOWLEDGE),
         ("hub", "Hub", "/hub", _ICON_EXPORT),
         ("control", "Control", "/control", _ICON_SHIELD),
         ("settings", "Settings", "/settings", _ICON_SETTINGS),
@@ -3415,7 +3415,7 @@ def _format_cost(c: float) -> str:
     return f"${c:.0f}"
 
 
-def home_page(*, node_counts: dict[str, int], chart_count: int, health_summary: dict, recent_nodes: list | None = None, do_status: dict | None = None, proxy_status: dict | None = None, proxy_traffic: list | None = None, sub2api: dict | None = None, linuxdo_board: dict | None = None) -> str:
+def home_page(*, node_counts: dict[str, int], chart_count: int, health_summary: dict, recent_nodes: list | None = None, do_status: dict | None = None, proxy_status: dict | None = None, proxy_traffic: list | None = None, sub2api: dict | None = None, linuxdo_board: dict | None = None, proposal_counts: dict | None = None, knowledge_health: dict | None = None, lifecycle_overview: dict | None = None, pending_proposals: list | None = None) -> str:
     """Render the home/landing page as a personal information center."""
     total_nodes = sum(node_counts.values())
     canonized = node_counts.get("canonized", 0)
@@ -3616,17 +3616,89 @@ def home_page(*, node_counts: dict[str, int], chart_count: int, health_summary: 
     if not linuxdo_home_items:
         linuxdo_home_items = '<div class="wb-news-item muted"><b>No Linux.do board items</b><em>Daily board has no entries yet.</em></div>'
 
+    # --- Personal Workbench Brain signals ---
+    _proposal_counts = proposal_counts or {}
+    _knowledge_health = knowledge_health or health_summary or {}
+    _overview = lifecycle_overview or {}
+    _pending_proposals = pending_proposals or []
+    _pending_count = int(_proposal_counts.get("pending", 0) or 0)
+    _approved_count = int(_proposal_counts.get("approved_db_only", 0) or 0) + int(_proposal_counts.get("approved_for_export", 0) or 0)
+    _health_status = str(_knowledge_health.get("status") or "ok")
+    _dirty_nodes = int(_knowledge_health.get("dirty_nodes", 0) or 0)
+    _stale_nodes = int(_knowledge_health.get("stale_nodes", 0) or 0)
+    _conflicts = int(_knowledge_health.get("conflict_count", 0) or 0)
+    _quarantined = int(_knowledge_health.get("quarantined", 0) or 0)
+    _without_evidence = int(_knowledge_health.get("nodes_without_evidence", 0) or 0)
+    _merge_count = int(_overview.get("merge_count", 0) or 0)
+    _supersede_count = int(_overview.get("supersede_count", 0) or 0)
+    _proposal_sync = _overview.get("proposal_sync", {}) if isinstance(_overview.get("proposal_sync"), dict) else {}
+    _sync_missing = int(_proposal_sync.get("missing", 0) or 0)
+    _sync_coverage = float(_proposal_sync.get("coverage", 100.0) or 0.0)
+    _embeddings = _overview.get("embeddings", {}) if isinstance(_overview.get("embeddings"), dict) else {}
+    _embedding_state = str(_embeddings.get("state") or "not_configured").replace("_", " ")
+    _attention_total = _pending_count + _dirty_nodes + _conflicts + _quarantined + _sync_missing
+    _workbench_state = "attention" if _attention_total else ("review" if _stale_nodes else "calm")
+    if _pending_count:
+        _next_action_title = "Review pending proposals"
+        _next_action_hint = f"{_pending_count} proposal{'s' if _pending_count != 1 else ''} waiting for a keep / reject decision."
+        _next_action_href = "/proposals?tab=review"
+    elif _sync_missing:
+        _next_action_title = "Materialize approved knowledge"
+        _next_action_hint = f"{_sync_missing} approved item{'s' if _sync_missing != 1 else ''} not linked to Knowledge yet."
+        _next_action_href = "/proposals"
+    elif _conflicts or _quarantined or _dirty_nodes:
+        _next_action_title = "Clean the knowledge base"
+        _next_action_hint = f"{_conflicts} conflicts · {_dirty_nodes} dirty · {_quarantined} quarantined."
+        _next_action_href = "/knowledge"
+    elif _stale_nodes:
+        _next_action_title = "Review stale knowledge"
+        _next_action_hint = f"{_stale_nodes} maintained nodes have never been retrieved."
+        _next_action_href = "/knowledge"
+    else:
+        _next_action_title = "Nothing urgent"
+        _next_action_hint = "Brain looks calm. Use Daily Signals or open a project module."
+        _next_action_href = "/linuxdo"
+
+    _pending_list_html = ""
+    for proposal in _pending_proposals[:5]:
+        _pid = str(proposal.get("proposal_id") or "")
+        _summary = str(proposal.get("summary") or proposal.get("observation") or proposal.get("suggested_memory") or "Untitled proposal")
+        if len(_summary) > 88:
+            _summary = _summary[:85] + "..."
+        _category = str(proposal.get("category") or "proposal")
+        _risk = str(proposal.get("risk_level") or "")
+        _pending_list_html += f'<a class="wb-queue-item" href="/review/{_html.escape(_pid)}"><b>{_html.escape(_summary)}</b><em>{_html.escape(_category)}{(" · " + _html.escape(_risk)) if _risk else ""}</em></a>'
+    if not _pending_list_html:
+        _pending_list_html = '<div class="wb-queue-item muted"><b>Inbox clear</b><em>No pending proposals right now.</em></div>'
+
     body = f"""
 <div class="workbench-page portal-v2">
-  <section class="portal-hero">
+  <section class="portal-hero" data-state="{_html.escape(_workbench_state)}">
     <div>
-      <div class="wb-kicker">Personal Control Center</div>
-      <h1 id="dash-greeting-text">Brain Dashboard</h1>
-      <p id="dash-greeting-date">只保留三件事：机器/服务监控、项目入口、每日热点。</p>
+      <div class="wb-kicker">Personal Workbench</div>
+      <h1 id="dash-greeting-text">Personal Control Center</h1>
+      <p id="dash-greeting-date">One glance: what is broken, what needs a decision, and where to go next.</p>
     </div>
     <div class="portal-hero-actions">
-      <a class="portal-action primary" href="/control">Control Center</a>
-      <a class="portal-action" href="/fleet">VPS Fleet</a>
+      <a class="portal-action primary" href="{_html.escape(_next_action_href, quote=True)}">{_html.escape(_next_action_title)}</a>
+      <a class="portal-action" href="/control">Control</a>
+      <a class="portal-action" href="/knowledge">Knowledge</a>
+    </div>
+  </section>
+
+  <section class="portal-section portal-summary">
+    <div class="portal-summary-grid">
+      <a class="wb-focus-card primary" href="{_html.escape(_next_action_href, quote=True)}"><span class="wb-dot{' wait' if _attention_total else ' ok'}"></span><small>Next Action</small><b>{_html.escape(_next_action_title)}</b><em>{_html.escape(_next_action_hint)}</em></a>
+      <a class="wb-focus-card" href="/proposals?tab=review"><span class="wb-dot{' wait' if _pending_count else ' ok'}"></span><small>Proposal Inbox</small><b>{_pending_count}</b><em>{_approved_count} approved · waiting decisions first</em></a>
+      <a class="wb-focus-card" href="/knowledge"><span class="wb-dot{' wait' if _health_status != 'ok' else ' ok'}"></span><small>Knowledge Health</small><b>{_html.escape(_health_status.title())}</b><em>{_dirty_nodes} dirty · {_conflicts} conflicts · {_without_evidence} no evidence</em></a>
+      <a class="wb-focus-card" href="/proposals"><span class="wb-dot{' wait' if _sync_missing else ' ok'}"></span><small>Lifecycle</small><b>{_sync_coverage:.1f}% linked</b><em>{_merge_count} merges · {_supersede_count} supersedes · {_embedding_state}</em></a>
+    </div>
+  </section>
+
+  <section class="portal-section portal-queue">
+    <div class="dash-section-header"><h2 class="dash-section-title">🧠 Brain Decision Queue</h2><a class="dash-section-link" href="/proposals?tab=review">Review →</a></div>
+    <div class="wb-queue-list">
+      {_pending_list_html}
     </div>
   </section>
 
@@ -3643,8 +3715,8 @@ def home_page(*, node_counts: dict[str, int], chart_count: int, health_summary: 
   <section class="portal-section portal-projects">
     <div class="dash-section-header"><h2 class="dash-section-title">🧩 Project Frontends</h2><a class="dash-section-link" href="/hub">All modules →</a></div>
     <div class="portal-project-grid">
-      <a class="portal-project-card primary" href="/proposals"><span>🧠</span><b>Brain Proposals</b><em>proposal lifecycle · decision flow · evidence</em></a>
-      <a class="portal-project-card" href="/proposals?tab=knowledge"><span>🌳</span><b>Knowledge</b><em>{canonized} canonized · {refined} refined · {draft} draft</em></a>
+      <a class="portal-project-card primary" href="/proposals"><span>🧠</span><b>Brain Proposals</b><em>{_pending_count} pending · lifecycle · evidence</em></a>
+      <a class="portal-project-card" href="/knowledge"><span>🌳</span><b>Knowledge</b><em>{canonized} canonized · {refined} refined · {draft} draft</em></a>
       <a class="portal-project-card" href="/gallery"><span>🎨</span><b>viz-skills Gallery</b><em>{chart_count} figure templates and visual assets</em></a>
       <a class="portal-project-card" href="/linuxdo"><span>📡</span><b>Daily Signals</b><em>{len(_linuxdo_items)} curated items · updated {_html.escape(_linuxdo_updated)}</em></a>
     </div>
@@ -3664,14 +3736,16 @@ def home_page(*, node_counts: dict[str, int], chart_count: int, health_summary: 
 .portal-hero h1{{font-size:2.15rem;margin:0 0 6px;color:var(--ink);letter-spacing:-.045em}}.portal-hero p{{margin:0;color:var(--ink-muted);line-height:1.7}}
 .wb-kicker{{font-size:.72rem;text-transform:uppercase;letter-spacing:.12em;color:var(--primary);font-weight:800;margin-bottom:8px}}
 .portal-hero-actions{{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}}.portal-action{{text-decoration:none;border:1px solid var(--border);background:var(--card);color:var(--ink);border-radius:var(--r-pill);padding:8px 13px;font-size:.78rem;font-weight:800}}.portal-action.primary{{background:var(--primary);border-color:var(--primary);color:#fff}}
-.portal-section{{margin-bottom:var(--sp-lg)}}.portal-monitor-grid{{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--sp-md);background:var(--card);border:1px solid var(--border);border-top:0;border-radius:0 0 var(--r-md) var(--r-md);padding:var(--sp-md)}}
+.portal-section{{margin-bottom:var(--sp-lg)}}.portal-summary{{margin-top:calc(var(--sp-md) * -1)}}.portal-summary-grid{{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--sp-md)}}.wb-focus-card{{display:flex;flex-direction:column;gap:8px;min-height:128px;text-decoration:none;background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);padding:var(--sp-lg);transition:border-color var(--duration),transform var(--duration),box-shadow var(--duration)}}.wb-focus-card:hover{{border-color:var(--primary);transform:translateY(-2px);box-shadow:var(--shadow-sm)}}.wb-focus-card.primary{{background:linear-gradient(135deg,var(--primary-muted),var(--card));border-color:rgba(196,163,90,.5)}}.wb-focus-card small{{font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-muted);font-weight:800}}.wb-focus-card b{{color:var(--ink);font-size:1.15rem;line-height:1.2}}.wb-focus-card em{{font-style:normal;color:var(--ink-muted);font-size:.78rem;line-height:1.45}}
+.portal-queue .wb-queue-list{{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:var(--sp-md);background:var(--card);border:1px solid var(--border);border-top:0;border-radius:0 0 var(--r-md) var(--r-md);padding:var(--sp-md)}}.wb-queue-item{{display:flex;flex-direction:column;gap:7px;min-height:86px;text-decoration:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:var(--sp-md)}}.wb-queue-item:hover{{border-color:var(--primary)}}.wb-queue-item b{{color:var(--ink);font-size:.86rem;line-height:1.4}}.wb-queue-item em{{font-style:normal;color:var(--ink-muted);font-size:.72rem}}.wb-queue-item.muted{{opacity:.7}}
+.portal-monitor-grid{{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--sp-md);background:var(--card);border:1px solid var(--border);border-top:0;border-radius:0 0 var(--r-md) var(--r-md);padding:var(--sp-md)}}
 .portal-monitor-card{{display:flex;flex-direction:column;gap:8px;text-decoration:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:var(--sp-lg);transition:border-color var(--duration),transform var(--duration),box-shadow var(--duration)}}.portal-monitor-card:hover{{border-color:var(--primary);transform:translateY(-2px);box-shadow:var(--shadow-sm)}}.portal-monitor-card b{{color:var(--ink)}}.portal-monitor-card em{{font-style:normal;color:var(--ink-muted);font-size:.8rem;line-height:1.45}}
 .portal-project-grid{{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--sp-md);background:var(--card);border:1px solid var(--border);border-top:0;border-radius:0 0 var(--r-md) var(--r-md);padding:var(--sp-md)}}.portal-project-card{{display:flex;flex-direction:column;gap:8px;text-decoration:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:var(--sp-lg);transition:border-color var(--duration),transform var(--duration),box-shadow var(--duration)}}.portal-project-card:hover{{border-color:var(--primary);transform:translateY(-2px);box-shadow:var(--shadow-sm)}}.portal-project-card.primary{{background:linear-gradient(135deg,var(--primary-muted),var(--surface));border-color:rgba(196,163,90,.45)}}.portal-project-card span{{font-size:1.5rem}}.portal-project-card b{{color:var(--ink);font-size:1rem}}.portal-project-card em{{font-style:normal;color:var(--ink-muted);font-size:.8rem;line-height:1.45}}
 .portal-news-grid{{grid-template-columns:repeat(2,minmax(0,1fr))}}.wb-news-grid{{display:grid;gap:var(--sp-md);background:var(--card);border:1px solid var(--border);border-top:0;border-radius:0 0 var(--r-md) var(--r-md);padding:var(--sp-md)}}.wb-news-item{{display:flex;flex-direction:column;gap:7px;text-decoration:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:var(--sp-md);min-height:82px}}.wb-news-item:hover{{border-color:var(--primary)}}.wb-news-item b{{color:var(--ink);font-size:.9rem;line-height:1.45}}.wb-news-item em{{font-style:normal;color:var(--ink-muted);font-size:.74rem}}.wb-news-item.muted{{opacity:.7}}
 .wb-dot{{width:8px;height:8px;border-radius:50%;display:inline-block;background:var(--ink-dim)}}.wb-dot.ok{{background:var(--success);box-shadow:0 0 8px rgba(16,185,129,.35)}}.wb-dot.wait{{background:var(--warning)}}
 .dash-section-header{{background:linear-gradient(135deg,#E8D5A0,#D4C5A0);padding:10px 16px;border:1px solid var(--border);border-bottom:none;border-radius:var(--r-md) var(--r-md) 0 0;display:flex;align-items:center;justify-content:space-between}}.dash-section-title{{font-size:.88rem;font-weight:700;color:#3D3830;margin:0;display:flex;align-items:center;gap:8px}}.dash-section-link{{font-size:.72rem;font-weight:600;background:rgba(255,255,255,.45);color:#6B5D4A;padding:2px 8px;border-radius:var(--r-pill);text-decoration:none}}
-@media(max-width:980px){{.portal-monitor-grid,.portal-project-grid{{grid-template-columns:repeat(2,minmax(0,1fr))}}.portal-hero{{align-items:flex-start;flex-direction:column}}.portal-hero-actions{{justify-content:flex-start}}}}
-@media(max-width:640px){{.portal-monitor-grid,.portal-project-grid,.portal-news-grid{{grid-template-columns:1fr}}}}
+@media(max-width:980px){{.portal-summary-grid,.portal-monitor-grid,.portal-project-grid{{grid-template-columns:repeat(2,minmax(0,1fr))}}.portal-queue .wb-queue-list{{grid-template-columns:repeat(2,minmax(0,1fr))}}.portal-hero{{align-items:flex-start;flex-direction:column}}.portal-hero-actions{{justify-content:flex-start}}}}
+@media(max-width:640px){{.portal-summary-grid,.portal-monitor-grid,.portal-project-grid,.portal-news-grid,.portal-queue .wb-queue-list{{grid-template-columns:1fr}}}}
 </style>
 """
     _chartjs_tag = '<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js" crossorigin="anonymous"></script>' if home_need_chartjs else ''
@@ -4498,7 +4572,7 @@ def dashboard_page(
   <div class="dash-section-card">
     <div class="dash-section-header">
       <h2>🧪 Business Probes <span style="font-size:.72rem;color:var(--ink-dim);font-weight:400">usable accounts · proxy chain · notification path</span></h2>
-      <a href="/proposals?tab=knowledge">Open Hub ↗</a>
+      <a href="/knowledge">Open Knowledge ↗</a>
     </div>
     <div class="dash-section-body">
       <div class="dash-workbench-grid">
@@ -5405,7 +5479,7 @@ def resources_page() -> str:
     <a class="hub-card" href="/"><div class="hub-icon">🧠</div><h3>Brain Portal</h3><p>个人日常管理中心，承载 Workbench / Knowledge / Hub / Control。</p><div class="hub-tags"><span class="hub-tag active">active</span><span class="hub-tag">project</span><span class="hub-tag">local</span></div></a>
     <a class="hub-card" href="/gallery"><div class="hub-icon">🖼</div><h3>viz-skills / Gallery</h3><p>科研图表模板、可视化资产和交互式图表模块；同时在 Knowledge 中作为模板库入口。</p><div class="hub-tags"><span class="hub-tag active">active</span><span class="hub-tag">visualization</span><span class="hub-tag">tool</span></div></a>
     <a class="hub-card" href="/control"><div class="hub-icon">⚡</div><h3>Sub2API</h3><p>API 网关、账号池和 token 刷新相关状态从 Control 查看。</p><div class="hub-tags"><span class="hub-tag maint">maintenance</span><span class="hub-tag">service</span><span class="hub-tag">vps</span></div></a>
-    <a class="hub-card" href="/proposals?tab=knowledge&domain=devops"><div class="hub-icon">🤖</div><h3>Hermes Tools</h3><p>Hermes fork、技能、cron、通知和自建工具的知识入口。</p><div class="hub-tags"><span class="hub-tag active">active</span><span class="hub-tag">project</span><span class="hub-tag">doc</span></div></a>
+    <a class="hub-card" href="/knowledge?domain=devops"><div class="hub-icon">🤖</div><h3>Hermes Tools</h3><p>Hermes fork、技能、cron、通知和自建工具的知识入口。</p><div class="hub-tags"><span class="hub-tag active">active</span><span class="hub-tag">project</span><span class="hub-tag">doc</span></div></a>
     <a class="hub-card" href="/linuxdo"><div class="hub-icon">📡</div><h3>Linux.do Daily Board</h3><p>每天静默学习 L 站，把最值得回看的资源、工具和讨论沉淀到 Brain 看板，不再 Telegram 速报。</p><div class="hub-tags"><span class="hub-tag active">active</span><span class="hub-tag">learning</span><span class="hub-tag">automation</span></div></a>
   </div></section>
   <section class="hub-section"><div class="hub-section-head"><h2>Services & Panels</h2></div><div class="hub-grid">
@@ -5415,8 +5489,8 @@ def resources_page() -> str:
     <a class="hub-card" href="/control"><div class="hub-icon">🛡</div><h3>Control Center</h3><p>业务健康、代理、通知、账号池和运维信号。</p><div class="hub-tags"><span class="hub-tag active">active</span><span class="hub-tag">ops</span></div></a>
   </div></section>
   <section class="hub-section"><div class="hub-section-head"><h2>Docs & Knowledge Files</h2></div><div class="hub-grid">
-    <a class="hub-card" href="/proposals?tab=knowledge&category=resource"><div class="hub-icon">📚</div><h3>Resource Notes</h3><p>沉淀在知识库里的资源类节点。</p><div class="hub-tags"><span class="hub-tag">doc</span><span class="hub-tag">knowledge</span></div></a>
-    <a class="hub-card" href="/proposals?tab=knowledge&stage=canonized"><div class="hub-icon">✅</div><h3>Canonized Core</h3><p>正典知识不再是独立页面，而是 Knowledge 的内部筛选。</p><div class="hub-tags"><span class="hub-tag active">active</span><span class="hub-tag">filter</span></div></a>
+    <a class="hub-card" href="/knowledge?category=resource"><div class="hub-icon">📚</div><h3>Resource Notes</h3><p>沉淀在知识库里的资源类节点。</p><div class="hub-tags"><span class="hub-tag">doc</span><span class="hub-tag">knowledge</span></div></a>
+    <a class="hub-card" href="/knowledge?stage=canonized"><div class="hub-icon">✅</div><h3>Canonized Core</h3><p>正典知识不再是独立页面，而是 Knowledge 的内部筛选。</p><div class="hub-tags"><span class="hub-tag active">active</span><span class="hub-tag">filter</span></div></a>
     <a class="hub-card" href="/settings"><div class="hub-icon">⚙</div><h3>Portal Settings</h3><p>显示、登录、语言、主题与调试入口。</p><div class="hub-tags"><span class="hub-tag">settings</span><span class="hub-tag">local</span></div></a>
   </div></section>
 </div>
@@ -6123,11 +6197,11 @@ def knowledge_tree_page(
     stats_html = ""
     for key, label, num, color in stat_cards:
         active_cls = " dash-card-active" if key == active_stage else ""
-        href = f"/proposals?tab=knowledge&stage={key}" if key != "all" else "/proposals?tab=knowledge"
+        href = f"/knowledge?stage={key}" if key != "all" else "/knowledge"
         if active_category:
-            href += f"&category={active_category}"
+            href += f"{'&' if '?' in href else '?'}category={active_category}"
         if active_domain:
-            href += f"&domain={active_domain}"
+            href += f"{'&' if '?' in href else '?'}domain={active_domain}"
         stats_html += (
             f'<a href="{href}" class="dash-card{active_cls}">'
             f'<div class="num" style="color:{color}">{num}</div>'
@@ -6215,14 +6289,14 @@ def knowledge_tree_page(
 </section>
 <div class="kn-systems-nav">
   <a class="wb-launch-card" href="/proposals"><span>🧬</span><b>Proposal Lifecycle</b><em>refine, merge, retrieval loop</em></a>
-  <a class="wb-launch-card" href="/proposals?tab=knowledge&stage=canonized"><span>✅</span><b>Canonized Core</b><em>stable rules and facts</em></a>
+  <a class="wb-launch-card" href="/knowledge?stage=canonized"><span>✅</span><b>Canonized Core</b><em>stable rules and facts</em></a>
   <a class="wb-launch-card" href="/gallery"><span>🖼</span><b>Gallery</b><em>figure templates and visual assets</em></a>
   <a class="wb-launch-card" href="/hub"><span>📦</span><b>Hub</b><em>projects, tools, services, docs</em></a>
 </div>
 <div class="kn-library-head"><h2>Brain Knowledge Library</h2><span>这些节点是 Proposal Lifecycle 的基础，先聚焦 Knowledge Proposal 演化链路。</span></div>
 <div class="dash-grid">{stats_html}</div>
 <div style="padding:0 16px 8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-  <form method="get" action="/proposals?tab=knowledge" style="display:flex;gap:8px;flex-wrap:wrap;flex:1" id="kn-filter-form">
+  <form method="get" action="/knowledge" style="display:flex;gap:8px;flex-wrap:wrap;flex:1" id="kn-filter-form">
     <input type="hidden" name="stage" value="{_html.escape(active_stage)}">
     <select name="category" class="kn-filter-select" onchange="this.form.submit()">{cat_options}</select>
     <select name="domain" class="kn-filter-select" onchange="this.form.submit()">{dom_options}</select>
@@ -6848,7 +6922,7 @@ def knowledge_detail_page(
 
     body = f"""
 <div class="detail-header">
-  <a href="/proposals?tab=knowledge" class="back-link" data-i18n="kd_back">{_pt("kd_back")}</a>
+  <a href="/knowledge" class="back-link" data-i18n="kd_back">{_pt("kd_back")}</a>
   <span class="detail-title">{_html.escape(summary[:60])}</span>
   {_stage_badge(stage)}
   {_kn_category_badge(category)}
