@@ -20,11 +20,11 @@ from hermes.config import HermesConfig
 from hermes.exporter import ExportCompiler
 from hermes.repository import HermesRepository
 from hermes.status import StatusPublisher
+from hermes.homebase import home_page
 from hermes.templates import (
     dashboard_page,
     gallery_detail_page,
     gallery_page,
-    home_page,
     knowledge_detail_page,
     knowledge_tree_page as knowledge_page,
     linuxdo_board_page,
@@ -32,11 +32,11 @@ from hermes.templates import (
     profile_page,
     proposal_lifecycle_page,
     resources_page,
+    settings_page,
     vps_fleet_page,
     review_detail_page,
     review_queue_page,
     security_page,
-    settings_page,
 )
 
 
