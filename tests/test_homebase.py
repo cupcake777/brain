@@ -4,6 +4,7 @@ from typing import Any
 from fastapi.testclient import TestClient
 
 from hermes.app import create_app
+from hermes.cassette import _agent_rows, _project_rows, _safe_review_href, cassette_page
 from hermes.config import HermesConfig
 from hermes.ingest import IngestionService
 from hermes.proposals import ProposalWriter
@@ -117,6 +118,75 @@ def test_cassette_design_route_is_isolated_and_uses_live_data(tmp_path: Path, mo
     assert "overview-grid" not in html
     assert "homebase-sidebar" not in html
     assert "MOCK DATA" not in html
+
+
+def test_cassette_review_href_encodes_untrusted_path_segments() -> None:
+    assert _safe_review_href('abc/../../x\" onmouseover=\"alert(1)') == (
+        "/review/abc%2F..%2F..%2Fx%22%20onmouseover%3D%22alert%281%29"
+    )
+    assert _safe_review_href("") == "/proposals"
+
+
+def test_cassette_activity_rows_use_latest_timestamp() -> None:
+    proposals = [
+        {
+            "project_key": "brain",
+            "source_agent": "hermes",
+            "state": "approved",
+            "created_at": "2026-07-01T00:00:00Z",
+        },
+        {
+            "project_key": "brain",
+            "source_agent": "hermes",
+            "state": "pending",
+            "created_at": "2026-07-20T00:00:00Z",
+        },
+    ]
+
+    projects = _project_rows(proposals)
+    agents = _agent_rows(proposals)
+
+    assert "latest 2026-07-20" in projects
+    assert "Last Brain submission 2026-07-20" in agents
+    assert "latest 2026-07-01" not in projects
+    assert "Last Brain submission 2026-07-01" not in agents
+
+
+def test_cassette_brief_tracks_pending_list_when_count_lags() -> None:
+    html = cassette_page(
+        node_counts={},
+        proposal_counts={"pending": 0},
+        knowledge_health={},
+        lifecycle_overview={},
+        pending_proposals=[
+            {
+                "proposal_id": "pending-one",
+                "summary": "A queued decision",
+                "risk_level": "low",
+            }
+        ],
+        all_proposals=[],
+        linuxdo_board={},
+    )
+
+    assert "1 item need a look." in html
+    assert "Review decision" in html
+    assert "Nothing asks for you right now." not in html
+
+
+def test_cassette_maintenance_meta_includes_quarantine() -> None:
+    html = cassette_page(
+        node_counts={},
+        proposal_counts={"pending": 0},
+        knowledge_health={"quarantined": 2},
+        lifecycle_overview={},
+        pending_proposals=[],
+        all_proposals=[],
+        linuxdo_board={},
+    )
+
+    assert "2 items need a look." in html
+    assert "2 quarantined" in html
 
 
 def test_homebase_preserves_auth_and_existing_business_routes(tmp_path: Path) -> None:
