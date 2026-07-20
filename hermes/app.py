@@ -21,6 +21,7 @@ from hermes.exporter import ExportCompiler
 from hermes.repository import HermesRepository
 from hermes.status import StatusPublisher
 from hermes.homebase import home_page
+from hermes.cassette import cassette_page
 from hermes.templates import (
     dashboard_page,
     gallery_detail_page,
@@ -209,6 +210,52 @@ def create_app(
         if auth_enabled and not _has_valid_cookie(request):
             return RedirectResponse("/login", status_code=303)
         return _render_workbench_page()
+
+    @app.get("/design/cassette", response_class=HTMLResponse, response_model=None)
+    def cassette_design_page(request: Request) -> str | RedirectResponse:
+        """Isolated candidate: new IA and visual system, existing home remains untouched."""
+        if auth_enabled and not _has_valid_cookie(request):
+            return RedirectResponse("/login", status_code=303)
+        try:
+            node_counts = repo.count_knowledge_nodes_by_stage()
+        except Exception:
+            node_counts = {"draft": 0, "refined": 0, "verified": 0, "canonized": 0, "deprecated": 0}
+        try:
+            proposal_counts = repo.counts_by_state()
+        except Exception:
+            proposal_counts = {"pending": 0}
+        try:
+            knowledge_health = repo.knowledge_health_report()
+        except Exception:
+            knowledge_health = {}
+        try:
+            lifecycle_overview = repo.proposal_lifecycle_overview(limit=12)
+        except Exception:
+            lifecycle_overview = {}
+        try:
+            pending_proposals = repo.list_proposals_by_state("pending")[:5]
+        except Exception:
+            pending_proposals = []
+        try:
+            all_proposals = repo.list_proposals_ordered()
+        except Exception:
+            all_proposals = []
+        linuxdo_board = {}
+        board_path = Path.home() / "self/knowledge/daily-learnings/linuxdo-board.json"
+        if board_path.exists():
+            try:
+                linuxdo_board = json.loads(board_path.read_text(encoding="utf-8"))
+            except Exception:
+                linuxdo_board = {"fetch_errors": ["failed to read board json"], "items": []}
+        return cassette_page(
+            node_counts=node_counts,
+            proposal_counts=proposal_counts,
+            knowledge_health=knowledge_health,
+            lifecycle_overview=lifecycle_overview,
+            pending_proposals=pending_proposals,
+            all_proposals=all_proposals,
+            linuxdo_board=linuxdo_board,
+        )
 
     @app.get("/health")
     def health() -> dict[str, str]:

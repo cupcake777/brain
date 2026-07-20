@@ -77,12 +77,58 @@ def test_root_renders_homebase_with_live_brain_and_signal_data(tmp_path: Path, m
     assert "MOCK DATA" not in html
 
 
+def test_cassette_design_route_is_isolated_and_uses_live_data(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    board_path = tmp_path / "self/knowledge/daily-learnings/linuxdo-board.json"
+    board_path.parent.mkdir(parents=True)
+    board_path.write_text(
+        '{"updated_at":"2026-07-20T12:40:00Z","items":[{"title":"Signal received by the cassette deck","url":"https://example.test/cassette"}]}',
+        encoding="utf-8",
+    )
+    repo, client, _ = _client(tmp_path)
+    proposal_id = _add_pending_proposal(repo, tmp_path / "sync")
+
+    home = client.get("/")
+    candidate = client.get("/design/cassette")
+
+    assert home.status_code == 200
+    assert 'class="homebase-sidebar"' in home.text
+    assert "cassette-workbench" not in home.text
+    assert candidate.status_code == 200
+    html = candidate.text
+    assert "<title>Command Deck · Brain</title>" in html
+    assert 'class="cassette-workbench"' in html
+    assert 'id="deck-brief"' in html
+    assert 'id="deck-next"' in html
+    assert 'id="deck-fleet"' in html
+    assert 'id="deck-agents"' in html
+    assert 'id="deck-projects"' in html
+    assert 'id="deck-signals"' in html
+    assert html.index('id="deck-brief"') < html.index('id="deck-fleet"')
+    assert html.index('id="deck-fleet"') < html.index('id="deck-projects"')
+    assert "Homebase live proposal requires a decision." in html
+    assert proposal_id in html
+    assert "Signal received by the cassette deck" in html
+    assert "/api/vps/fleet" in html
+    assert "/api/dashboard/health" in html
+    assert "System Pulse" not in html
+    assert "pulse-score" not in html
+    assert "metric-ring" not in html
+    assert "overview-grid" not in html
+    assert "homebase-sidebar" not in html
+    assert "MOCK DATA" not in html
+
+
 def test_homebase_preserves_auth_and_existing_business_routes(tmp_path: Path) -> None:
     _, client, app = _client(tmp_path, auth=True)
 
     unauthenticated = client.get("/", follow_redirects=False)
     assert unauthenticated.status_code == 303
     assert unauthenticated.headers["location"] == "/login"
+
+    candidate_unauthenticated = client.get("/design/cassette", follow_redirects=False)
+    assert candidate_unauthenticated.status_code == 303
+    assert candidate_unauthenticated.headers["location"] == "/login"
 
     login = client.post(
         "/login",
@@ -92,10 +138,12 @@ def test_homebase_preserves_auth_and_existing_business_routes(tmp_path: Path) ->
     assert login.status_code == 303
     assert login.headers["location"] == "/"
     assert client.get("/").status_code == 200
+    assert client.get("/design/cassette").status_code == 200
 
     route_paths = {route.path for route in app.routes}
     assert {
         "/overview",
+        "/design/cassette",
         "/proposals",
         "/knowledge",
         "/control",
