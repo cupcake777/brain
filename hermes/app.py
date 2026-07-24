@@ -16,6 +16,7 @@ from fastapi import FastAPI, Form, HTTPException, Query, Request, Response
 from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 
 from hermes.auth import CSRFMiddleware, DBFailClosedMiddleware, TokenAuthMiddleware
+from hermes.label_gold import register_label_gold_routes
 from hermes.config import HermesConfig
 from hermes.exporter import ExportCompiler
 from hermes.repository import HermesRepository
@@ -1231,9 +1232,21 @@ def create_app(
     @app.get("/proposals", response_class=HTMLResponse, response_model=None)
     def proposal_lifecycle_route(
         tab: str = Query(default="flow"),
+        state: str = Query(default="pending"),
     ) -> str:
         if tab not in {"flow", "review", "knowledge"}:
             tab = "flow"
+        if tab == "review":
+            counts = repo.counts_by_state()
+            if state == "all":
+                proposals = repo.list_proposals_ordered()
+            else:
+                proposals = repo.list_proposals_by_state(state)
+            return review_queue_page(
+                proposals=proposals,
+                counts=counts,
+                active_state=state,
+            )
         overview = repo.proposal_lifecycle_overview()
         graph_data = repo.get_knowledge_graph(limit=300)
         return proposal_lifecycle_page(
@@ -2519,13 +2532,18 @@ def create_app(
         return profile_page(success="密码已更新")
 
     # ------------------------------------------------------------------
+    # Gold-pair labeling UI (auth-protected; MUST be before SPA catch-all)
+    # ------------------------------------------------------------------
+    register_label_gold_routes(app)
+
+    # ------------------------------------------------------------------
     # SPA fallback: redirect unknown non-API paths to /
     # ------------------------------------------------------------------
     @app.get("/{path:path}", response_class=HTMLResponse, include_in_schema=False)
     def spa_fallback(path: str):
         """Catch-all: redirect unknown page routes to homepage for SPA-like UX."""
         # Skip API, exports, static, gallery routes (they have their own handlers)
-        if path.startswith(("api/", "exports/", "gallery/", "login")):
+        if path.startswith(("api/", "exports/", "gallery/", "login", "label-gold")):
             from fastapi import HTTPException
             raise HTTPException(status_code=404, detail="Not found")
         return RedirectResponse(url="/", status_code=302)

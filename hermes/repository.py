@@ -1491,7 +1491,7 @@ class HermesRepository:
                     tuple(edge_ids),
                 ).fetchall()
                 edge_props = connection.execute(
-                    f"SELECT proposal_id, summary, category, project_key, state, risk_level, retrieval_count_30d, created_at, source_agent FROM proposals WHERE proposal_id IN ({ph})",
+                    f"SELECT proposal_id, summary, observation, why_it_matters, suggested_memory, scope, evidence, category, project_key, state, risk_level, retrieval_count_30d, created_at, source_agent, source_host FROM proposals WHERE proposal_id IN ({ph})",
                     tuple(edge_ids),
                 ).fetchall()
             remaining = limit - len(edge_kn) if edge_ids else limit
@@ -1513,14 +1513,59 @@ class HermesRepository:
             if nid in seen: continue
             seen.add(nid)
             is_dirty = (row["category"] or "") == "chat_session" or not (row["summary"] or "").strip() or len((row["summary"] or "").strip()) < 10
-            nodes.append({"id": nid, "type": "knowledge", "summary": (row["summary"] or "")[:120], "category": row["category"] or "fact", "domain": row["domain"] or "general", "stage": row["stage"] or "draft", "confidence": round(float(row["confidence"] or 0.3), 2), "retrieval_count": int(row["retrieval_count"] or 0), "outcome_count": int(row["outcome_count"] or 0), "source": (row["source"] or "")[:80], "created_at": row["created_at"] or "", "refined_at": row["refined_at"] or "", "last_used_at": row["last_used_at"] or "", "dirty": is_dirty})
+            nodes.append({"id": nid, "type": "knowledge", "summary": (row["summary"] or "")[:240], "content": (row["content"] or "")[:1200], "category": row["category"] or "fact", "domain": row["domain"] or "general", "stage": row["stage"] or "draft", "confidence": round(float(row["confidence"] or 0.3), 2), "retrieval_count": int(row["retrieval_count"] or 0), "outcome_count": int(row["outcome_count"] or 0), "source": (row["source"] or "")[:80], "created_at": row["created_at"] or "", "refined_at": row["refined_at"] or "", "last_used_at": row["last_used_at"] or "", "dirty": is_dirty})
+        def _proposal_node(row) -> dict:
+            state = row["state"] if row["state"] else ""
+            return {
+                "id": row["proposal_id"],
+                "type": "proposal",
+                "summary": (row["summary"] or "")[:240],
+                "observation": (row["observation"] or "")[:800],
+                "why_it_matters": (row["why_it_matters"] or "")[:500],
+                "suggested_memory": (row["suggested_memory"] or "")[:800],
+                "scope": (row["scope"] or "")[:200],
+                "evidence": (row["evidence"] or "")[:1200],
+                "category": row["category"] or "fact",
+                "domain": row["project_key"] or "general",
+                "stage": state or "pending",
+                "confidence": 0.5,
+                "retrieval_count": int(row["retrieval_count_30d"] or 0),
+                "outcome_count": 0,
+                "source": row["source_agent"] or "",
+                "risk_level": row["risk_level"] or "",
+                "created_at": row["created_at"] or "",
+                "refined_at": "",
+                "last_used_at": "",
+            }
+
         for row in edge_props:
             pid = row["proposal_id"]
             state = row["state"] if row["state"] else ""
             if pid in seen: continue
             if state in ("rejected", "superseded"): continue
             seen.add(pid)
-            nodes.append({"id": pid, "type": "proposal", "summary": (row["summary"] or "")[:120], "category": row["category"] or "fact", "domain": row["project_key"] or "general", "stage": state or "pending", "confidence": 0.5, "retrieval_count": int(row["retrieval_count_30d"] or 0), "outcome_count": 0, "source": row["source_agent"] or "", "created_at": row["created_at"] or "", "refined_at": "", "last_used_at": ""})
+            nodes.append(_proposal_node(row))
+
+        # Always surface pending proposals even if they have no edges yet,
+        # so the review filter can show them with full decision fields.
+        with self._connect() as connection:
+            pending_rows = connection.execute(
+                """
+                SELECT proposal_id, summary, observation, why_it_matters, suggested_memory, scope, evidence,
+                       category, project_key, state, risk_level, retrieval_count_30d, created_at, source_agent, source_host
+                FROM proposals
+                WHERE state = 'pending'
+                ORDER BY created_at DESC
+                LIMIT 100
+                """
+            ).fetchall()
+        for row in pending_rows:
+            pid = row["proposal_id"]
+            if pid in seen:
+                continue
+            seen.add(pid)
+            nodes.append(_proposal_node(row))
+
         edges = [{"from_id": r["from_id"], "to_id": r["to_id"], "edge_type": r["edge_type"], "evidence_id": r["evidence_id"] or "", "created_at": r["created_at"] or ""} for r in edge_rows]
         sc = {}
         for n in nodes: s = n["stage"]; sc[s] = sc.get(s, 0) + 1

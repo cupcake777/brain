@@ -73,6 +73,19 @@ _I18N_DICT = {
         "rv_all": "全部", "rv_pending": "待审", "rv_approved": "已批准", "rv_synced": "已同步",
         "rv_approve_db": "存入记忆库", "rv_approve_export": "批准并同步导出",
         "rv_promote_export": "升级为同步导出", "rv_reject": "拒绝此提案",
+        "rv_empty_section": "（未填写）",
+        "rv_missing_hint": "缺少关键字段，请结合证据判断是否足以批准。",
+        "rv_fields_complete": "关键字段完整",
+        "rv_fields_partial": "字段不完整",
+        "rv_host": "主机",
+        "rv_semantic_dup": "语义重复于",
+        "rv_supersedes": "取代",
+        "rv_decision_checklist": "判断清单",
+        "rv_checklist_claim": "主张是否具体、可执行？",
+        "rv_checklist_evidence": "证据是否足够支撑？",
+        "rv_checklist_scope": "作用范围是否清楚？",
+        "rv_checklist_risk": "风险与副作用是否可接受？",
+        "rv_open_full": "打开完整审核页",
         "kn_title": "知识树", "kn_search": "搜索知识…", "kn_add": "+ 添加知识",
         "kn_export": "⬇ 导出MD", "kn_retrospect": "🔄 回顾",
         "kn_empty_trash": "🗑 清空回收站", "kn_no_nodes": "当前筛选条件下无知识节点。",
@@ -210,6 +223,19 @@ _I18N_DICT = {
         "rv_all": "All", "rv_pending": "Pending", "rv_approved": "Approved", "rv_synced": "Synced",
         "rv_approve_db": "Save to memory", "rv_approve_export": "Approve & sync",
         "rv_promote_export": "Promote to sync", "rv_reject": "Reject this proposal",
+        "rv_empty_section": "(not provided)",
+        "rv_missing_hint": "Key fields are missing — use evidence carefully before approving.",
+        "rv_fields_complete": "Fields complete",
+        "rv_fields_partial": "Incomplete fields",
+        "rv_host": "Host",
+        "rv_semantic_dup": "Semantic duplicate of",
+        "rv_supersedes": "Supersedes",
+        "rv_decision_checklist": "Decision checklist",
+        "rv_checklist_claim": "Is the claim concrete and actionable?",
+        "rv_checklist_evidence": "Is the evidence strong enough?",
+        "rv_checklist_scope": "Is the scope clear?",
+        "rv_checklist_risk": "Are risk / side-effects acceptable?",
+        "rv_open_full": "Open full review page",
         "kn_title": "Knowledge Tree", "kn_search": "Search knowledge…", "kn_add": "+ Add Knowledge",
         "kn_export": "⬇ Export MD", "kn_retrospect": "🔄 Retrospect",
         "kn_empty_trash": "🗑 Empty Trash", "kn_no_nodes": "No knowledge nodes match the current filters.",
@@ -1590,23 +1616,51 @@ def review_queue_page(
             f'{_html.escape(label)} <span class="tab-count">{count}</span></a>'
         )
 
+    def _preview_text(p: dict) -> str:
+        for key in ("summary", "suggested_memory", "observation", "evidence"):
+            val = str(p.get(key) or "").strip()
+            if val:
+                return val[:220] + ("..." if len(val) > 220 else "")
+        return _pt("rv_empty_section")
+
+    def _missing_fields(p: dict) -> list[str]:
+        missing = []
+        for key, label_key in (
+            ("observation", "rv_observation"),
+            ("why_it_matters", "rv_why_matters"),
+            ("suggested_memory", "rv_suggested"),
+            ("evidence", "rv_evidence"),
+        ):
+            if not str(p.get(key) or "").strip():
+                missing.append(_pt(label_key))
+        return missing
+
     cards = ""
     for p in proposals:
         pid = str(p.get("proposal_id", ""))
         cat = str(p.get("category", ""))
         risk = str(p.get("risk_level", ""))
-        memory = str(p.get("suggested_memory", ""))
         project = str(p.get("project_key", ""))
         state = str(p.get("state", "pending"))
-        # Truncate preview to 120 chars
-        preview = memory[:120] + ("..." if len(memory) > 120 else "")
+        source = str(p.get("source_agent", "") or "")
+        host = str(p.get("source_host", "") or "")
+        created = str(p.get("created_at", "") or "")[:19]
+        preview = _preview_text(p)
+        missing = _missing_fields(p)
+        completeness = (
+            f'<span class="card-flag ok">{_html.escape(_pt("rv_fields_complete"))}</span>'
+            if not missing
+            else f'<span class="card-flag warn">{_html.escape(_pt("rv_fields_partial"))}: {_html.escape(", ".join(missing))}</span>'
+        )
         cards += f"""<a href="/review/{_html.escape(pid)}" class="card" data-proposal-id="{_html.escape(pid)}">
-  <div class="card-top">{_category_badge(cat)} {_state_badge(state)}</div>
+  <div class="card-top">{_category_badge(cat)} {_state_badge(state)} {_risk_badge(risk)}</div>
   <div class="card-preview">{_html.escape(preview)}</div>
   <div class="card-meta">
     <span>{_html.escape(project)}</span>
-    {_risk_badge(risk)}
+    <span>{_html.escape(source)}{"@" + _html.escape(host) if host else ""}</span>
+    <span>{_html.escape(created)}</span>
   </div>
+  <div class="card-flags">{completeness}</div>
   <div class="card-id">{_html.escape(pid)}</div>
 </a>"""
 
@@ -1617,6 +1671,14 @@ def review_queue_page(
     heading = "Pending proposals" if active_state == "pending" else f"{active_state.replace('_', ' ').title()} proposals"
 
     body = f"""
+<style>
+.card-flags{{margin-top:8px;font-size:.72rem}}
+.card-flag{{display:inline-block;padding:2px 8px;border-radius:999px;font-weight:600}}
+.card-flag.ok{{background:rgba(155,206,143,.18);color:#5f8f57}}
+.card-flag.warn{{background:rgba(212,120,90,.14);color:#b45a3a}}
+.card-meta{{display:flex;flex-wrap:wrap;gap:8px 12px}}
+.card-preview{{-webkit-line-clamp:5 !important}}
+</style>
 <h1 style="padding:16px 16px 0;font-size:1.2rem">{_html.escape(heading)}</h1>
 <div class="tabs">{tab_html}</div>
 <div class="search-bar"><input type="text" id="search-input" data-i18n-ph="rv_search" placeholder="{_pt('rv_search')}" oninput="filterCards()"></div>
@@ -1707,15 +1769,51 @@ def review_detail_page(*, proposal: dict) -> str:
     category = str(proposal.get("category", ""))
     risk = str(proposal.get("risk_level", ""))
     source_agent = str(proposal.get("source_agent", ""))
+    source_host = str(proposal.get("source_host", "") or "")
     created_at = str(proposal.get("created_at", ""))
+    semantic_dup = str(proposal.get("semantic_duplicate_of", "") or "")
+    supersedes = str(proposal.get("supersedes", "") or "")
 
-    # Sections
+    # Sections — show explicit empty markers so reviewers can judge gaps
     sections_html = ""
+    missing_labels: list[str] = []
     for i18n_key, key in _PROPOSAL_SECTIONS_KEYS:
-        val = str(proposal.get(key, ""))
-        sections_html += f"""<div class="section">
+        val = str(proposal.get(key, "") or "").strip()
+        if val:
+            body = _html.escape(val)
+            empty_cls = ""
+        else:
+            body = f'<span class="section-empty">{_html.escape(_pt("rv_empty_section"))}</span>'
+            empty_cls = " is-empty"
+            if key in {"observation", "why_it_matters", "suggested_memory", "evidence"}:
+                missing_labels.append(_pt(i18n_key))
+        sections_html += f"""<div class="section{empty_cls}">
   <h3 data-i18n="{_html.escape(i18n_key)}">{_pt(i18n_key)}</h3>
-  <p>{_html.escape(val)}</p>
+  <p>{body}</p>
+</div>"""
+
+    if missing_labels:
+        completeness_html = (
+            f'<div class="completeness-banner warn">'
+            f'<b>{_html.escape(_pt("rv_fields_partial"))}</b> · '
+            f'{_html.escape(", ".join(missing_labels))}<br>'
+            f'<span>{_html.escape(_pt("rv_missing_hint"))}</span></div>'
+        )
+    else:
+        completeness_html = (
+            f'<div class="completeness-banner ok">'
+            f'<b>{_html.escape(_pt("rv_fields_complete"))}</b></div>'
+        )
+
+    checklist_html = f"""
+<div class="section checklist">
+  <h3>{_html.escape(_pt("rv_decision_checklist"))}</h3>
+  <ul class="decision-list">
+    <li>{_html.escape(_pt("rv_checklist_claim"))}</li>
+    <li>{_html.escape(_pt("rv_checklist_evidence"))}</li>
+    <li>{_html.escape(_pt("rv_checklist_scope"))}</li>
+    <li>{_html.escape(_pt("rv_checklist_risk"))}</li>
+  </ul>
 </div>"""
 
     # Determine which buttons are available
@@ -1725,6 +1823,12 @@ def review_detail_page(*, proposal: dict) -> str:
 
     weight = str(proposal.get("weight", ""))
     weight_html = f'<span class="label" data-i18n="rv_weight">{_pt("rv_weight")}</span><span class="value">{_html.escape(weight)}</span>' if weight else ''
+    host_html = f'<span class="label" data-i18n="rv_host">{_pt("rv_host")}</span><span class="value">{_html.escape(source_host or "—")}</span>'
+    lineage_bits = ""
+    if semantic_dup:
+        lineage_bits += f'<span class="label">{_html.escape(_pt("rv_semantic_dup"))}</span><span class="value"><a href="/review/{_html.escape(semantic_dup)}">{_html.escape(semantic_dup[:12])}…</a></span>'
+    if supersedes:
+        lineage_bits += f'<span class="label">{_html.escape(_pt("rv_supersedes"))}</span><span class="value"><a href="/review/{_html.escape(supersedes)}">{_html.escape(supersedes[:12])}…</a></span>'
 
     # Action buttons
     btns = ""
@@ -1759,6 +1863,17 @@ def review_detail_page(*, proposal: dict) -> str:
         btns = f'<div class="empty" style="flex:1" data-i18n="rv_rejected">{_pt("rv_rejected")}</div>'
 
     body = f"""
+<style>
+.section.is-empty{{opacity:.88;border-style:dashed}}
+.section-empty{{color:var(--ink-muted);font-style:italic}}
+.completeness-banner{{margin:0 var(--sp-md) var(--sp-md);padding:10px 14px;border-radius:var(--r-md);font-size:.82rem;line-height:1.45}}
+.completeness-banner.ok{{background:rgba(155,206,143,.14);color:#4f7d48;border:1px solid rgba(155,206,143,.35)}}
+.completeness-banner.warn{{background:rgba(212,120,90,.12);color:#a04d30;border:1px solid rgba(212,120,90,.28)}}
+.decision-list{{margin:0;padding-left:1.1rem;color:var(--ink);font-size:.88rem;line-height:1.7}}
+.section.checklist p,.section.checklist{{background:linear-gradient(180deg,rgba(196,163,90,.06),transparent)}}
+.detail-body .section p{{max-height:none}}
+.meta-grid a{{color:var(--primary)}}
+</style>
 <div class="detail-header">
   <a href="/proposals?tab=review" class="back-link" data-i18n="rv_review">{_pt("rv_review")}</a>
   <span class="detail-title">{_html.escape(pid[:12])}…</span>
@@ -1769,10 +1884,13 @@ def review_detail_page(*, proposal: dict) -> str:
   <span class="label" data-i18n="rv_category">{_pt("rv_category")}</span><span class="value">{_category_badge(category)}</span>
   <span class="label" data-i18n="rv_risk">{_pt("rv_risk")}</span><span class="value">{_risk_badge(risk)}</span>
   <span class="label" data-i18n="rv_source">{_pt("rv_source")}</span><span class="value">{_html.escape(source_agent)}</span>
+  {host_html}
   <span class="label" data-i18n="rv_created">{_pt("rv_created")}</span><span class="value">{_html.escape(created_at[:19])}</span>
   {weight_html}
+  {lineage_bits}
 </div>
-<div class="detail-body">{sections_html}</div>
+{completeness_html}
+<div class="detail-body">{sections_html}{checklist_html}</div>
 <div class="action-bar">{btns}</div>
 <div class="confirm-overlay" id="confirm-overlay" onclick="if(event.target===this)hideConfirm()">
   <div class="confirm-modal" id="confirm-modal">
@@ -5046,7 +5164,7 @@ def proposal_lifecycle_page(overview: dict, tab="flow", review_html="", knowledg
 .kg-right-body{{padding:16px;display:flex;flex-direction:column;gap:12px}}
 .kg-right-body .kg-row{{display:flex;justify-content:space-between;gap:10px;font-size:.76rem;color:var(--ink-muted);border-top:1px solid var(--border);padding-top:8px}}
 .kg-right-body .kg-row b{{color:var(--ink);text-align:right;word-break:break-word}}
-.kg-right-body .kg-content{{font-size:.78rem;color:var(--ink);line-height:1.6;white-space:pre-wrap;word-break:break-word;max-height:200px;overflow-y:auto;background:var(--surface);padding:10px;border-radius:var(--r-sm)}}
+.kg-right-body .kg-content{{font-size:.78rem;color:var(--ink);line-height:1.6;white-space:pre-wrap;word-break:break-word;max-height:320px;overflow-y:auto;background:var(--surface);padding:10px;border-radius:var(--r-sm)}}
 .kg-actions{{display:flex;flex-wrap:wrap;gap:6px;padding-top:8px;border-top:1px solid var(--border)}}
 .kg-btn{{border:1px solid var(--border);border-radius:var(--r-sm);padding:6px 12px;font-size:.74rem;cursor:pointer;font-weight:600;background:var(--surface);color:var(--ink);transition:all .12s}}
 .kg-btn:hover{{border-color:var(--primary);background:var(--primary);color:#fff}}
@@ -5133,6 +5251,9 @@ def proposal_lifecycle_page(overview: dict, tab="flow", review_html="", knowledg
       retrieval_count: n.retrieval_count, outcome_count: n.outcome_count,
       source: n.source, created_at: n.created_at, refined_at: n.refined_at,
       last_used_at: n.last_used_at,
+      content: n.content || '', observation: n.observation || '',
+      why_it_matters: n.why_it_matters || '', suggested_memory: n.suggested_memory || '',
+      evidence: n.evidence || '', scope: n.scope || '', risk_level: n.risk_level || '',
       x: Math.random()*800+100, y: Math.random()*500+100,
       vx: 0, vy: 0
     }});
@@ -5370,7 +5491,25 @@ def proposal_lifecycle_page(overview: dict, tab="flow", review_html="", knowledg
     html += '<div class="kg-row"><span>Retrieved</span><b>'+(n.retrieval_count||0)+'x</b></div>';
     html += '<div class="kg-row"><span>Outcomes</span><b>'+(n.outcome_count||0)+'</b></div>';
     if(n.source) html += '<div class="kg-row"><span>Source</span><b>'+esc(n.source)+'</b></div>';
-    html += '<div class="kg-content">'+esc(n.summary)+'</div>';
+    if(n.risk_level) html += '<div class="kg-row"><span>Risk</span><b>'+esc(n.risk_level)+'</b></div>';
+    if(n.created_at) html += '<div class="kg-row"><span>Created</span><b>'+esc(String(n.created_at).slice(0,19))+'</b></div>';
+    html += '<div class="kg-content"><b style="display:block;margin-bottom:4px;font-size:.72rem;color:var(--ink-muted)">SUMMARY</b>'+esc(n.summary||'')+'</div>';
+    if(n.content) html += '<div class="kg-content"><b style="display:block;margin-bottom:4px;font-size:.72rem;color:var(--ink-muted)">CONTENT</b>'+esc(n.content)+'</div>';
+    if(n.observation) html += '<div class="kg-content"><b style="display:block;margin-bottom:4px;font-size:.72rem;color:var(--ink-muted)">OBSERVATION</b>'+esc(n.observation)+'</div>';
+    if(n.why_it_matters) html += '<div class="kg-content"><b style="display:block;margin-bottom:4px;font-size:.72rem;color:var(--ink-muted)">WHY IT MATTERS</b>'+esc(n.why_it_matters)+'</div>';
+    if(n.suggested_memory) html += '<div class="kg-content"><b style="display:block;margin-bottom:4px;font-size:.72rem;color:var(--ink-muted)">SUGGESTED MEMORY</b>'+esc(n.suggested_memory)+'</div>';
+    if(n.evidence) html += '<div class="kg-content"><b style="display:block;margin-bottom:4px;font-size:.72rem;color:var(--ink-muted)">EVIDENCE</b>'+esc(n.evidence)+'</div>';
+    if(n.scope) html += '<div class="kg-content"><b style="display:block;margin-bottom:4px;font-size:.72rem;color:var(--ink-muted)">SCOPE</b>'+esc(n.scope)+'</div>';
+    var missing = [];
+    if(n.type === 'proposal'){{
+      if(!n.observation) missing.push('observation');
+      if(!n.why_it_matters) missing.push('why_it_matters');
+      if(!n.suggested_memory) missing.push('suggested_memory');
+      if(!n.evidence) missing.push('evidence');
+    }}
+    if(missing.length){{
+      html += '<div style="font-size:.74rem;color:#a04d30;background:rgba(212,120,90,.12);padding:8px 10px;border-radius:8px">Incomplete: '+esc(missing.join(', '))+'</div>';
+    }}
 
     // Connected edges
     var connected = edgeList.filter(function(e){{return e.from.id===n.id||e.to.id===n.id;}});
@@ -5386,9 +5525,13 @@ def proposal_lifecycle_page(overview: dict, tab="flow", review_html="", knowledg
 
     // Actions
     html += '<div class="kg-actions">';
-    html += '<button class="kg-btn" onclick="kgAction(\\'approve\\',\\''+n.id+'\\')">Approve</button>';
-    html += '<button class="kg-btn" onclick="kgAction(\\'reject\\',\\''+n.id+'\\')">Reject</button>';
-    html += '<button class="kg-btn" onclick="window.open(\\'/review/'+n.id+'\\',\\'_blank\\')">View Details</button>';
+    if(n.type === 'proposal'){{
+      html += '<button class="kg-btn" onclick="kgAction(\\'approve\\',\\''+n.id+'\\')">Approve</button>';
+      html += '<button class="kg-btn" onclick="kgAction(\\'reject\\',\\''+n.id+'\\')">Reject</button>';
+      html += '<button class="kg-btn" onclick="window.open(\\'/review/'+n.id+'\\',\\'_blank\\')">View Details</button>';
+    }} else {{
+      html += '<button class="kg-btn" onclick="window.open(\\'/knowledge/'+n.id+'\\',\\'_blank\\')">Open Knowledge</button>';
+    }}
     html += '</div>';
 
     body.innerHTML = html;
