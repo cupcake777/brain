@@ -5005,13 +5005,11 @@ checkRefresh();
     'Brain': '/knowledge',
     'n8n': os.environ.get('BRAIN_SERVICE_AUTOMATION_URL', '#'),
     'Uptime Kuma': os.environ.get('BRAIN_SERVICE_STATUS_URL', '#'),
-    'File Browser': os.environ.get('BRAIN_SERVICE_FILES_URL', '#'),
   })};
   var svcIcons = {{
     'Brain': '🧠',
     'n8n': '🔄',
-    'Uptime Kuma': '📊',
-    'File Browser': '📁'
+    'Uptime Kuma': '📊'
   }};
   function loadSvcHealth() {{
     fetch('/api/dashboard/health').then(function(r){{return r.json()}}).then(function(data) {{
@@ -5627,8 +5625,7 @@ def resources_page() -> str:
   </div></section>
   <section class="hub-section"><div class="hub-section-head"><h2>Services & Panels</h2></div><div class="hub-grid">
     <a class="hub-card" href="/fleet"><div class="hub-icon">🖥️</div><h3>VPS Fleet</h3><p>VPS 大队实时清单：Seoul、RackNerd、SEA、Frankfurt、BJ、LA 的规格、角色和资源状态。</p><div class="hub-tags"><span class="hub-tag active">active</span><span class="hub-tag">vps</span><span class="hub-tag">dashboard</span></div></a>
-    <a class="hub-card" href="__BRAIN_STATUS_URL__" target="_blank" rel="noopener"><div class="hub-icon">📈</div><h3>Uptime Kuma</h3><p>外部服务可用性监控面板。</p><div class="hub-tags"><span class="hub-tag">service</span><span class="hub-tag">external</span></div></a>
-    <a class="hub-card" href="__BRAIN_FILES_URL__" target="_blank" rel="noopener"><div class="hub-icon">📁</div><h3>File Browser</h3><p>文件上传、导出和资源管理入口。</p><div class="hub-tags"><span class="hub-tag">service</span><span class="hub-tag">web</span></div></a>
+    <a class="hub-card" href="__BRAIN_STATUS_URL__" target="_blank" rel="noopener"><div class="hub-icon">📈</div><h3>Uptime Kuma</h3><p>私有服务可用性监控面板。</p><div class="hub-tags"><span class="hub-tag">private</span><span class="hub-tag">monitoring</span></div></a>
     <a class="hub-card" href="/control"><div class="hub-icon">🛡</div><h3>Control Center</h3><p>业务健康、代理、通知、账号池和运维信号。</p><div class="hub-tags"><span class="hub-tag active">active</span><span class="hub-tag">ops</span></div></a>
   </div></section>
   <section class="hub-section"><div class="hub-section-head"><h2>Docs & Knowledge Files</h2></div><div class="hub-grid">
@@ -5641,9 +5638,6 @@ def resources_page() -> str:
     body = body.replace(
         "__BRAIN_STATUS_URL__",
         _html.escape(os.environ.get("BRAIN_SERVICE_STATUS_URL", "#"), quote=True),
-    ).replace(
-        "__BRAIN_FILES_URL__",
-        _html.escape(os.environ.get("BRAIN_SERVICE_FILES_URL", "#"), quote=True),
     )
     return _page("Hub", body, nav_active="hub")
 
