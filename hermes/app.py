@@ -16,13 +16,20 @@ from fastapi import FastAPI, Form, HTTPException, Query, Request, Response
 from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 
 from hermes.auth import CSRFMiddleware, DBFailClosedMiddleware, TokenAuthMiddleware
+from hermes.brain_protocol import register_brain_protocol_routes
+from hermes.source_protocol import register_source_protocol_routes
 from hermes.label_gold import register_label_gold_routes
+from hermes.event_store import EventStore, Principal
+from hermes.proposal_protocol_v2 import DEFAULT_PRINCIPAL_ADAPTER, build_router as build_v2_router
+from hermes.scoped_auth import ScopedPrincipalRegistry
 from hermes.config import HermesConfig
 from hermes.exporter import ExportCompiler
 from hermes.repository import HermesRepository
 from hermes.status import StatusPublisher
 from hermes.homebase import home_page
 from hermes.cassette import cassette_page
+from hermes.orbit import orbit_page
+from hermes.lane import assign_lane as _assign_lane
 from hermes.templates import (
     dashboard_page,
     gallery_detail_page,
@@ -54,6 +61,11 @@ def create_app(
     exporter = exporter or ExportCompiler(repo=repo, sync_root=sync_root)
     status_publisher = StatusPublisher(repo=repo, sync_root=sync_root)
     app = FastAPI(title="Hermes MVP")
+    scoped_registry = (
+        ScopedPrincipalRegistry(config.brain_scoped_tokens_file)
+        if config.brain_scoped_tokens_file
+        else None
+    )
 
     @app.middleware("http")
     async def _no_store_html_responses(request: Request, call_next):
@@ -99,9 +111,57 @@ def create_app(
     # -- middleware stack (outermost first) ------------------------------------
     app.add_middleware(DBFailClosedMiddleware)
     if config.csrf_secret is not None or auth_enabled:
-        app.add_middleware(CSRFMiddleware, auth_token=config.auth_token, csrf_secret=config.csrf_secret)
+        app.add_middleware(CSRFMiddleware, auth_token=config.auth_token, csrf_secret=config.csrf_secret, scoped_registry=scoped_registry)
     if auth_enabled:
-        app.add_middleware(TokenAuthMiddleware, auth_token=config.auth_token, auth_enabled=auth_enabled, session_cookie_value=_make_cookie_value())
+        app.add_middleware(TokenAuthMiddleware, auth_token=config.auth_token, auth_enabled=auth_enabled, session_cookie_value=_make_cookie_value(), scoped_registry=scoped_registry)
+
+    # Stage v2 alongside schema=1, but keep it disabled by default. Enabling
+    # requires a complete server-owned principal mapping; caller headers and
+    # request bodies never select actor/workspace/project authority.
+    if config.brain_v2_enabled:
+        principal_adapter = DEFAULT_PRINCIPAL_ADAPTER
+        if scoped_registry is not None:
+            class _ScopedV2PrincipalAdapter:
+                def authenticate(self, request: Request) -> Principal | None:
+                    method = request.method.upper()
+                    permission = (
+                        "events:write" if request.url.path.startswith("/api/v2/brain/events") and method in {"POST", "PUT", "PATCH", "DELETE"}
+                        else "events:read" if request.url.path.startswith("/api/v2/brain/events")
+                        else "proposals:write" if method in {"POST", "PUT", "PATCH", "DELETE"}
+                        else "proposals:read"
+                    )
+                    return scoped_registry.authenticate(request, permission=permission)
+
+            principal_adapter = _ScopedV2PrincipalAdapter()
+        elif all((config.brain_v2_actor, config.brain_v2_workspace, config.brain_v2_project)):
+            configured_principal = Principal(
+                actor=config.brain_v2_actor or "",
+                workspace=config.brain_v2_workspace or "",
+                project=config.brain_v2_project or "",
+            )
+
+            class _ConfiguredPrincipalAdapter:
+                def authenticate(self, request: Request) -> Principal:  # noqa: ARG002
+                    return configured_principal
+
+            principal_adapter = _ConfiguredPrincipalAdapter()
+
+        class _BoundPrincipalAdapter:
+            def __init__(self, principal: Principal) -> None:
+                self._principal = principal
+
+            def authenticate(self, request_context) -> Principal:  # noqa: ANN001, ARG002
+                return self._principal
+
+        def _v2_store_factory(principal: Principal) -> EventStore:
+            return EventStore(config.db_path, principal=_BoundPrincipalAdapter(principal))
+
+        app.include_router(
+            build_v2_router(
+                store_factory=_v2_store_factory,
+                principal_adapter=principal_adapter,
+            )
+        )
 
     # -- login routes ----------------------------------------------------------
 
@@ -255,6 +315,65 @@ def create_app(
             lifecycle_overview=lifecycle_overview,
             pending_proposals=pending_proposals,
             all_proposals=all_proposals,
+            linuxdo_board=linuxdo_board,
+        )
+
+    @app.get("/design/orbit", response_class=HTMLResponse, response_model=None)
+    def orbit_design_page(request: Request) -> str | RedirectResponse:
+        """Isolated candidate: Orbit void/daybreak visual system, wired to real Brain data."""
+        if auth_enabled and not _has_valid_cookie(request):
+            return RedirectResponse("/login", status_code=303)
+        theme = request.query_params.get("theme", "void")
+        try:
+            node_counts = repo.count_knowledge_nodes_by_stage()
+        except Exception:
+            node_counts = {"draft": 0, "refined": 0, "verified": 0, "canonized": 0, "deprecated": 0}
+        try:
+            knowledge_health = repo.knowledge_health_report()
+        except Exception:
+            knowledge_health = {}
+        try:
+            pending_proposals = repo.list_proposals_by_state("pending")
+        except Exception:
+            pending_proposals = []
+        try:
+            all_proposals = repo.list_proposals_ordered()
+        except Exception:
+            all_proposals = []
+        try:
+            lifecycle_overview = repo.proposal_lifecycle_overview(limit=12)
+            thought_chains = lifecycle_overview.get("thought_chains", [])
+        except Exception:
+            thought_chains = []
+        try:
+            with repo._connect() as connection:
+                daily_rows = connection.execute(
+                    "SELECT substr(inserted_at,1,10) AS d, COUNT(*) AS c FROM proposals GROUP BY d ORDER BY d DESC LIMIT 8"
+                ).fetchall()
+                daily_proposal_counts = [dict(r) for r in daily_rows]
+        except Exception:
+            daily_proposal_counts = []
+        try:
+            fleet_data = vps_fleet_api()
+            fleet_summary = fleet_data.get("summary", {})
+        except Exception:
+            fleet_summary = {}
+        linuxdo_board = {}
+        board_path = Path.home() / "self/knowledge/daily-learnings/linuxdo-board.json"
+        if board_path.exists():
+            try:
+                linuxdo_board = json.loads(board_path.read_text(encoding="utf-8"))
+            except Exception:
+                linuxdo_board = {"fetch_errors": ["failed to read board json"], "items": []}
+        return orbit_page(
+            theme=theme,
+            node_counts=node_counts,
+            knowledge_health=knowledge_health,
+            pending_proposals=pending_proposals,
+            all_proposals=all_proposals,
+            thought_chains=thought_chains,
+            daily_proposal_counts=daily_proposal_counts,
+            fleet_summary=fleet_summary,
             linuxdo_board=linuxdo_board,
         )
 
@@ -761,7 +880,7 @@ def create_app(
             content=content,
             source=body.get("source", "api"),
             category=body.get("category", "fact"),
-            domain=body.get("domain", "general"),
+            domain=_assign_lane(hinted=body.get("domain", ""), text=content),
             parent_id=body.get("parent_id"),
             evidence=body.get("evidence"),
             repo=repo,
@@ -1025,6 +1144,7 @@ def create_app(
                 "last_used_at": node.last_used_at,
                 "outcome_count": node.outcome_count,
                 "last_outcome_at": node.last_outcome_at,
+                **repo.node_feedback_metrics(node.id),
             },
             thought_chains=[
                 {
@@ -2530,6 +2650,12 @@ def create_app(
         except Exception:
             pass
         return profile_page(success="密码已更新")
+
+    # ------------------------------------------------------------------
+    # Portable Brain loop protocol + installable skill package
+    # ------------------------------------------------------------------
+    register_brain_protocol_routes(app, repo=repo, sync_root=sync_root)
+    register_source_protocol_routes(app, config=config, session_cookie_value=_make_cookie_value(), scoped_registry=scoped_registry)
 
     # ------------------------------------------------------------------
     # Gold-pair labeling UI (auth-protected; MUST be before SPA catch-all)

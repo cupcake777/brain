@@ -167,6 +167,7 @@ class HermesRuntime:
 
         # Always rebuild KNOWLEDGE.md from canonized knowledge nodes
         self.exporter.build_knowledge_export()
+        self.exporter.build_lane_exports()
 
         # Export brain-context.md so HPC agents can pull it via HTTP
         self.exporter.export_brain_context()

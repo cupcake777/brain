@@ -1,0 +1,151 @@
+{
+  "$defs": {
+    "ProposalSourceRef": {
+      "additionalProperties": false,
+      "description": "Proposal-side mirror of :class:`SourceRef`.\n\nKept separate so proposal rules (e.g. requiring at least one resolvable\nsource on a ready proposal) live in their own module without altering\nthe execution event contract.",
+      "properties": {
+        "id": {
+          "description": "UUIDv4 identifier.",
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/SourceRefType"
+        }
+      },
+      "required": [
+        "type",
+        "id"
+      ],
+      "title": "ProposalSourceRef",
+      "type": "object"
+    },
+    "SourceRefType": {
+      "enum": [
+        "execution",
+        "document"
+      ],
+      "title": "SourceRefType",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One versioned revision of a proposal.\n\nClients submit ``id``, ``version`` and the writable fact fields.\nServer-owned metadata (``workflow``, ``status``, ``created_at``,\n``received_at``, ``policy_version``, ``checks``) is rejected if supplied\non input.",
+  "properties": {
+    "action": {
+      "anyOf": [
+        {
+          "maxLength": 8000,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Action"
+    },
+    "agent_id": {
+      "maxLength": 128,
+      "title": "Agent Id",
+      "type": "string"
+    },
+    "draft": {
+      "default": true,
+      "title": "Draft",
+      "type": "boolean"
+    },
+    "id": {
+      "description": "UUIDv4 identifier.",
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+    },
+    "lesson": {
+      "anyOf": [
+        {
+          "maxLength": 8000,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Lesson"
+    },
+    "occurred_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Occurred At"
+    },
+    "project_id": {
+      "anyOf": [
+        {
+          "maxLength": 64,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Project Id"
+    },
+    "result": {
+      "anyOf": [
+        {
+          "maxLength": 16000,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Result"
+    },
+    "source_refs": {
+      "items": {
+        "$ref": "#/$defs/ProposalSourceRef"
+      },
+      "title": "Source Refs",
+      "type": "array"
+    },
+    "target_id": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Target Id"
+    },
+    "version": {
+      "maximum": 1000000,
+      "minimum": 1,
+      "title": "Version",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "id",
+    "version",
+    "agent_id"
+  ],
+  "title": "ProposalRevision",
+  "type": "object"
+}

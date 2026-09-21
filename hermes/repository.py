@@ -9,6 +9,18 @@ from pathlib import Path
 import sqlite3
 
 
+def _reduce_outcomes_safe(observations):
+    """Module-level shim around hermes.outcomes.reduce_outcomes.
+
+    Importing at module top-level can cause circular imports during test
+    collection (some fixtures import ``repository`` before ``outcomes`` is
+    fully wired).  This wrapper makes the late-bound import explicit.
+    """
+    from hermes.outcomes import reduce_outcomes as _reduce
+
+    return _reduce(observations)
+
+
 @dataclass(frozen=True)
 class ExportRecord:
     scope_type: str
@@ -64,6 +76,10 @@ class KnowledgeRetrievalEvent:
     node_ids: str
     created_at: str
     outcome_recorded_at: str | None = None
+    session_id: str = ""
+    host_id: str = ""
+    finalized_at: str | None = None
+    final_result: str | None = None
 
 
 @dataclass(frozen=True)
@@ -88,9 +104,17 @@ class HermesRepository:
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.db_path)
         connection.row_factory = sqlite3.Row
+        # review: SQLite FKs are off by default per connection
+        connection.execute("PRAGMA foreign_keys = ON")
         return connection
 
     def _init_db(self) -> None:
+        # Backend stage-1 migration: extend production tables in-place to
+        # carry explicit session/host scoping WITHOUT dropping existing rows.
+        # Production DB has knowledge_retrieval_events without session_id/host_id
+        # and outcome_log without a uniqueness constraint on (retrieval_log_id,
+        # memory_id). Both are added as ALTER TABLE best-effort migrations
+        # that preserve all 43 retrieval events and 2 outcome rows.
         with self._connect() as connection:
             connection.executescript(
                 """
@@ -306,11 +330,13 @@ class HermesRepository:
                 "ALTER TABLE knowledge_nodes ADD COLUMN avoid_when TEXT NOT NULL DEFAULT ''",
                 "ALTER TABLE knowledge_nodes ADD COLUMN success_signal TEXT NOT NULL DEFAULT ''",
                 "ALTER TABLE knowledge_nodes ADD COLUMN failure_signal TEXT NOT NULL DEFAULT ''",
+                "ALTER TABLE proposals ADD COLUMN domain TEXT NOT NULL DEFAULT ''",
             ):
                 try:
                     connection.execute(sql)
                 except Exception:
                     pass  # Column already exists
+        self._migrate_stage1_schema()
 
     def has_proposal(self, proposal_id: str) -> bool:
         with self._connect() as connection:
@@ -333,7 +359,7 @@ class HermesRepository:
     # Column whitelist to prevent SQL injection via dict keys
     _ALLOWED_COLUMNS = frozenset({
         "proposal_id", "source_agent", "source_host", "created_at",
-        "project_key", "category", "risk_level", "summary", "observation",
+        "project_key", "category", "risk_level", "domain", "summary", "observation",
         "why_it_matters", "suggested_memory", "scope", "evidence", "state",
         "semantic_hash", "semantic_duplicate_of", "supersedes", "weight",
         "reviewer_priority", "retrieval_count_30d", "inserted_at",
@@ -369,6 +395,51 @@ class HermesRepository:
         if row is None:
             raise KeyError(proposal_id)
         return dict(row)
+
+    def relabel_lanes(self, *, dry_run: bool = False) -> dict[str, object]:
+        """Rewrite proposal/knowledge domain to scene slugs.  Custom labels are kept."""
+        from hermes.lane import assign_lane, lane_text
+
+        proposal_changes: list[tuple[str, str, str]] = []
+        knowledge_changes: list[tuple[str, str, str]] = []
+        with self._connect() as connection:
+            for row in connection.execute("SELECT * FROM proposals"):
+                old = str(row["domain"] or "")
+                new = assign_lane(
+                    hinted=old,
+                    project_key=row["project_key"],
+                    text=lane_text(row["summary"], row["observation"], row["suggested_memory"]),
+                )
+                if new != old:
+                    proposal_changes.append((str(row["proposal_id"]), old, new))
+            knowledge_rows = list(connection.execute(
+                "SELECT id, domain, summary, content, category FROM knowledge_nodes"
+            ))
+            for row in knowledge_rows:
+                old = str(row["domain"] or "")
+                new = assign_lane(hinted=old, text=lane_text(row["summary"], row["content"]))
+                if new != old:
+                    knowledge_changes.append((str(row["id"]), old, new, str(row["summary"]), str(row["content"]), str(row["category"])))
+            if not dry_run:
+                for pid, _old, new in proposal_changes:
+                    connection.execute("UPDATE proposals SET domain = ? WHERE proposal_id = ?", (new, pid))
+                for nid, _old, new, summary, content, category in knowledge_changes:
+                    connection.execute("UPDATE knowledge_nodes SET domain = ? WHERE id = ?", (new, nid))
+                    try:
+                        connection.execute(
+                            "INSERT OR REPLACE INTO knowledge_nodes_fts (id, summary, content, category, domain) VALUES (?, ?, ?, ?, ?)",
+                            (nid, summary, content, category, new),
+                        )
+                    except sqlite3.OperationalError:
+                        pass
+        from collections import Counter
+        return {
+            "proposals_updated": len(proposal_changes),
+            "knowledge_updated": len(knowledge_changes),
+            "proposal_to": dict(Counter(new for _pid, _old, new in proposal_changes)),
+            "knowledge_to": dict(Counter(new for _nid, _old, new, *_rest in knowledge_changes)),
+            "dry_run": dry_run,
+        }
 
     def insert_observations(self, observations: list[dict]) -> None:
         """Insert observation rows (immutable evidence for proposals)."""
@@ -733,15 +804,24 @@ class HermesRepository:
                 f"UPDATE knowledge_nodes SET {set_clause} WHERE id = ?",
                 tuple(values),
             )
-        if "summary" in valid_fields or "content" in valid_fields:
-            node = self.get_knowledge_node(node_id)
-            if node is not None:
+        node = self.get_knowledge_node(node_id) if {"summary", "content", "category", "domain"} & valid_fields.keys() else None
+        if node is not None:
+            if "summary" in valid_fields or "content" in valid_fields:
                 self.refresh_entity_embedding(
                     "knowledge",
                     node.id,
                     self._knowledge_embedding_text(node.summary, node.content),
                     raise_errors=False,
                 )
+            if "category" in valid_fields or "domain" in valid_fields or "summary" in valid_fields or "content" in valid_fields:
+                with self._connect() as connection:
+                    try:
+                        connection.execute(
+                            "INSERT OR REPLACE INTO knowledge_nodes_fts (id, summary, content, category, domain) VALUES (?, ?, ?, ?, ?)",
+                            (node.id, node.summary, node.content, node.category, node.domain),
+                        )
+                    except sqlite3.OperationalError:
+                        pass
 
     def delete_knowledge_node(self, node_id: str) -> bool:
         """Delete a knowledge node. Returns True if deleted."""
@@ -1231,9 +1311,9 @@ class HermesRepository:
                     tuple([now] + node_ids),
                 )
                 connection.execute(
-                    """INSERT INTO knowledge_retrieval_events (id, query, agent, host, node_ids, created_at)
-                       VALUES (?, ?, ?, ?, ?, ?)""",
-                    (event_id, query, agent, host, json.dumps(node_ids), now),
+                    """INSERT INTO knowledge_retrieval_events (id, query, agent, host, node_ids, created_at, session_id, host_id)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (event_id, query, agent, host, json.dumps(node_ids), now, session_id, host),
                 )
                 connection.execute(
                     """INSERT INTO retrieval_log (id, query, retrieval_mode, candidate_ids, selected_ids, used_ids, agent, session_id, task_context, created_at)
@@ -1339,6 +1419,420 @@ class HermesRepository:
             connection.execute("UPDATE knowledge_retrieval_events SET outcome_recorded_at = ? WHERE id = ?", (now, retrieval_log_id))
         logging.info("outcome_v3: recorded %d outcomes for retrieval %s", recorded, retrieval_log_id[:8])
         return recorded
+
+    # ------------------------------------------------------------------
+    # Stage-1 schema migration (preserve production rows)
+    # ------------------------------------------------------------------
+
+    _STAGE1_MIGRATIONS: tuple[str, ...] = (
+        # knowledge_retrieval_events in production lacks session_id/host_id
+        # and the pair-identity columns needed by finalize_session.
+        "ALTER TABLE knowledge_retrieval_events ADD COLUMN session_id TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE knowledge_retrieval_events ADD COLUMN host_id TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE knowledge_retrieval_events ADD COLUMN finalized_at TEXT",
+        "ALTER TABLE knowledge_retrieval_events ADD COLUMN final_result TEXT",
+        # outcome_log idempotency: same (retrieval, node) replay must not
+        # double-count. Existing rows are preserved; the unique index only
+        # rejects future duplicates.
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_ol_pair ON outcome_log(retrieval_log_id, memory_id)",
+    )
+
+    def _migrate_stage1_schema(self) -> None:
+        """Best-effort ALTER TABLE migrations for the production DB.
+
+        Per the user inspection, the production tables already contain
+        43 retrieval rows and 2 outcome rows; we MUST NOT recreate the
+        tables. Each statement is wrapped in try/except so a partially
+        migrated DB can re-run init without raising.
+        """
+        with self._connect() as connection:
+            for sql in self._STAGE1_MIGRATIONS:
+                try:
+                    connection.execute(sql)
+                except Exception:
+                    pass  # already applied / no-op
+            # Backfill session_id/host_id from the parallel retrieval_log
+            # table when available (it has both columns). Existing retrieval
+            # rows without a matching retrieval_log row keep '' (legitimate
+            # legacy default).
+            try:
+                connection.execute(
+                    """
+                    UPDATE knowledge_retrieval_events AS kre
+                    SET session_id = COALESCE(NULLIF(rl.session_id, ''), kre.session_id),
+                        host_id    = COALESCE(NULLIF(rl.agent, ''),    kre.host_id)
+                    FROM retrieval_log AS rl
+                    WHERE rl.id = kre.id
+                      AND (kre.session_id = '' OR kre.host_id = '')
+                    """
+                )
+            except Exception:
+                # Older SQLite builds (<3.33) lack UPDATE...FROM; fall back
+                # to a row-by-row backfill which is fine for ≤ 100 rows.
+                rows = connection.execute(
+                    "SELECT id FROM knowledge_retrieval_events WHERE session_id = '' OR host_id = ''"
+                ).fetchall()
+                for row in rows:
+                    rl = connection.execute(
+                        "SELECT session_id, agent FROM retrieval_log WHERE id = ?",
+                        (row["id"],),
+                    ).fetchone()
+                    if rl is None:
+                        continue
+                    connection.execute(
+                        "UPDATE knowledge_retrieval_events SET session_id = ?, host_id = ? WHERE id = ?",
+                        (rl["session_id"] or "", rl["agent"] or "", row["id"]),
+                    )
+
+    # ------------------------------------------------------------------
+    # Idempotent per-pair outcome recording + scoped finalisation
+    # ------------------------------------------------------------------
+
+    def record_outcome_pair(
+        self,
+        retrieval_log_id: str,
+        node_id: str,
+        status: str,
+        *,
+        agent: str = "",
+        host_id: str = "",
+        session_id: str = "",
+        notes: str = "",
+        used: bool = True,
+        task_success: str = "unknown",
+        user_validated: bool | None = None,
+    ) -> dict[str, object]:
+        """Idempotent per-pair outcome writer (stage-1 contract).
+
+        Pair identity is ``(retrieval_log_id, node_id)``. Repeated writes
+        for the same pair with the same status are no-ops (returns
+        ``status="duplicate_same_status"``); a replay with a *different*
+        terminal status is logged as a conflict anomaly and never
+        overwrites the original row.
+
+        Returns:
+            dict with keys: recorded (bool), status ("recorded"/"duplicate_same_status"/
+            "conflict_unresolved"/"missing_retrieval"/"missing_node"), conflict_status (str|None).
+        """
+        from hermes.outcomes import (
+            OutcomeObservation,
+            TERMINAL_CLEAN_STATUSES,
+            normalise_status,
+        )
+
+        normalised = normalise_status(status, used=used)
+        now = datetime.now(timezone.utc).isoformat()
+        with self._connect() as connection:
+            # FK: retrieval must exist and belong to the same scope.
+            rl_row = connection.execute(
+                "SELECT id, agent, session_id FROM retrieval_log WHERE id = ?",
+                (retrieval_log_id,),
+            ).fetchone()
+            if rl_row is None:
+                kre_row = connection.execute(
+                    "SELECT id FROM knowledge_retrieval_events WHERE id = ?",
+                    (retrieval_log_id,),
+                ).fetchone()
+                if kre_row is None:
+                    return {"recorded": False, "status": "missing_retrieval", "conflict_status": None}
+            else:
+                # Scoped consistency: if both sides are provided, reject mismatches.
+                if agent and rl_row["agent"] and rl_row["agent"] != agent:
+                    return {"recorded": False, "status": "scope_mismatch", "conflict_status": None}
+                if session_id and rl_row["session_id"] and rl_row["session_id"] != session_id:
+                    return {"recorded": False, "status": "scope_mismatch", "conflict_status": None}
+            # FK: node must exist (durable memory reference).
+            kn_row = connection.execute(
+                "SELECT id FROM knowledge_nodes WHERE id = ?", (node_id,),
+            ).fetchone()
+            if kn_row is None:
+                return {"recorded": False, "status": "missing_node", "conflict_status": None}
+
+            existing = connection.execute(
+                "SELECT id, used, helpfulness FROM outcome_log WHERE retrieval_log_id = ? AND memory_id = ?",
+                (retrieval_log_id, node_id),
+            ).fetchone()
+            if existing is not None:
+                existing_norm = normalise_status(existing["helpfulness"], used=bool(existing["used"]))
+                if existing_norm == normalised:
+                    return {"recorded": False, "status": "duplicate_same_status", "conflict_status": None}
+                # Terminal precedence: contradicted > failed > applied > not_used.
+                # Lower-precedence replay must not overwrite a severer label.
+                from hermes.outcomes import TERMINAL_PRECEDENCE
+                if TERMINAL_PRECEDENCE.get(existing_norm, 0) >= TERMINAL_PRECEDENCE.get(normalised, 0):
+                    return {"recorded": False, "status": "conflict_unresolved", "conflict_status": existing_norm}
+                # Same-severity or higher-severity replay: reject — never overwrite silently.
+                return {"recorded": False, "status": "conflict_unresolved", "conflict_status": existing_norm}
+
+            # Reject non-terminal writes via outcomes helper.  We never
+            # insert a "pending" row (would inflate denominators later).
+            if normalised not in TERMINAL_CLEAN_STATUSES:
+                return {"recorded": False, "status": "non_terminal_rejected", "conflict_status": None}
+
+            # Persist as legacy-v3 helpfulness bucket so existing queries keep working.
+            helpfulness = normalised
+
+            oid = str(uuid.uuid4())
+            connection.execute(
+                """INSERT INTO outcome_log
+                   (id, retrieval_log_id, memory_id, used, helpfulness, user_validated, task_success, notes, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (oid, retrieval_log_id, node_id, int(bool(used)), helpfulness,
+                 1 if user_validated else (0 if user_validated is False else None),
+                 task_success, str(notes)[:1000], now),
+            )
+            # Confidence / weight updates use the same policy as v3.
+            if normalised == "applied":
+                connection.execute(
+                    "UPDATE knowledge_nodes SET outcome_count = outcome_count + 1, last_outcome_at = ?, confidence = MIN(1.0, confidence + 0.05) WHERE id = ?",
+                    (now, node_id),
+                )
+            elif normalised in {"failed", "contradicted"}:
+                connection.execute(
+                    "UPDATE knowledge_nodes SET outcome_count = outcome_count + 1, last_outcome_at = ?, confidence = MAX(0.1, confidence - 0.1) WHERE id = ?",
+                    (now, node_id),
+                )
+                if normalised == "contradicted":
+                    total_harmful = connection.execute(
+                        "SELECT COUNT(*) FROM outcome_log WHERE memory_id = ? AND helpfulness = 'harmful'",
+                        (node_id,),
+                    ).fetchone()[0]
+                    if total_harmful >= 3:
+                        connection.execute(
+                            "UPDATE knowledge_nodes SET stage = 'quarantined' WHERE id = ? AND stage != 'quarantined'",
+                            (node_id,),
+                        )
+            else:
+                connection.execute(
+                    "UPDATE knowledge_nodes SET outcome_count = outcome_count + 1, last_outcome_at = ? WHERE id = ?",
+                    (now, node_id),
+                )
+            # Mirror used_ids on retrieval_log (parity with record_outcome_v3).
+            if used:
+                used_row = connection.execute(
+                    "SELECT used_ids FROM retrieval_log WHERE id = ?", (retrieval_log_id,),
+                ).fetchone()
+                if used_row is not None:
+                    try:
+                        current = json.loads(used_row["used_ids"] or "[]")
+                    except json.JSONDecodeError:
+                        current = []
+                    if node_id not in current:
+                        current.append(node_id)
+                        connection.execute(
+                            "UPDATE retrieval_log SET used_ids = ? WHERE id = ?",
+                            (json.dumps(current), retrieval_log_id),
+                        )
+            connection.execute(
+                "UPDATE knowledge_retrieval_events SET outcome_recorded_at = ? WHERE id = ?",
+                (now, retrieval_log_id),
+            )
+        return {"recorded": True, "status": "recorded", "conflict_status": None}
+
+    def finalize_session(self, agent: str, host_id: str, session_id: str) -> dict[str, object]:
+        """Audit exact session scope; missing outcomes stay pending, never fabricated."""
+        if not agent or not host_id or not session_id:
+            raise ValueError("agent, host_id and session_id are required")
+        now = datetime.now(timezone.utc).isoformat()
+        with self._connect() as c:
+            c.execute("BEGIN IMMEDIATE")
+            c.execute("CREATE TABLE IF NOT EXISTS brain_session_audits (agent TEXT NOT NULL, host_id TEXT NOT NULL, session_id TEXT NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(agent,host_id,session_id))")
+            rows = c.execute("SELECT id,node_ids FROM knowledge_retrieval_events WHERE agent=? AND host_id=? AND session_id=?", (agent,host_id,session_id)).fetchall()
+            expected={(r["id"],n) for r in rows for n in json.loads(r["node_ids"] or "[]")}
+            observed=set()
+            from hermes.outcomes import normalise_status, TERMINAL_CLEAN_STATUSES
+            for rid,nid in expected:
+                o=c.execute("SELECT helpfulness,used FROM outcome_log WHERE retrieval_log_id=? AND memory_id=?",(rid,nid)).fetchone()
+                if o and normalise_status(o["helpfulness"], bool(o["used"])) in TERMINAL_CLEAN_STATUSES:
+                    observed.add((rid,nid))
+            missing=sorted(expected-observed)
+            result={"final_result": "no_experience_used" if not rows else ("incomplete" if missing else "complete"), "retrieval_events":len(rows), "expected_outcomes":len(expected), "reported_outcomes":len(observed), "missing_pairs":[{"retrieval_id":r,"node_id":n,"retrieval_log_id":r,"memory_id":n} for r,n in missing], "count_anomaly":bool(missing), "duplicate_conflicts":[], "finalized_at":now, "scope":{"agent":agent,"host_id":host_id,"session_id":session_id}}
+            previous=c.execute("SELECT payload FROM brain_session_audits WHERE agent=? AND host_id=? AND session_id=?",(agent,host_id,session_id)).fetchone()
+            if previous:
+                old=json.loads(previous["payload"])
+                if all(old.get(k)==v for k,v in result.items() if k!="finalized_at"):
+                    result=old
+            c.execute("INSERT INTO brain_session_audits VALUES(?,?,?,?) ON CONFLICT(agent,host_id,session_id) DO UPDATE SET payload=excluded.payload",(agent,host_id,session_id,json.dumps(result)))
+            return result
+
+    # ------------------------------------------------------------------
+    # Per-node feedback metrics for the UI panel
+    # ------------------------------------------------------------------
+
+    _STALE_DAYS_DEFAULT = 90
+
+    def node_feedback_metrics(self, node_id: str, *, stale_days: int = _STALE_DAYS_DEFAULT) -> dict[str, object]:
+        """Return outcome distribution + freshness signals for one node.
+
+        Shape (stable for the UI panel — review requirement 3.2):
+
+        * ``outcome_distribution`` — applied/failed/contradicted/not_used counts,
+          the terminal denominator, and ``eligible`` (≥5 exposures).
+        * ``last_retrieved_at`` — most recent ``last_used_at`` from the node row,
+          plus ``last_outcome_at`` for the most recent outcome.
+        * ``is_stale`` — True if the node has not been retrieved within
+          ``stale_days`` (default 90).  Uses the node's ``last_used_at``
+          when present; falls back to ``last_outcome_at`` when never
+          retrieved but has recorded outcomes; otherwise ``None``.
+        """
+        from hermes.outcomes import (
+            OutcomeObservation,
+            TERMINAL_CLEAN_STATUSES,
+            normalise_status,
+        )
+
+        now = datetime.now(timezone.utc)
+        with self._connect() as connection:
+            node_row = connection.execute(
+                "SELECT id, last_used_at, last_outcome_at FROM knowledge_nodes WHERE id = ?",
+                (node_id,),
+            ).fetchone()
+            if node_row is None:
+                return {
+                    "node_id": node_id,
+                    "found": False,
+                    "outcome_distribution": {"applied": 0, "failed": 0, "contradicted": 0, "not_used": 0, "pending": 0, "exposures": 0, "eligible": 0},
+                    "last_retrieved_at": None,
+                    "last_outcome_at": None,
+                    "is_stale": True,
+                    "stale_days": stale_days,
+                }
+            outcome_rows = connection.execute(
+                "SELECT retrieval_log_id, memory_id, helpfulness, used, created_at FROM outcome_log WHERE memory_id = ?",
+                (node_id,),
+            ).fetchall()
+
+        observations = [
+            OutcomeObservation(
+                retrieval_log_id=str(o["retrieval_log_id"]),
+                memory_id=str(o["memory_id"]),
+                status=normalise_status(o["helpfulness"], used=bool(o["used"])),
+                used=bool(o["used"]),
+                exposure_key=f"{o['retrieval_log_id']}:{o['memory_id']}",
+            )
+            for o in outcome_rows
+        ]
+
+        hit_rates, _missing, _conflicts = _reduce_outcomes_safe(observations)
+        node_rate = hit_rates.get(node_id)
+        distribution = (
+            node_rate.distribution()
+            if node_rate is not None
+            else {"applied": 0, "failed": 0, "contradicted": 0, "not_used": 0, "pending": 0, "exposures": 0, "eligible": 0}
+        )
+
+        last_retrieved_at = str(node_row["last_used_at"] or "") or None
+        last_outcome_at = str(node_row["last_outcome_at"] or "") or None
+        # Freshness anchor: prefer last retrieval; fall back to last outcome.
+        anchor = last_retrieved_at or last_outcome_at
+        is_stale = True
+        if anchor:
+            try:
+                anchor_dt = datetime.fromisoformat(anchor)
+                if anchor_dt.tzinfo is None:
+                    anchor_dt = anchor_dt.replace(tzinfo=timezone.utc)
+                is_stale = (now - anchor_dt).days >= stale_days
+            except ValueError:
+                is_stale = True
+
+        return {
+            "node_id": node_id,
+            "found": True,
+            "outcome_distribution": distribution,
+            "last_retrieved_at": last_retrieved_at,
+            "last_outcome_at": last_outcome_at,
+            "is_stale": bool(is_stale),
+            "stale_days": int(stale_days),
+            "hit_rate": (node_rate.hit_rate if node_rate else 0.0),
+        }
+
+    # ------------------------------------------------------------------
+    # Optional ranking (default disabled; opt-in only)
+    # ------------------------------------------------------------------
+
+    def rank_candidates(
+        self,
+        query: str,
+        candidates: list[dict[str, object]],
+        *,
+        enabled: bool = False,
+        limit: int = 5,
+        reserve_for_new: int = 1,
+        eligible_min_exposures: int = 5,
+    ) -> list[dict[str, object]]:
+        """Optional relevance-first + hit-rate rerank.
+
+        Stage-1 contract: ``enabled`` defaults to ``False`` so the UI and
+        the existing tests see no behavioural change.  When the caller
+        opts in:
+
+        1. Relevance first — keep the FTS ordering (caller-provided order).
+        2. Apply hit-rate rerank **only within the eligible pool**
+           (``exposures >= eligible_min_exposures``).
+        3. Reserve ``reserve_for_new`` slots for the most-relevant node
+           whose hit rate is below the eligibility threshold (the
+           "待观察" queue from feedback.md §2.3).
+        """
+        from hermes.outcomes import (
+            OutcomeObservation,
+            TERMINAL_CLEAN_STATUSES,
+            reduce_outcomes,
+        )
+
+        if not enabled or not candidates:
+            return list(candidates[:limit])
+
+        node_ids = [str(c.get("id") or "") for c in candidates if c.get("id")]
+        if not node_ids:
+            return list(candidates[:limit])
+
+        placeholders = ",".join("?" * len(node_ids))
+        with self._connect() as connection:
+            outcome_rows = connection.execute(
+                f"""SELECT retrieval_log_id, memory_id, helpfulness, used
+                    FROM outcome_log WHERE memory_id IN ({placeholders})""",
+                tuple(node_ids),
+            ).fetchall()
+
+        observations = [
+            OutcomeObservation(
+                retrieval_log_id=str(o["retrieval_log_id"]),
+                memory_id=str(o["memory_id"]),
+                status={"helpful": "applied", "harmful": "failed", "neutral": "not_used"}.get(
+                    str(o["helpfulness"]).lower(), "pending"
+                ),
+                used=bool(o["used"]),
+                exposure_key=f"{o['retrieval_log_id']}:{o['memory_id']}",
+            )
+            for o in outcome_rows
+        ]
+        hit_rates, _missing, _conflicts = reduce_outcomes(observations)
+
+        # Bucket candidates by eligibility.
+        eligible: list[dict[str, object]] = []
+        newcomers: list[dict[str, object]] = []
+        for c in candidates:
+            nid = str(c.get("id") or "")
+            rate = hit_rates.get(nid)
+            if rate is not None and rate.eligible:
+                eligible.append(c)
+            else:
+                newcomers.append(c)
+
+        # Rerank eligible by hit_rate desc, then by original position.
+        orig_index = {str(c.get("id") or ""): idx for idx, c in enumerate(candidates)}
+        eligible.sort(
+            key=lambda c: (
+                -float(hit_rates[str(c.get("id") or "")].hit_rate),
+                orig_index.get(str(c.get("id") or ""), 0),
+            )
+        )
+        # Reserve slots for newcomers — pick the most-relevant newcomer
+        # (i.e. earliest in the relevance order).
+        reserve_count = max(0, min(reserve_for_new, len(newcomers)))
+        reserved = newcomers[:reserve_count]
+        eligible_pool = eligible[: max(0, limit - reserve_count)]
+        return eligible_pool + reserved
 
     # ------------------------------------------------------------------
     # Knowledge stats + graph

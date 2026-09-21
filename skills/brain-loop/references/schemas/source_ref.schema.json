@@ -1,0 +1,31 @@
+{
+  "$defs": {
+    "SourceRefType": {
+      "enum": [
+        "execution",
+        "document"
+      ],
+      "title": "SourceRefType",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Tagged union of evidence references.\n\nExecution events and proposals reference source evidence via a typed\ntag (``execution`` or ``document``).  The ``document`` variant carries\nthe registered document payload; the ``execution`` variant only carries\nthe identifier \u2014 the server resolves it.",
+  "properties": {
+    "id": {
+      "description": "UUIDv4 identifier.",
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+    },
+    "type": {
+      "$ref": "#/$defs/SourceRefType"
+    }
+  },
+  "required": [
+    "type",
+    "id"
+  ],
+  "title": "SourceRef",
+  "type": "object"
+}

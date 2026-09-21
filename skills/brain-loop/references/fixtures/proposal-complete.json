@@ -1,0 +1,19 @@
+{
+  "$comment": "Revision 1 ready proposal with one execution source ref.",
+  "action": "Apply atomic config replacement before restarting daemons.",
+  "agent_id": "agent-fixture",
+  "draft": false,
+  "id": "22222222-2222-4222-8222-222222222222",
+  "lesson": "Use atomic config replace before restarting daemons",
+  "occurred_at": "2026-09-17T08:00:00Z",
+  "project_id": "brain",
+  "result": "Restart succeeded with zero downtime; previous bug avoided.",
+  "source_refs": [
+    {
+      "id": "33333333-3333-4333-8333-333333333333",
+      "type": "execution"
+    }
+  ],
+  "target_id": "ops/brain",
+  "version": 1
+}

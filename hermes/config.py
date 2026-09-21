@@ -19,6 +19,12 @@ def build_config(sync_root: str | Path) -> HermesConfig:
         tls_key=os.environ.get("HERMES_TLS_KEY") or None,
         telegram_bot_token=os.environ.get("HERMES_TELEGRAM_BOT_TOKEN") or None,
         telegram_chat_id=os.environ.get("HERMES_TELEGRAM_CHAT_ID") or None,
+        brain_v2_enabled=os.environ.get("BRAIN_V2_ENABLED", "").strip().lower()
+        in {"1", "true", "yes", "on"},
+        brain_v2_actor=os.environ.get("BRAIN_V2_ACTOR") or None,
+        brain_v2_workspace=os.environ.get("BRAIN_V2_WORKSPACE") or None,
+        brain_v2_project=os.environ.get("BRAIN_V2_PROJECT") or None,
+        brain_scoped_tokens_file=os.environ.get("BRAIN_SCOPED_TOKENS_FILE") or None,
     )
 
 
@@ -38,6 +44,13 @@ class HermesConfig:
     tls_key: str | None = None
     telegram_bot_token: str | None = None
     telegram_chat_id: str | None = None
+    # V2 remains disabled unless the operator explicitly enables it and
+    # supplies a complete server-owned principal mapping.
+    brain_v2_enabled: bool = False
+    brain_v2_actor: str | None = None
+    brain_v2_workspace: str | None = None
+    brain_v2_project: str | None = None
+    brain_scoped_tokens_file: str | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "sync_root", Path(self.sync_root))

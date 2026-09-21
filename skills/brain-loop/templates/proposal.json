@@ -1,0 +1,17 @@
+{
+  "summary": "State one reusable lesson",
+  "observation": "Describe the concrete failure and verified fix",
+  "why_it_matters": "Explain the recurring cost if forgotten",
+  "suggested_memory": "Write the portable rule another agent should apply",
+  "project": "global",
+  "category": "workflow_hint",
+  "risk_level": "low",
+  "scope": "global",
+  "evidence": [
+    {
+      "source_type": "command",
+      "source_uri": "local-session",
+      "quoted_excerpt": "Exact non-secret evidence"
+    }
+  ]
+}

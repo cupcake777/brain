@@ -14,6 +14,18 @@
 
 ---
 
+## Connect your agent in minutes
+
+Brain ships a portable [Agent Skill](skills/brain-loop/SKILL.md) with a zero-dependency Python client, protocol reference and proposal template. It teaches the full **retrieve → verify → outcome → evidence-backed proposal → curation → export** loop, with optional literature retrieval kept separate.
+
+With your Brain service running, replace the placeholder with your own origin:
+
+```bash
+hermes skills install https://YOUR-BRAIN-HOST/skills/brain-loop/SKILL.md
+```
+
+Configure `BRAIN_URL` and securely provide your service's `BRAIN_TOKEN`. No connection to the author's service is assumed. Claude Code and other clients can install the same directory. See [agent installation and verification](docs/agent-install.md) for setup, security boundaries and cross-agent instructions.
+
 ## The Problem
 
 Every AI session starts from zero. Your agents re-learn the same lessons, repeat the same mistakes, and lose the context you spent hours building. Context windows get bigger, but **bigger windows don't fix bad structure** — they just waste more tokens reading noise.

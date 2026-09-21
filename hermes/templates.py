@@ -64,7 +64,7 @@ _I18N_DICT = {
         "rv_observation": "观察记录", "rv_why_matters": "为何重要",
         "rv_suggested": "建议持久记忆", "rv_scope": "范围",
         "rv_evidence": "证据", "rv_summary": "摘要",
-        "rv_project": "项目", "rv_category": "类别", "rv_risk": "风险",
+        "rv_project": "项目", "rv_category": "场景", "rv_risk": "风险",
         "rv_source": "来源", "rv_created": "创建时间", "rv_weight": "权重",
         "rv_confirm": "确认", "rv_cancel": "取消",
         "rv_rejected": "此提案已被拒绝。",
@@ -89,7 +89,7 @@ _I18N_DICT = {
         "kn_title": "知识树", "kn_search": "搜索知识…", "kn_add": "+ 添加知识",
         "kn_export": "⬇ 导出MD", "kn_retrospect": "🔄 回顾",
         "kn_empty_trash": "🗑 清空回收站", "kn_no_nodes": "当前筛选条件下无知识节点。",
-        "kn_nodes": "节点", "kn_all_cat": "所有类别", "kn_all_dom": "所有领域",
+        "kn_nodes": "节点", "kn_all_cat": "所有类别", "kn_all_dom": "全部场景",
         "kn_stage_lifecycle": "Stage 生命周期",
         "kn_draft_desc": "原始知识条目。未经整理的observation或手动输入。3天无矛盾自动晋级Refined。",
         "kn_refined_desc": "Agent已整理的表述。去冗余、结构化完成，但尚未经事实核查。7天无矛盾自动晋级Canonized。",
@@ -100,7 +100,7 @@ _I18N_DICT = {
         "kn_close": "关闭", "kn_cancel": "取消", "kn_submit": "提交",
         "kn_content_label": "内容 *", "kn_content_ph": "输入知识内容…",
         "kn_source_label": "来源", "kn_source_ph": "如：对话、手动、观察",
-        "kn_category_label": "类别", "kn_domain_label": "领域",
+        "kn_category_label": "类别", "kn_domain_label": "场景",
         "kd_summary": "摘要", "kd_confidence": "置信度", "kd_content": "内容",
         "kd_evidence": "证据", "kd_provenance": "来源链",
         "kd_relationships": "关联", "kd_thought_chain": "思维链时间线",
@@ -118,7 +118,7 @@ _I18N_DICT = {
         "kd_delete_perm": "🗑 永久删除", "kd_merge_into": "🔗 合并到",
         "kd_no_actions": "节点处于{stage}阶段 — 无可用操作。",
         "kd_back": "← 知识树",
-        "kd_node_id": "节点ID", "kd_category": "类别", "kd_domain": "领域",
+        "kd_node_id": "节点ID", "kd_category": "类别", "kd_domain": "场景",
         "kd_stage": "阶段", "kd_operation": "操作", "kd_source_label": "来源",
         "kd_created": "创建时间", "kd_refined": "精炼时间", "kd_verified": "验证时间",
         "kd_deprecated": "废弃时间", "kd_retrievals": "检索次数", "kd_last_used": "最后使用",
@@ -214,7 +214,7 @@ _I18N_DICT = {
         "rv_observation": "Observation", "rv_why_matters": "Why it matters",
         "rv_suggested": "Suggested durable memory", "rv_scope": "Scope",
         "rv_evidence": "Evidence", "rv_summary": "Summary",
-        "rv_project": "Project", "rv_category": "Category", "rv_risk": "Risk",
+        "rv_project": "Project", "rv_category": "Scene", "rv_risk": "Risk",
         "rv_source": "Source", "rv_created": "Created", "rv_weight": "Weight",
         "rv_confirm": "Confirm", "rv_cancel": "Cancel",
         "rv_rejected": "This proposal was rejected.",
@@ -239,7 +239,7 @@ _I18N_DICT = {
         "kn_title": "Knowledge Tree", "kn_search": "Search knowledge…", "kn_add": "+ Add Knowledge",
         "kn_export": "⬇ Export MD", "kn_retrospect": "🔄 Retrospect",
         "kn_empty_trash": "🗑 Empty Trash", "kn_no_nodes": "No knowledge nodes match the current filters.",
-        "kn_nodes": "nodes", "kn_all_cat": "All Categories", "kn_all_dom": "All Domains",
+        "kn_nodes": "nodes", "kn_all_cat": "All Categories", "kn_all_dom": "All scenes",
         "kn_stage_lifecycle": "Stage Lifecycle",
         "kn_draft_desc": "Raw knowledge. Unprocessed observations or manual entries. Auto-promotes to Refined after 3 conflict-free days.",
         "kn_refined_desc": "Agent-curated. De-duplicated & structured, but not yet fact-checked. Auto-promotes to Canonized after 7 conflict-free days.",
@@ -250,7 +250,7 @@ _I18N_DICT = {
         "kn_close": "Close", "kn_cancel": "Cancel", "kn_submit": "Submit",
         "kn_content_label": "Content *", "kn_content_ph": "Enter knowledge content…",
         "kn_source_label": "Source", "kn_source_ph": "e.g. conversation, manual, observation",
-        "kn_category_label": "Category", "kn_domain_label": "Domain",
+        "kn_category_label": "Category", "kn_domain_label": "Scene",
         "kd_summary": "Summary", "kd_confidence": "Confidence", "kd_content": "Content",
         "kd_evidence": "Evidence", "kd_provenance": "Provenance",
         "kd_relationships": "Relationships", "kd_thought_chain": "Thought Chain Timeline",
@@ -268,7 +268,7 @@ _I18N_DICT = {
         "kd_delete_perm": "🗑 Delete Permanently", "kd_merge_into": "🔗 Merge into",
         "kd_no_actions": "Node is {stage} — no actions available.",
         "kd_back": "← Knowledge Tree",
-        "kd_node_id": "Node ID", "kd_category": "Category", "kd_domain": "Domain",
+        "kd_node_id": "Node ID", "kd_category": "Category", "kd_domain": "Scene",
         "kd_stage": "Stage", "kd_operation": "Operation", "kd_source_label": "Source",
         "kd_created": "Created", "kd_refined": "Refined", "kd_verified": "Verified",
         "kd_deprecated": "Deprecated", "kd_retrievals": "Retrievals", "kd_last_used": "Last Used",
@@ -461,7 +461,14 @@ html[data-theme="modern-dark"]{
   /* Transition */
   --ease-out:cubic-bezier(.16,1,.3,1);
   --duration:150ms;
-  /* Sidebar */
+  /* Feedback Metrics (V3) */
+.kn-fb-row{display:flex;align-items:center;gap:12px;margin-bottom:8px;font-size:.84rem}
+.kn-fb-label{width:90px;color:var(--ink-muted);font-family:var(--font-mono);font-size:.78rem;text-transform:lowercase}
+.kn-fb-bar{flex:1;height:8px;background:var(--surface);border-radius:var(--r-pill);overflow:hidden;border:1px solid var(--border)}
+.kn-fb-fill{height:100%;border-radius:var(--r-pill);transition:width var(--duration) var(--ease-out)}
+.kn-fb-count{width:36px;text-align:right;font-family:var(--font-mono);font-weight:600;color:var(--ink)}
+
+/* Sidebar */
   --sidebar-w:240px;
   --sidebar-w-collapsed:56px;
   --sidebar-bg:#0c0c0e;
@@ -1544,6 +1551,20 @@ def _category_badge(category: str) -> str:
     return f'<span class="badge {cls}">{_html.escape(category)}</span>'
 
 
+_LANE_BADGE_MAP = {
+    "tech": "badge-rule",
+    "science": "badge-approved_db_only",
+}
+_LANE_ICONS = {"tech": "🛠️", "science": "🧬"}
+_LANE_ORDER = {"tech": 0, "science": 1}
+
+
+def _lane_badge(domain: str) -> str:
+    slug = (domain or "tech").strip() or "tech"
+    cls = _LANE_BADGE_MAP.get(slug, "badge-pattern")
+    return f'<span class="badge {cls}">{_html.escape(slug)}</span>'
+
+
 _RISK_BADGE_MAP = {
     "high": "badge-risk-high",
     "medium": "badge-risk-medium",
@@ -1641,6 +1662,7 @@ def review_queue_page(
         cat = str(p.get("category", ""))
         risk = str(p.get("risk_level", ""))
         project = str(p.get("project_key", ""))
+        domain = str(p.get("domain") or "")
         state = str(p.get("state", "pending"))
         source = str(p.get("source_agent", "") or "")
         host = str(p.get("source_host", "") or "")
@@ -1653,10 +1675,10 @@ def review_queue_page(
             else f'<span class="card-flag warn">{_html.escape(_pt("rv_fields_partial"))}: {_html.escape(", ".join(missing))}</span>'
         )
         cards += f"""<a href="/review/{_html.escape(pid)}" class="card" data-proposal-id="{_html.escape(pid)}">
-  <div class="card-top">{_category_badge(cat)} {_state_badge(state)} {_risk_badge(risk)}</div>
+  <div class="card-top">{_lane_badge(domain)} {_state_badge(state)}</div>
   <div class="card-preview">{_html.escape(preview)}</div>
   <div class="card-meta">
-    <span>{_html.escape(project)}</span>
+    <span>{_html.escape(domain or project)}</span>
     <span>{_html.escape(source)}{"@" + _html.escape(host) if host else ""}</span>
     <span>{_html.escape(created)}</span>
   </div>
@@ -1768,6 +1790,7 @@ def review_detail_page(*, proposal: dict) -> str:
     project = str(proposal.get("project_key", ""))
     category = str(proposal.get("category", ""))
     risk = str(proposal.get("risk_level", ""))
+    domain = str(proposal.get("domain") or "")
     source_agent = str(proposal.get("source_agent", ""))
     source_host = str(proposal.get("source_host", "") or "")
     created_at = str(proposal.get("created_at", ""))
@@ -1880,9 +1903,8 @@ def review_detail_page(*, proposal: dict) -> str:
   {_state_badge(state)}
 </div>
 <div class="meta-grid">
+  <span class="label" data-i18n="rv_category">{_pt("rv_category")}</span><span class="value">{_lane_badge(domain)}</span>
   <span class="label" data-i18n="rv_project">{_pt("rv_project")}</span><span class="value">{_html.escape(project)}</span>
-  <span class="label" data-i18n="rv_category">{_pt("rv_category")}</span><span class="value">{_category_badge(category)}</span>
-  <span class="label" data-i18n="rv_risk">{_pt("rv_risk")}</span><span class="value">{_risk_badge(risk)}</span>
   <span class="label" data-i18n="rv_source">{_pt("rv_source")}</span><span class="value">{_html.escape(source_agent)}</span>
   {host_html}
   <span class="label" data-i18n="rv_created">{_pt("rv_created")}</span><span class="value">{_html.escape(created_at[:19])}</span>
@@ -3785,7 +3807,8 @@ def home_page(*, node_counts: dict[str, int], chart_count: int, health_summary: 
             _summary = _summary[:85] + "..."
         _category = str(proposal.get("category") or "proposal")
         _risk = str(proposal.get("risk_level") or "")
-        _pending_list_html += f'<a class="wb-queue-item" href="/review/{_html.escape(_pid)}"><b>{_html.escape(_summary)}</b><em>{_html.escape(_category)}{(" · " + _html.escape(_risk)) if _risk else ""}</em></a>'
+        _domain = str(proposal.get("domain") or "")
+        _pending_list_html += f'<a class="wb-queue-item" href="/review/{_html.escape(_pid)}"><b>{_html.escape(_summary)}</b><em>{_html.escape(_domain or _category)}{(" · " + _html.escape(_risk)) if _risk else ""}</em></a>'
     if not _pending_list_html:
         _pending_list_html = '<div class="wb-queue-item muted"><b>Inbox clear</b><em>No pending proposals right now.</em></div>'
 
@@ -5620,7 +5643,7 @@ def resources_page() -> str:
     <a class="hub-card" href="/"><div class="hub-icon">🧠</div><h3>Brain Portal</h3><p>个人日常管理中心，承载 Workbench / Knowledge / Hub / Control。</p><div class="hub-tags"><span class="hub-tag active">active</span><span class="hub-tag">project</span><span class="hub-tag">local</span></div></a>
     <a class="hub-card" href="/gallery"><div class="hub-icon">🖼</div><h3>viz-skills / Gallery</h3><p>科研图表模板、可视化资产和交互式图表模块；同时在 Knowledge 中作为模板库入口。</p><div class="hub-tags"><span class="hub-tag active">active</span><span class="hub-tag">visualization</span><span class="hub-tag">tool</span></div></a>
     <a class="hub-card" href="/control"><div class="hub-icon">⚡</div><h3>Sub2API</h3><p>API 网关、账号池和 token 刷新相关状态从 Control 查看。</p><div class="hub-tags"><span class="hub-tag maint">maintenance</span><span class="hub-tag">service</span><span class="hub-tag">vps</span></div></a>
-    <a class="hub-card" href="/knowledge?domain=devops"><div class="hub-icon">🤖</div><h3>Hermes Tools</h3><p>Hermes fork、技能、cron、通知和自建工具的知识入口。</p><div class="hub-tags"><span class="hub-tag active">active</span><span class="hub-tag">project</span><span class="hub-tag">doc</span></div></a>
+    <a class="hub-card" href="/knowledge?domain=tech"><div class="hub-icon">🤖</div><h3>Hermes Tools</h3><p>Hermes fork、技能、cron、通知和自建工具的知识入口。</p><div class="hub-tags"><span class="hub-tag active">active</span><span class="hub-tag">project</span><span class="hub-tag">doc</span></div></a>
     <a class="hub-card" href="/linuxdo"><div class="hub-icon">📡</div><h3>Linux.do Daily Board</h3><p>每天静默学习 L 站，把最值得回看的资源、工具和讨论沉淀到 Brain 看板，不再 Telegram 速报。</p><div class="hub-tags"><span class="hub-tag active">active</span><span class="hub-tag">learning</span><span class="hub-tag">automation</span></div></a>
   </div></section>
   <section class="hub-section"><div class="hub-section-head"><h2>Services & Panels</h2></div><div class="hub-grid">
@@ -6346,17 +6369,14 @@ def knowledge_tree_page(
             f'</a>'
         )
 
-    # -- Category options for filter --
-    cat_options = f'<option value="">{_pt("kn_all_cat")}</option>'
-    for cat in sorted(_KN_CATEGORY_BADGE_MAP):
-        sel = ' selected' if cat == active_category else ''
-        cat_options += f'<option value="{_html.escape(cat)}"{sel}>{_html.escape(cat.title())}</option>'
-
-    # -- Domain options for filter --
+    # -- Domain options for filter (scene-first; custom slugs included) --
     dom_options = f'<option value="">{_pt("kn_all_dom")}</option>'
-    for dom in sorted(domains):
+    ordered_domains = [d for d in ("tech", "science") if d in domains]
+    ordered_domains += sorted(d for d in domains if d not in {"tech", "science"})
+    for dom in ordered_domains:
         sel = ' selected' if dom == active_domain else ''
-        dom_options += f'<option value="{_html.escape(dom)}"{sel}>{_html.escape(dom)}</option>'
+        label = {"tech": "tech · VPS", "science": "science · HPC"}.get(dom, dom)
+        dom_options += f'<option value="{_html.escape(dom)}"{sel}>{_html.escape(label)}</option>'
 
     # -- Node cards grouped by domain --
     # Group nodes by domain for collapsible sections
@@ -6365,8 +6385,8 @@ def knowledge_tree_page(
         domain = str(n.get("domain", "general"))
         domain_groups.setdefault(domain, []).append(n)
 
-    _domain_icons = {"devops": "🔧", "network": "🌐", "study": "🧬", "general": "📦", "security": "🔒"}
-    _domain_order = {"devops": 0, "network": 1, "study": 2, "security": 3, "general": 99}
+    _domain_icons = {**_LANE_ICONS, "devops": "🔧", "network": "🌐", "study": "🧬", "general": "📦", "security": "🔒"}
+    _domain_order = {**_LANE_ORDER, "devops": 10, "network": 11, "study": 12, "security": 13, "general": 99}
 
     cards_html = ""
     if not nodes:
@@ -6398,7 +6418,7 @@ def knowledge_tree_page(
                 uses_text = f"🔍 {retrieval_count}" if retrieval_count > 0 else ""
 
                 group_cards += f"""<a href="/knowledge/{_html.escape(nid)}" class="card" data-nid="{_html.escape(nid)}" data-summary="{_html.escape(summary[:200])}" data-stage="{_html.escape(stage)}" data-category="{_html.escape(category)}" data-domain="{_html.escape(ndomain)}" data-confidence="{confidence}" data-content="{_html.escape(str(n.get('content',''))[:500])}" onclick="event.preventDefault();openNodePreview(this)">
-  <div class="card-top">{_stage_badge(stage)} {_kn_category_badge(category)} <span class="badge badge-rule" style="font-size:.65rem">{_html.escape(ndomain)}</span></div>
+  <div class="card-top">{_stage_badge(stage)} {_lane_badge(ndomain)}</div>
   <div class="card-preview">{_html.escape(preview)}</div>
   <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
     {_confidence_bar(confidence)}
@@ -6435,7 +6455,6 @@ def knowledge_tree_page(
 <div style="padding:0 16px 8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
   <form method="get" action="/knowledge" style="display:flex;gap:8px;flex-wrap:wrap;flex:1" id="kn-filter-form">
     <input type="hidden" name="stage" value="{_html.escape(active_stage)}">
-    <select name="category" class="kn-filter-select" onchange="this.form.submit()">{cat_options}</select>
     <select name="domain" class="kn-filter-select" onchange="this.form.submit()">{dom_options}</select>
     <input type="text" name="q" data-i18n-ph="kn_search" placeholder="{_pt('kn_search')}" class="kn-search-input" id="kn-search">
   </form>
@@ -6520,15 +6539,14 @@ def knowledge_tree_page(
       <textarea id="kn-form-content" required data-i18n-ph="kn_content_ph" placeholder="{_pt('kn_content_ph')}"></textarea>
       <label data-i18n="kn_source_label">{_pt("kn_source_label")}</label>
       <input type="text" id="kn-form-source" data-i18n-ph="kn_source_ph" placeholder="{_pt('kn_source_ph')}">
-      <label data-i18n="kn_category_label">{_pt("kn_category_label")}</label>
-      <select id="kn-form-category">
-        <option value="fact">fact</option>
-        <option value="rule">rule</option>
-        <option value="workflow_hint">workflow_hint</option>
-        <option value="preference">preference</option>
-      </select>
+      <input type="hidden" id="kn-form-category" value="fact">
       <label data-i18n="kn_domain_label">{_pt("kn_domain_label")}</label>
-      <input type="text" id="kn-form-domain" value="general" data-i18n-ph="kn_domain_label" placeholder="general">
+      <select id="kn-form-domain">
+        <option value="tech">tech — VPS 运维</option>
+        <option value="science">science — HPC 分析</option>
+        <option value="__custom">其他自定义场景…</option>
+      </select>
+      <input type="text" id="kn-form-domain-custom" placeholder="例如 writing" style="display:none">
       <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
         <button type="button" class="kn-action-btn secondary" onclick="hideAddModal()" data-i18n="kn_cancel">{_pt("kn_cancel")}</button>
         <button type="submit" class="kn-action-btn" data-i18n="kn_submit">{_pt("kn_submit")}</button>
@@ -6590,6 +6608,14 @@ function toggleDomain(btn) {{
 function showAddModal() {{
   document.getElementById('add-modal-overlay').style.display = 'flex';
   document.getElementById('kn-form-content').focus();
+  var sel = document.getElementById('kn-form-domain');
+  var custom = document.getElementById('kn-form-domain-custom');
+  if (sel && custom && !sel._laneBound) {{
+    sel._laneBound = true;
+    sel.addEventListener('change', function() {{
+      custom.style.display = sel.value === '__custom' ? 'block' : 'none';
+    }});
+  }}
 }}
 function hideAddModal() {{
   document.getElementById('add-modal-overlay').style.display = 'none';
@@ -6604,7 +6630,7 @@ function submitKnowledge(e) {{
     content: content,
     source: document.getElementById('kn-form-source').value.trim(),
     category: document.getElementById('kn-form-category').value,
-    domain: document.getElementById('kn-form-domain').value.trim() || 'general'
+    domain: (function(){{ var d=document.getElementById('kn-form-domain').value; if(d==='__custom') return document.getElementById('kn-form-domain-custom').value.trim(); return d; }})()
   }};
   fetch('/api/knowledge/integrate', {{
     method: 'POST',
@@ -6825,6 +6851,87 @@ document.addEventListener('keydown', function(e){
 """
 
 
+# Outcome feedback rendering constants (module-level so _feedback_metrics_html
+# can use them from knowledge_detail_page).
+_OUTCOME_KEYS = ("applied", "partially_helped", "failed", "contradicted", "not_used")
+_OUTCOME_COLOR = {
+    "applied": "var(--success)",
+    "partially_helped": "var(--info)",
+    "failed": "var(--warning)",
+    "contradicted": "var(--danger)",
+    "not_used": "var(--ink-dim)",
+}
+_OUTCOME_LABEL = {
+    "applied": "applied",
+    "partially_helped": "partial",
+    "failed": "failed",
+    "contradicted": "contradicted",
+    "not_used": "not_used",
+}
+
+
+def _feedback_metrics_html(
+    outcome_distribution: dict[str, int],
+    outcome_total: int,
+    is_stale: bool,
+    stale_days: int,
+    last_retrieved_at: str,
+) -> str:
+    """Render the outcome-distribution bars + 90-day stale reminder section.
+
+    Pure renderer: tolerates empty distribution (shows helpful empty state) and
+    toggles a warning banner when `is_stale` is true. No side effects.
+    """
+    # -- Distribution bars --
+    if outcome_total > 0:
+        bars_html = ""
+        for key in ("applied", "partially_helped", "failed", "contradicted", "not_used"):
+            count = int(outcome_distribution.get(key, 0) or 0)
+            if count <= 0:
+                continue
+            pct = round((count / outcome_total) * 100)
+            color = _OUTCOME_COLOR.get(key, "var(--ink-muted)")
+            label = _OUTCOME_LABEL.get(key, key)
+            bars_html += (
+                f'<div class="kn-fb-row" data-outcome="{_html.escape(key)}">'
+                f'<span class="kn-fb-label">{_html.escape(label)}</span>'
+                f'<div class="kn-fb-bar"><div class="kn-fb-fill" style="width:{pct}%;background:{color}"></div></div>'
+                f'<span class="kn-fb-count">{count}</span>'
+                f'</div>'
+            )
+    else:
+        bars_html = (
+            '<div class="kn-fb-empty" style="color:var(--ink-dim);font-style:italic;font-size:.84rem">'
+            'No outcomes recorded yet — this node has not been used.'
+            '</div>'
+        )
+
+    # -- Stale reminder (90-day default threshold per feedback plan §3.2) --
+    stale_html = ""
+    if is_stale:
+        reason = f"not retrieved in {max(stale_days, 0)} days"
+        if not last_retrieved_at:
+            reason = f"maintained node never retrieved (threshold {stale_days}d)"
+        stale_html = (
+            '<div class="kn-fb-stale" role="alert" data-kn-stale="1" '
+            'style="margin-top:12px;padding:10px 14px;border:1px solid var(--warning);'
+            'border-radius:var(--r-md);background:var(--warning-muted,#fef3c7);color:var(--ink);font-size:.84rem">'
+            f'⏰ <strong>Stale knowledge</strong> — {reason}. Manual review recommended.'
+            '</div>'
+        )
+
+    return (
+        '<div class="section" data-kn-feedback-metrics="1">'
+        '<h3>Feedback Metrics</h3>'
+        f'<div class="kn-fb-total" style="font-size:.84rem;color:var(--ink-muted);margin-bottom:8px">'
+        f'Reported outcomes: <strong data-kn-fb-total>{outcome_total}</strong>'
+        '</div>'
+        f'<div class="kn-fb-dist">{bars_html}</div>'
+        f'{stale_html}'
+        '</div>'
+    )
+
+
 def knowledge_detail_page(
     *,
     node: dict,
@@ -6870,6 +6977,22 @@ def knowledge_detail_page(
     retrieval_count = int(node.get("retrieval_count", 0))
     last_used_at = str(node.get("last_used_at", ""))[:19] if node.get("last_used_at") else ""
     correction_count = int(node.get("correction_count", 0))
+
+    # -- Feedback metrics (outcome_distribution / last_retrieved_at / is_stale) --
+    # Provided by parent app via node_feedback_metrics(node_id); absent fields
+    # default to empty so this template works even before integration lands.
+    raw_dist = node.get("outcome_distribution") or {}
+    if not isinstance(raw_dist, dict):
+        raw_dist = {}
+    outcome_distribution = {k: int(raw_dist.get(k, 0) or 0) for k in _OUTCOME_KEYS}
+    outcome_total = sum(outcome_distribution.values())
+    last_retrieved_at = str(node.get("last_retrieved_at") or "")[:19]
+    is_stale = bool(node.get("is_stale", False))
+    stale_days_raw = node.get("stale_days")
+    try:
+        stale_days = int(stale_days_raw) if stale_days_raw is not None else (90 if is_stale else 0)
+    except (TypeError, ValueError):
+        stale_days = 90 if is_stale else 0
 
     # -- Confidence bar (larger, detail view) --
     pct = max(0, min(100, int(confidence * 100)))
@@ -7099,7 +7222,12 @@ def knowledge_detail_page(
     <span class="label" data-i18n="kd_retrievals">{_pt("kd_retrievals")}</span><span class="value">{retrieval_count}</span>
     <span class="label" data-i18n="kd_last_used">{_pt("kd_last_used")}</span><span class="value">{_html.escape(last_used_at) if last_used_at else '—'}</span>
     <span class="label" data-i18n="kd_corrections">{_pt("kd_corrections")}</span><span class="value">{correction_count}</span>
+    <span class="label" data-i18n="kd_outcomes_total">Outcomes</span><span class="value" data-kd-outcomes-total>{outcome_total}</span>
+    <span class="label" data-i18n="kd_last_retrieved">Last Retrieved</span><span class="value">{_html.escape(last_retrieved_at) if last_retrieved_at else '—'}</span>
   </div>
+
+  <!-- Feedback Metrics: outcome distribution + stale reminder -->
+  {_feedback_metrics_html(outcome_distribution, outcome_total, is_stale, stale_days, last_retrieved_at)}
 
   <!-- Evidence -->
   <div class="section">

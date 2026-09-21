@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+from hermes.lane import RECOMMENDED, assign_lane, lane_text
 from hermes.repository import HermesRepository
 
 @dataclass(frozen=True)
@@ -30,6 +31,21 @@ _CATEGORY_TITLES = {
 }
 _REQUIRED_CATEGORIES = {"rule", "workflow_hint"}
 _RISK_ORDER = {"high": 3, "medium": 2, "low": 1}
+_LANE_TITLES = {"tech": "Tech", "science": "Science"}
+
+
+def _lane_of(proposal: dict) -> str:
+    hinted = str(proposal.get("domain") or "")
+    return assign_lane(
+        hinted=hinted,
+        project_key=proposal.get("project_key"),
+        text=lane_text(proposal.get("summary"), proposal.get("suggested_memory")),
+    )
+
+
+def _lane_sort_key(name: str) -> tuple[int, str]:
+    recommended = {lane: index for index, lane in enumerate(RECOMMENDED)}
+    return (recommended.get(name, 50), name)
 _KEYWORD_ORDER = {"Always": 0, "Never": 1, "Prefer": 2, "Avoid": 3, "If": 4}
 
 # ---------------------------------------------------------------------------
@@ -205,8 +221,8 @@ class ExportCompiler:
             f"<!-- Edits will be overwritten on next projection cycle. -->\n"
             f"<!-- Source of truth: Hermes Brain proposals DB + sync root -->\n"
             f"<!-- Project: global | Updated: {now} | Entries: 0 -->\n\n"
-            f"## Rules\n\n<!-- no entries -->\n\n"
-            f"## Workflows\n\n<!-- no entries -->\n\n"
+            f"## Tech\n\n<!-- no entries -->\n\n"
+            f"## Science\n\n<!-- no entries -->\n\n"
             f"---\n\n"
             f"*End of Hermes-managed rules. Do not edit above this line — changes will be overwritten.*\n"
             f"*To propose a new rule: write a .md proposal to the inbox directory and it will be reviewed via the Brain pipeline.*\n"
@@ -254,11 +270,9 @@ class ExportCompiler:
             ),
         )
 
-        # Group by category
         groups: dict[str, list[dict]] = {}
         for e in entries:
-            cat = e.get("category", "rule")
-            groups.setdefault(cat, []).append(e)
+            groups.setdefault(_lane_of(e), []).append(e)
 
         now = datetime.now(timezone.utc).isoformat()
         header = (
@@ -273,14 +287,17 @@ class ExportCompiler:
         )
 
         sections: list[str] = []
-        for cat in ["rule", "workflow_hint", "preference", "fact"]:
-            title = _CATEGORY_TITLES.get(cat, cat.title())
-            items = groups.get(cat, [])
+        lane_names = list(RECOMMENDED) + [name for name in groups if name not in RECOMMENDED]
+        for lane in lane_names:
+            title = _LANE_TITLES.get(lane, lane.replace("-", " ").title())
+            items = groups.get(lane, [])
             section = f"## {title}\n\n"
             if not items:
-                section += "<!-- no entries -->\n\n"
-            else:
-                section += "\n".join(_format_claude_entry(p) for p in items) + "\n\n"
+                if lane in RECOMMENDED:
+                    section += "<!-- no entries -->\n\n"
+                    sections.append(section)
+                continue
+            section += "\n".join(_format_claude_entry(p) for p in items) + "\n\n"
             sections.append(section)
 
         footer = (
@@ -355,8 +372,8 @@ class ExportCompiler:
     def build_knowledge_export(self, project_key: str | None = None) -> Path:
         """Export active knowledge nodes to KNOWLEDGE.md format.
 
-        Global export includes global/general nodes; project export includes nodes whose
-        domain matches the project key.
+        Global export includes every scene (tech, science, plus any custom
+        slug).  A named export keeps nodes whose domain matches that slug.
         """
         nodes = self.repo.list_knowledge_nodes(
             limit=5000,
@@ -368,16 +385,15 @@ class ExportCompiler:
             if n.stage in ("canonized", "verified", "refined") and n.confidence >= 0.5
         ]
         if project_key is None:
-            active = [n for n in active if (n.domain or "general") in ("global", "general")]
             export_dir = self.sync_root / "exports" / "global"
             file_name = "KNOWLEDGE.md"
             scope_type = "global"
             record_key = "knowledge"
         else:
-            active = [n for n in active if (n.domain or "general") == project_key]
-            export_dir = self.sync_root / "exports" / "projects"
-            file_name = f"{project_key}-KNOWLEDGE.md"
-            scope_type = "project"
+            active = [n for n in active if (n.domain or "tech") == project_key]
+            export_dir = self.sync_root / "exports" / "global"
+            file_name = f"{project_key}.md"
+            scope_type = "global"
             record_key = project_key
         # Collapse superseded: if a node supersedes another, hide the superseded
         superseded_ids = {n.supersedes for n in active if n.supersedes}
@@ -421,6 +437,28 @@ class ExportCompiler:
         )
         return dest
 
+    def build_lane_exports(self) -> list[Path]:
+        """Write one markdown file per scene (tech.md, science.md, …)."""
+        nodes = self.repo.list_knowledge_nodes(
+            limit=5000,
+            order_by="confidence DESC, created_at ASC",
+        )
+        active = [
+            n for n in nodes
+            if n.stage in ("canonized", "verified", "refined") and n.confidence >= 0.5
+        ]
+        superseded_ids = {n.supersedes for n in active if n.supersedes}
+        active = [n for n in active if n.id not in superseded_ids]
+        groups: dict[str, list] = {}
+        for node in active:
+            groups.setdefault(node.domain or "tech", []).append(node)
+        for lane in RECOMMENDED:
+            groups.setdefault(lane, [])
+        paths: list[Path] = []
+        for lane in sorted(groups, key=_lane_sort_key):
+            paths.append(self.build_knowledge_export(lane))
+        return paths
+
     def _build_empty_knowledge_md(self) -> str:
         now = datetime.now(timezone.utc).isoformat()
         return (
@@ -431,10 +469,6 @@ class ExportCompiler:
         )
 
     def _compile_knowledge_md(self, nodes: list) -> str:
-        # Group by domain, then category
-        _domain_order = {"devops": 0, "network": 1, "study": 2, "security": 3, "general": 99}
-        # Project domains (apa, easycoloc, braingvex, etc.) get priority 50
-        # Unknown domains also get 50 so they appear between infra and general
         _stage_icons = {"canonized": "✅", "verified": "🔒", "refined": "🔧", "draft": "📝", "deprecated": "❌"}
         _category_labels = {"rule": "Rule", "workflow_hint": "Workflow Hint", "preference": "Preference", "fact": "Fact"}
 
@@ -444,16 +478,25 @@ class ExportCompiler:
             groups.setdefault(domain, []).append(n)
 
         now = datetime.now(timezone.utc).isoformat()
+        index_lines = ["Scenes (open list — tech/science are the usual two):"]
+        for domain in sorted(groups, key=_lane_sort_key):
+            title = _LANE_TITLES.get(domain, domain.replace("-", " ").title())
+            index_lines.append(f"- **{title}** ({len(groups[domain])} nodes) — `{domain}.md`")
         header = (
             f"# KNOWLEDGE.md\n\n"
             f"<!-- Hermes Brain V2: auto-generated from knowledge nodes. -->\n"
             f"<!-- Updated: {now} | Nodes: {len(nodes)} -->\n\n"
+            + "\n".join(index_lines)
+            + "\n\n"
         )
 
+        remaining = self.budgets.claude_md_hard_cap - len(header.encode()) - 256
+        per_lane = max(2048, remaining // max(1, len(groups)))
         sections = []
-        for domain in sorted(groups, key=lambda d: _domain_order.get(d, 50)):
+        for domain in sorted(groups, key=_lane_sort_key):
             items = groups[domain]
-            section = f"## {domain.title()}\n\n"
+            title = _LANE_TITLES.get(domain, domain.replace("-", " ").title())
+            section = f"## {title}\n\n"
             for n in items:
                 cat = _category_labels.get(n.category, n.category.title())
                 icon = _stage_icons.get(n.stage, "•")
@@ -476,6 +519,9 @@ class ExportCompiler:
                     if line:
                         section += f"- {line}\n"
                 section += "\n"
+            encoded = section.encode("utf-8")
+            if len(encoded) > per_lane:
+                section = encoded[: per_lane - 16].decode("utf-8", errors="ignore").rstrip() + "\n...truncated\n\n"
             sections.append(section)
 
         footer = (

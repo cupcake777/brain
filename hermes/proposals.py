@@ -8,6 +8,25 @@ import uuid
 
 import yaml
 
+from hermes.sensitive import SensitiveContentError, default_gate
+
+
+def _scan_payload_for_sensitive(payload: dict[str, object], *, field: str = "proposal") -> None:
+    """Run the centralized SensitiveContentGate over a proposal payload.
+
+    Wired into both ProposalWriter.write and the ingestion path so that a
+    bearer token, API key, email, or IP address is rejected **before** any
+    file is opened or DB row is inserted.  The gate is intentionally the
+    SAME singleton used by HTTP request bodies so the contract matches
+    ``brain-api-review-privacy.md`` ("centralized enforcement, fail-closed").
+    """
+    try:
+        default_gate().check(payload, field=field)
+    except SensitiveContentError:
+        # Re-raise verbatim — the gate's message is already redacted and
+        # we MUST NOT echo the payload or the matched substring.
+        raise
+
 
 REQUIRED_FRONT_MATTER = {
     "proposal_id",
@@ -50,6 +69,7 @@ class ProposalWriter:
         suggested_memory: str,
         scope: str,
         evidence: str,
+        domain: str = "",
     ) -> Path:
         proposal_id = str(uuid.uuid4())
         tmp_path = self.inbox_dir / f".tmp-{proposal_id}.md"
@@ -62,8 +82,16 @@ class ProposalWriter:
             "project_key": project_key,
             "category": category,
             "risk_level": risk_level,
+            "domain": domain,
             "status": "submitted",
         }
+        if not front_matter["domain"]:
+            from hermes.lane import assign_lane, lane_text
+            front_matter["domain"] = assign_lane(
+                hinted=domain,
+                project_key=project_key,
+                text=lane_text(summary, observation, suggested_memory),
+            )
         body = ProposalBody(
             summary=summary,
             observation=observation,
@@ -73,6 +101,9 @@ class ProposalWriter:
             evidence=evidence,
         )
         payload = _format_proposal(front_matter, body)
+        # Sensitive-content gate: reject the whole payload before any
+        # file is created.  See hermes.sensitive + brain-api-review-privacy.md.
+        _scan_payload_for_sensitive({"document": payload}, field="proposal")
         with tmp_path.open("w", encoding="utf-8") as handle:
             handle.write(payload)
             handle.flush()
@@ -202,6 +233,12 @@ def load_front_matter(path: str | Path) -> tuple[dict[str, str], str]:
         "risk_level": yaml_overlay.get("risk_level", risk),
         "status": yaml_overlay.get("status", "submitted"),
     }
+    from hermes.lane import assign_lane, lane_text
+    data["domain"] = assign_lane(
+        hinted=yaml_overlay.get("domain", ""),
+        project_key=data["project_key"],
+        text=lane_text(summary, observation, why, mem),
+    )
     # Preserve any extra YAML fields for downstream use
     for k, v in yaml_overlay.items():
         if k not in data:

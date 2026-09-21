@@ -113,8 +113,11 @@ def main(argv: list[str] | None = None) -> int:
     integrate_parser.add_argument("--content", required=True, help="Knowledge content to integrate")
     integrate_parser.add_argument("--source", default="cli", help="Source of the knowledge (e.g., conversation:session_id, user_direct)")
     integrate_parser.add_argument("--category", default="fact", help="Category: rule/workflow/preference/fact")
-    integrate_parser.add_argument("--domain", default="general", help="Domain: devops/network/apa/general/...")
+    integrate_parser.add_argument("--domain", default="", help="Scene slug: tech, science, or any custom label")
     integrate_parser.add_argument("--parent", default=None, help="Parent node ID (for refine/debug operations)")
+
+    relabel_parser = subparsers.add_parser("relabel-lanes", help="Rewrite proposal/knowledge domain to tech/science (keeps custom slugs)")
+    relabel_parser.add_argument("--dry-run", action="store_true", help="Show counts without writing")
 
     export_v2_parser = subparsers.add_parser("export-v2", help="Export V2 knowledge nodes to KNOWLEDGE.md")
     export_v2_parser.add_argument("--dry-run", action="store_true", help="Show what would be exported without writing")
@@ -336,15 +339,20 @@ def main(argv: list[str] | None = None) -> int:
         counts = v2_repo.count_knowledge_nodes_by_stage()
         print(f"Stage distribution: {counts}")
         return 0
+    if args.command == "relabel-lanes":
+        result = runtime.repo.relabel_lanes(dry_run=bool(args.dry_run))
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0
     if args.command == "integrate":
         from hermes.repository import HermesRepository as _HRepo
         from hermes.integrate import integrate as _integrate
+        from hermes.lane import assign_lane
         v2_repo = _HRepo(config.db_path)
         result = _integrate(
             content=args.content,
             source=args.source,
             category=args.category,
-            domain=args.domain,
+            domain=assign_lane(hinted=args.domain, text=args.content),
             parent_id=args.parent,
             repo=v2_repo,
         )

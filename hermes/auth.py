@@ -15,6 +15,7 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.types import ASGIApp
 
 from hermes.config import HermesConfig
+from hermes.scoped_auth import ScopedPrincipalRegistry
 
 # ---------------------------------------------------------------------------
 # Bearer-token security scheme (reusable dependency)
@@ -47,7 +48,7 @@ async def require_bearer(
 # Paths that never require authentication.
 # Note: /exports/projects/ and /exports/global/ are public for file downloads,
 # but /exports/ (the list page) requires auth.
-_PUBLIC_PREFIXES = ("/health", "/api/dashboard/health", "/api/dashboard/resources", "/api/dashboard/data", "/exports/projects/", "/exports/global/", "/login", "/favicon", "/api/knowledge/record-query")
+_PUBLIC_PREFIXES = ("/health", "/api/dashboard/health", "/api/dashboard/resources", "/api/dashboard/data", "/api/v1/brain/health", "/api/v1/brain/retrieve", "/skills/brain-loop/", "/exports/projects/", "/exports/global/", "/login", "/favicon", "/api/knowledge/record-query")
 _PUBLIC_EXACT = frozenset({"/health", "/login", "/logout"})
 _PAGE_EXTENSIONS = ("", ".html", ".htm")
 
@@ -81,11 +82,12 @@ class TokenAuthMiddleware(BaseHTTPMiddleware):
     Public routes: ``/health``, ``/exports/*``, ``/login``, ``/logout``.
     """
 
-    def __init__(self, app: ASGIApp, *, auth_token: str | None = None, auth_enabled: bool = False, session_cookie_value: str | None = None) -> None:
+    def __init__(self, app: ASGIApp, *, auth_token: str | None = None, auth_enabled: bool = False, session_cookie_value: str | None = None, scoped_registry: ScopedPrincipalRegistry | None = None) -> None:
         super().__init__(app)
         self._auth_token = auth_token
         self._auth_enabled = auth_enabled or auth_token is not None
         self._session_cookie_value = session_cookie_value
+        self._scoped_registry = scoped_registry
 
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
@@ -96,6 +98,9 @@ class TokenAuthMiddleware(BaseHTTPMiddleware):
 
         # Public routes skip auth
         if _is_public(request.url.path):
+            return await call_next(request)
+
+        if self._scoped_registry is not None and self._scoped_registry.authorize_http(request):
             return await call_next(request)
 
         # Validate Bearer token (if configured)
@@ -163,10 +168,12 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         *,
         auth_token: str | None = None,
         csrf_secret: str | None = None,
+        scoped_registry: ScopedPrincipalRegistry | None = None,
     ) -> None:
         super().__init__(app)
         self._auth_token = auth_token
         self._csrf_secret = csrf_secret
+        self._scoped_registry = scoped_registry
 
     def _csrf_enabled(self) -> bool:
         return self._auth_token is not None or self._csrf_secret is not None
@@ -180,8 +187,11 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         if request.method not in _MUTATING_METHODS:
             return await call_next(request)
 
-        # Login form POST and public query endpoints are always allowed (no auth/CSRF needed)
-        if request.url.path in ("/login", "/api/knowledge/record-query"):
+        if self._scoped_registry is not None and self._scoped_registry.authorize_http(request):
+            return await call_next(request)
+
+        # Login form and explicitly public write endpoints do not need CSRF.
+        if request.url.path in ("/login", "/api/knowledge/record-query", "/api/v1/brain/retrieve"):
             return await call_next(request)
 
         # 1) Valid bearer token → pass (API client, not browser form)

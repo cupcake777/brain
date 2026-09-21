@@ -58,7 +58,17 @@ class IngestionService:
         semantic_hash = _compute_semantic_hash(body)
         duplicate_of = self.repo.find_by_semantic_hash(semantic_hash)
         route = self._route(front_matter["category"], front_matter["risk_level"])
+        from hermes.lane import assign_lane, lane_text
         from hermes.weight import compute_weight
+        domain = assign_lane(
+            hinted=front_matter.get("domain", ""),
+            project_key=front_matter.get("project_key", ""),
+            text=lane_text(
+                sections.get("Summary", ""),
+                sections.get("Observation", ""),
+                sections.get("Suggested durable memory", ""),
+            ),
+        )
         weight = compute_weight(
             category=front_matter["category"],
             risk_level=front_matter["risk_level"],
@@ -72,6 +82,7 @@ class IngestionService:
                 "project_key": front_matter["project_key"],
                 "category": front_matter["category"],
                 "risk_level": front_matter["risk_level"],
+                "domain": domain,
                 "summary": sections["Summary"],
                 "observation": sections["Observation"],
                 "why_it_matters": sections["Why it matters"],
@@ -130,7 +141,7 @@ class IngestionService:
         if route in {"approved_db_only", "approved_for_export"}:
             self._integrate_proposal(
                 category=front_matter["category"],
-                project_key=front_matter["project_key"],
+                domain=domain,
                 suggested_memory=sections["Suggested durable memory"],
                 observation=sections["Observation"],
                 source=f"proposal:{proposal_id[:12]}",
@@ -142,7 +153,7 @@ class IngestionService:
         self,
         *,
         category: str,
-        project_key: str,
+        domain: str,
         suggested_memory: str,
         observation: str,
         source: str,
@@ -153,20 +164,13 @@ class IngestionService:
             content = f"{suggested_memory}"
             if observation:
                 content += f"\n\nObservation: {observation}"
-            known_domains = {"devops", "network", "security", "study", "general"}
-            if project_key and project_key in known_domains:
-                domain = project_key
-            elif project_key and project_key.strip():
-                domain = project_key.strip().lower()
-            else:
-                domain = "general"
             cat_map = {"workflow_hint": "workflow_hint"}
             cat = cat_map.get(category, category if category in ("rule", "preference", "fact") else "fact")
             _integrate(
                 content=content,
                 source=source,
                 category=cat,
-                domain=domain,
+                domain=domain or "tech",
                 repo=self.repo,
             )
         except Exception as exc:  # noqa: BLE001

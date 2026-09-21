@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -138,10 +138,10 @@ def test_knowledge_export_filters_global_and_project_scopes(tmp_path: Path) -> N
     global_text = global_path.read_text(encoding="utf-8")
     project_text = project_path.read_text(encoding="utf-8")
     assert "Global runtime rule" in global_text
-    assert "Brain scoped rule" not in global_text
+    assert "Brain scoped rule" in global_text
     assert "Brain scoped rule" in project_text
     assert any(record.file_name == "KNOWLEDGE.md" for record in repo.list_export_records())
-    assert any(record.file_name == "brain-KNOWLEDGE.md" for record in repo.list_export_records())
+    assert any(record.file_name == "brain.md" for record in repo.list_export_records())
 
 
 def test_runtime_watch_runs_multiple_cycles_with_injected_sleep(tmp_path: Path) -> None:
@@ -153,6 +153,26 @@ def test_runtime_watch_runs_multiple_cycles_with_injected_sleep(tmp_path: Path) 
     runtime.watch(max_cycles=3, sleep_fn=lambda seconds: calls.append(seconds))
 
     assert calls == [1, 1]
+
+
+def test_retrospect_does_not_call_embedding_provider_when_disabled(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("BRAIN_DISABLE_EMBEDDINGS", "1")
+    repo = HermesRepository(tmp_path / "hermes.sqlite3")
+    repo.insert_knowledge_node(_make_knowledge_node(
+        "node-no-embed-1", summary="Atomic configuration replacement",
+        content="Use atomic configuration replacement before restart.",
+    ))
+    repo.insert_knowledge_node(_make_knowledge_node(
+        "node-no-embed-2", summary="Atomic config replacement",
+        content="Replace configuration atomically before restart.",
+    ))
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("embedding provider must not be called")
+
+    monkeypatch.setattr("hermes.embedding.embed_texts", forbidden)
+    result = retrospect(repo, dry_run=True)
+    assert "merge_candidates" in result
 
 
 def test_record_query_updates_matching_knowledge_nodes_and_timestamps(tmp_path: Path) -> None:
@@ -371,7 +391,7 @@ def _make_knowledge_node(node_id: str, **overrides) -> KnowledgeNode:
 
 def test_retrospect_defers_canonize_without_operational_metadata(tmp_path: Path) -> None:
     repo = HermesRepository(tmp_path / "hermes.sqlite3")
-    refined_at = "2026-05-01T00:00:00+00:00"
+    refined_at = (datetime.now(timezone.utc) - timedelta(days=10)).isoformat()
     node = _make_knowledge_node(
         "node-quality-gate-1",
         content="Use brain-query before making technical decisions in Brain workflows.",

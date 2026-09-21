@@ -1,0 +1,146 @@
+{
+  "$defs": {
+    "ExecutionEventClassification": {
+      "enum": [
+        "production",
+        "probe",
+        "evaluation"
+      ],
+      "title": "ExecutionEventClassification",
+      "type": "string"
+    },
+    "ExecutionEventOrigin": {
+      "enum": [
+        "hook",
+        "wrapper",
+        "manual",
+        "system"
+      ],
+      "title": "ExecutionEventOrigin",
+      "type": "string"
+    },
+    "SourceRef": {
+      "additionalProperties": false,
+      "description": "Tagged union of evidence references.\n\nExecution events and proposals reference source evidence via a typed\ntag (``execution`` or ``document``).  The ``document`` variant carries\nthe registered document payload; the ``execution`` variant only carries\nthe identifier \u2014 the server resolves it.",
+      "properties": {
+        "id": {
+          "description": "UUIDv4 identifier.",
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/SourceRefType"
+        }
+      },
+      "required": [
+        "type",
+        "id"
+      ],
+      "title": "SourceRef",
+      "type": "object"
+    },
+    "SourceRefType": {
+      "enum": [
+        "execution",
+        "document"
+      ],
+      "title": "SourceRefType",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Immutable capture of one tool/completion event.\n\nCapture-time fields: ``id``, ``project_id``, ``agent_id``, ``occurred_at``,\n``target_id``, ``action``, ``result``, ``source_refs``.\n\nTrusted provenance fields: ``classification`` (``production``, ``probe``,\n``evaluation``) and ``origin`` (``hook``, ``wrapper``, ``manual``,\n``system``).  These are server-owned classification metadata; clients\nmay submit them when the capture pipeline has already classified the\nevent, but they cannot silently promote events to ``production``.\n\nServer-owned, never accepted on input:\n\n* ``principal`` \u2014 the authenticated identity is recorded server-side.\n* ``principal_kind`` \u2014 distinct from claimed ``agent_id``.",
+  "properties": {
+    "action": {
+      "anyOf": [
+        {
+          "maxLength": 8000,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Action"
+    },
+    "agent_id": {
+      "maxLength": 128,
+      "title": "Agent Id",
+      "type": "string"
+    },
+    "classification": {
+      "$ref": "#/$defs/ExecutionEventClassification"
+    },
+    "id": {
+      "description": "UUIDv4 identifier.",
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+    },
+    "occurred_at": {
+      "format": "date-time",
+      "title": "Occurred At",
+      "type": "string"
+    },
+    "origin": {
+      "$ref": "#/$defs/ExecutionEventOrigin"
+    },
+    "project_id": {
+      "anyOf": [
+        {
+          "maxLength": 64,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Project Id"
+    },
+    "result": {
+      "anyOf": [
+        {
+          "maxLength": 16000,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Result"
+    },
+    "source_refs": {
+      "items": {
+        "$ref": "#/$defs/SourceRef"
+      },
+      "title": "Source Refs",
+      "type": "array"
+    },
+    "target_id": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Target Id"
+    }
+  },
+  "required": [
+    "id",
+    "agent_id",
+    "occurred_at",
+    "origin",
+    "classification"
+  ],
+  "title": "ExecutionEvent",
+  "type": "object"
+}

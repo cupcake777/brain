@@ -1,0 +1,14 @@
+{
+  "$comment": "Minimal revision 1 draft; only IDs and provenance.",
+  "action": null,
+  "agent_id": "agent-fixture",
+  "draft": true,
+  "id": "11111111-1111-4111-8111-111111111111",
+  "lesson": null,
+  "occurred_at": null,
+  "project_id": null,
+  "result": null,
+  "source_refs": [],
+  "target_id": null,
+  "version": 1
+}

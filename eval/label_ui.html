@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Brain Gold Labeler</title>
+<style>
+  :root {
+    --bg: #0f1419;
+    --panel: #1a222c;
+    --panel2: #222c38;
+    --border: #2e3a48;
+    --text: #e7eef6;
+    --muted: #8b9bb0;
+    --accent: #6cb6ff;
+    --dup: #7ee787;
+    --rel: #79c0ff;
+    --un: #ffa198;
+    --warn: #e3b341;
+    --chip: #2a3542;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.45;
+  }
+  .app {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    grid-template-rows: 56px 1fr;
+    height: 100vh;
+  }
+  header {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 0 18px;
+    border-bottom: 1px solid var(--border);
+    background: #121820;
+  }
+  header h1 { font-size: 15px; margin: 0; font-weight: 600; letter-spacing: 0.02em; }
+  header .meta { color: var(--muted); font-size: 12px; }
+  .progress {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .bar {
+    width: 160px; height: 8px; background: var(--chip); border-radius: 99px; overflow: hidden;
+  }
+  .bar > i { display: block; height: 100%; background: linear-gradient(90deg, #3fb950, #58a6ff); width: 0%; }
+  aside {
+    border-right: 1px solid var(--border);
+    background: var(--panel);
+    overflow: auto;
+    padding: 14px 14px 40px;
+  }
+  aside h2 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--muted); margin: 16px 0 8px;
+  }
+  aside h2:first-child { margin-top: 0; }
+  .rule {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    font-size: 13px;
+  }
+  .rule b { display: block; margin-bottom: 4px; }
+  .rule.dup b { color: var(--dup); }
+  .rule.rel b { color: var(--rel); }
+  .rule.un b { color: var(--un); }
+  .rule p { margin: 0; color: var(--muted); font-size: 12px; }
+  .kbd {
+    display: inline-block; min-width: 1.4em; padding: 0 5px;
+    border: 1px solid var(--border); border-bottom-width: 2px;
+    border-radius: 4px; background: #0d1218; font-size: 11px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--text); text-align: center;
+  }
+  .tips { font-size: 12px; color: var(--muted); }
+  .tips li { margin: 4px 0; }
+  main {
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .toolbar {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    padding: 10px 16px; border-bottom: 1px solid var(--border);
+    background: #121820;
+  }
+  select, input[type=text], textarea {
+    background: var(--panel2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 6px 10px; font: inherit; font-size: 13px;
+  }
+  select:focus, input:focus, textarea:focus { outline: 1px solid var(--accent); }
+  button {
+    border: 1px solid var(--border); background: var(--panel2); color: var(--text);
+    border-radius: 8px; padding: 7px 12px; font: inherit; font-size: 13px; cursor: pointer;
+  }
+  button:hover { border-color: #4a5d73; background: #2a3645; }
+  button.primary { background: #1f4b7a; border-color: #2f6dad; }
+  button.dup { background: #16351f; border-color: #2ea043; color: var(--dup); }
+  button.rel { background: #0d2d4a; border-color: #1f6feb; color: var(--rel); }
+  button.un { background: #3d1515; border-color: #da3633; color: var(--un); }
+  button.active-dup { box-shadow: 0 0 0 2px #2ea043; }
+  button.active-rel { box-shadow: 0 0 0 2px #1f6feb; }
+  button.active-un { box-shadow: 0 0 0 2px #da3633; }
+  .content { overflow: auto; padding: 16px; }
+  .pair-head {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px;
+  }
+  .chip {
+    font-size: 11px; padding: 3px 8px; border-radius: 999px;
+    background: var(--chip); color: var(--muted); border: 1px solid var(--border);
+  }
+  .chip.score { color: var(--text); font-family: ui-monospace, monospace; }
+  .chip.lab-exact_dup { color: var(--dup); border-color: #2ea04355; }
+  .chip.lab-related { color: var(--rel); border-color: #1f6feb55; }
+  .chip.lab-unrelated { color: var(--un); border-color: #da363355; }
+  .grid2 {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  }
+  @media (max-width: 980px) {
+    .app { grid-template-columns: 1fr; grid-template-rows: 56px auto 1fr; }
+    aside { max-height: 220px; border-right: 0; border-bottom: 1px solid var(--border); }
+    .grid2 { grid-template-columns: 1fr; }
+  }
+  .card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 12px 14px; min-height: 180px;
+  }
+  .card h3 {
+    margin: 0 0 8px; font-size: 12px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.06em;
+    display: flex; justify-content: space-between; gap: 8px;
+  }
+  .card .body {
+    font-size: 13px; color: var(--text); white-space: pre-wrap; word-break: break-word;
+    border-top: 1px dashed var(--border); padding-top: 8px;
+    max-height: min(55vh, 520px); overflow: auto; line-height: 1.45;
+  }
+  .card .sum {
+    font-size: 14px; white-space: pre-wrap; word-break: break-word; margin-bottom: 10px;
+    max-height: 160px; overflow: auto;
+  }
+  .len-badge { font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: var(--muted); }
+  .footer {
+    border-top: 1px solid var(--border); background: #121820;
+    padding: 12px 16px; display: grid; gap: 10px;
+  }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .actions .spacer { flex: 1; }
+  textarea { width: 100%; min-height: 48px; resize: vertical; }
+  .toast {
+    position: fixed; right: 16px; bottom: 16px; background: #1f6feb;
+    color: white; padding: 8px 12px; border-radius: 8px; font-size: 12px;
+    opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 9;
+  }
+  .toast.show { opacity: 1; }
+  .empty { color: var(--muted); padding: 40px; text-align: center; }
+  .hint-warn { color: var(--warn); font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Brain Gold Labeler</h1><span class="meta">/label-gold</span>
+    <span class="meta" id="savePath">eval/gold_pairs.labeled.jsonl</span>
+    <div class="progress">
+      <span id="progText">0 / 0</span>
+      <div class="bar"><i id="progBar"></i></div>
+      <span id="posText">#0</span>
+    </div>
+  </header>
+
+  <aside>
+    <h2>Labels</h2>
+    <div class="rule dup">
+      <b><span class="kbd">1</span> exact_dup — Merge</b>
+      <p>Same durable rule / same instruction. Safe to collapse into one knowledge node. Content may be paraphrased but decision is identical.</p>
+    </div>
+    <div class="rule rel">
+      <b><span class="kbd">2</span> related — Link only</b>
+      <p>Same topic family or project context. Constellation edge is useful, but <u>do not merge</u> (different rules, stages, or scopes).</p>
+    </div>
+    <div class="rule un">
+      <b><span class="kbd">3</span> unrelated — No edge</b>
+      <p>Path-only / template-only similarity, protocol junk, or different problems. Should not link and must not merge.</p>
+    </div>
+
+    <h2>Decision checklist</h2>
+    <ul class="tips">
+      <li>Would merging lose a distinct rule? → <b>related</b> or <b>unrelated</b></li>
+      <li>Only share path/prefix (e.g. same HPC dir)? → usually <b>unrelated</b></li>
+      <li>Same fix, same trigger, same action? → <b>exact_dup</b></li>
+      <li>High emb + low text is often a trap (hard negative)</li>
+      <li>When unsure, prefer <b>related</b> over exact_dup</li>
+    </ul>
+
+    <h2>Keys</h2>
+    <ul class="tips">
+      <li><span class="kbd">1</span>/<span class="kbd">2</span>/<span class="kbd">3</span> label + auto-next</li>
+      <li><span class="kbd">j</span> / <span class="kbd">→</span> next · <span class="kbd">k</span> / <span class="kbd">←</span> prev</li>
+      <li><span class="kbd">u</span> clear label · <span class="kbd">s</span> skip (no save)</li>
+      <li><span class="kbd">?</span> focus notes</li>
+    </ul>
+
+    <h2>Targets</h2>
+    <ul class="tips">
+      <li>Merge hybrid: P ≥ 0.95</li>
+      <li>Related emb: P ≥ 0.80</li>
+      <li>~100–150 labeled pairs is enough for v1</li>
+    </ul>
+  </aside>
+
+  <main>
+    <div class="toolbar">
+      <label>Filter
+        <select id="filter">
+          <option value="unlabeled">Unlabeled</option>
+          <option value="all">All</option>
+          <option value="labeled">Labeled</option>
+          <option value="disagree">Disagree w/ suggested</option>
+        </select>
+      </label>
+      <label>Stratum
+        <select id="stratum"><option value="">All strata</option></select>
+      </label>
+      <label>Labeler
+        <input id="labeler" type="text" value="user" style="width:100px" />
+      </label>
+      <button id="btnReload" type="button">Reload</button>
+      <button id="btnSeed" type="button" title="Fill empty with suggested (review after)">Seed empty from suggested</button>
+      <span class="hint-warn" id="statusLine"></span>
+    </div>
+
+    <div class="content" id="content">
+      <div class="empty">Loading…</div>
+    </div>
+
+    <div class="footer">
+      <div class="actions">
+        <button class="dup" id="btnDup" type="button">1 · exact_dup</button>
+        <button class="rel" id="btnRel" type="button">2 · related</button>
+        <button class="un" id="btnUn" type="button">3 · unrelated</button>
+        <button id="btnClear" type="button">U · clear</button>
+        <span class="spacer"></span>
+        <button id="btnPrev" type="button">← prev</button>
+        <button id="btnNext" class="primary" type="button">next →</button>
+      </div>
+      <label style="font-size:12px;color:var(--muted)">Notes
+        <textarea id="notes" placeholder="optional reason / edge case…"></textarea>
+      </label>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let pairs = [];
+let idx = 0;
+let state = null;
+let saving = false;
+
+function toast(msg) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 1200);
+}
+
+function esc(s) {
+  return (s || "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+}
+
+function scoreChips(p) {
+  return `
+    <span class="chip score">emb ${p.emb ?? "—"}</span>
+    <span class="chip score">text ${p.text ?? "—"}</span>
+    <span class="chip score">hybrid ${p.hybrid ?? "—"}</span>
+    <span class="chip">${p.content_eq ? "content_eq" : "content≠"}</span>
+    <span class="chip">${p.same_domain ? "same_domain" : "cross_domain"}</span>
+  `;
+}
+
+function render() {
+  const root = $("content");
+  if (!pairs.length) {
+    root.innerHTML = `<div class="empty">No pairs in this filter. Switch filter to All, or label more later.</div>`;
+    $("posText").textContent = "#—";
+    return;
+  }
+  if (idx < 0) idx = 0;
+  if (idx >= pairs.length) idx = pairs.length - 1;
+  const p = pairs[idx];
+  $("posText").textContent = `${idx + 1} / ${pairs.length}`;
+  $("notes").value = p.notes || "";
+
+  ["btnDup","btnRel","btnUn"].forEach(id => {
+    $(id).classList.remove("active-dup","active-rel","active-un");
+  });
+  if (p.label === "exact_dup") $("btnDup").classList.add("active-dup");
+  if (p.label === "related") $("btnRel").classList.add("active-rel");
+  if (p.label === "unrelated") $("btnUn").classList.add("active-un");
+
+  const lab = p.label || "unlabeled";
+  const sug = p.suggested_label || "";
+  root.innerHTML = `
+    <div class="pair-head">
+      <span class="chip">${esc(p.stratum)}</span>
+      <span class="chip mono">${esc(p.pair_id)}</span>
+      <span class="chip lab-${esc(lab)}">label: ${esc(lab)}</span>
+      ${sug ? `<span class="chip">suggested: ${esc(sug)}</span>` : ""}
+      ${scoreChips(p)}
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <h3><span>Node A · ${esc(p.stage_a || "")} · ${esc(p.domain_a || "")}</span>
+            <span class="mono">${esc((p.id_a||"").slice(0,8))}</span></h3>
+        <div class="sum">${esc(p.summary_a)}</div>
+        <div class="body">${esc(p.content_a || p.content_a_head || "")}</div>
+        <div class="len-badge">content ${p.content_a_len ?? (p.content_a||p.content_a_head||"").length} chars · summary ${(p.summary_a||"").length}</div>
+      </div>
+      <div class="card">
+        <h3><span>Node B · ${esc(p.stage_b || "")} · ${esc(p.domain_b || "")}</span>
+            <span class="mono">${esc((p.id_b||"").slice(0,8))}</span></h3>
+        <div class="sum">${esc(p.summary_b)}</div>
+        <div class="body">${esc(p.content_b || p.content_b_head || "")}</div>
+        <div class="len-badge">content ${p.content_b_len ?? (p.content_b||p.content_b_head||"").length} chars · summary ${(p.summary_b||"").length}</div>
+      </div>
+    </div>
+    <p class="mono" style="margin-top:10px">source: ${esc(p.source || "")}${p.full_text === false ? " · ⚠ truncated fallback" : " · full text from DB"}</p>
+  `;
+}
+
+async function refreshState() {
+  const r = await fetch("/api/label-gold/state");
+  state = await r.json();
+  $("savePath").textContent = state.path;
+  $("progText").textContent = `${state.labeled} / ${state.n} labeled`;
+  const pct = state.n ? Math.round(100 * state.labeled / state.n) : 0;
+  $("progBar").style.width = pct + "%";
+  $("statusLine").textContent =
+    `exact_dup ${state.by_label.exact_dup} · related ${state.by_label.related} · unrelated ${state.by_label.unrelated} · empty ${state.by_label.unlabeled}`;
+
+  const sel = $("stratum");
+  const cur = sel.value;
+  const strata = Object.keys(state.by_stratum || {}).sort();
+  sel.innerHTML = `<option value="">All strata</option>` +
+    strata.map(s => {
+      const st = state.by_stratum[s];
+      return `<option value="${esc(s)}">${esc(s)} (${st.labeled}/${st.total})</option>`;
+    }).join("");
+  if ([...sel.options].some(o => o.value === cur)) sel.value = cur;
+}
+
+async function loadPairs(keepId) {
+  const filter = $("filter").value;
+  const stratum = $("stratum").value;
+  const r = await fetch(`/api/label-gold/pairs?filter=${encodeURIComponent(filter)}&stratum=${encodeURIComponent(stratum)}`);
+  const data = await r.json();
+  const prevId = keepId || (pairs[idx] && pairs[idx].pair_id);
+  pairs = data.pairs || [];
+  idx = 0;
+  if (prevId) {
+    const i = pairs.findIndex(p => p.pair_id === prevId);
+    if (i >= 0) idx = i;
+  }
+  render();
+  await refreshState();
+}
+
+async function saveLabel(label) {
+  if (!pairs.length || saving) return;
+  const p = pairs[idx];
+  saving = true;
+  try {
+    const body = {
+      pair_id: p.pair_id,
+      label,
+      labeler: $("labeler").value || "web",
+      notes: $("notes").value || "",
+    };
+    const r = await fetch("/api/label-gold/label", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) throw new Error(await r.text());
+    p.label = label;
+    p.labeler = body.labeler;
+    p.notes = body.notes;
+    toast(`saved: ${label}`);
+    // if filtering unlabeled, remove and stay on same idx
+    if ($("filter").value === "unlabeled") {
+      pairs.splice(idx, 1);
+      if (idx >= pairs.length) idx = Math.max(0, pairs.length - 1);
+      render();
+      await refreshState();
+    } else {
+      render();
+      await refreshState();
+      // auto next
+      if (idx < pairs.length - 1) {
+        idx += 1;
+        render();
+      }
+    }
+  } catch (e) {
+    toast("save failed: " + e.message);
+  } finally {
+    saving = false;
+  }
+}
+
+async function clearLabel() {
+  if (!pairs.length) return;
+  const p = pairs[idx];
+  const r = await fetch(`/api/label-gold/clear?pair_id=${encodeURIComponent(p.pair_id)}`, {method: "POST"});
+  if (r.ok) {
+    p.label = "";
+    toast("cleared");
+    render();
+    await refreshState();
+  }
+}
+
+function next() { if (idx < pairs.length - 1) { idx++; render(); } }
+function prev() { if (idx > 0) { idx--; render(); } }
+
+$("btnDup").onclick = () => saveLabel("exact_dup");
+$("btnRel").onclick = () => saveLabel("related");
+$("btnUn").onclick = () => saveLabel("unrelated");
+$("btnClear").onclick = clearLabel;
+$("btnNext").onclick = next;
+$("btnPrev").onclick = prev;
+$("btnReload").onclick = () => loadPairs();
+$("filter").onchange = () => loadPairs();
+$("stratum").onchange = () => loadPairs();
+$("btnSeed").onclick = async () => {
+  if (!confirm("Fill all empty labels with suggested_label? You should still review.")) return;
+  const r = await fetch("/api/label-gold/seed_suggested?only_empty=true", {method: "POST"});
+  const j = await r.json();
+  toast(`seeded ${j.seeded}`);
+  await loadPairs();
+};
+
+// persist notes on blur without changing label
+$("notes").addEventListener("change", async () => {
+  const p = pairs[idx];
+  if (!p || !p.label) return;
+  await fetch("/api/label-gold/label", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      pair_id: p.pair_id,
+      label: p.label,
+      labeler: $("labeler").value || "web",
+      notes: $("notes").value || "",
+    }),
+  });
+});
+
+document.addEventListener("keydown", (e) => {
+  const tag = (e.target && e.target.tagName) || "";
+  if (tag === "TEXTAREA" || tag === "INPUT" || tag === "SELECT") {
+    if (e.key === "Escape") e.target.blur();
+    return;
+  }
+  if (e.key === "1") { e.preventDefault(); saveLabel("exact_dup"); }
+  else if (e.key === "2") { e.preventDefault(); saveLabel("related"); }
+  else if (e.key === "3") { e.preventDefault(); saveLabel("unrelated"); }
+  else if (e.key === "j" || e.key === "ArrowRight") { e.preventDefault(); next(); }
+  else if (e.key === "k" || e.key === "ArrowLeft") { e.preventDefault(); prev(); }
+  else if (e.key === "u" || e.key === "U") { e.preventDefault(); clearLabel(); }
+  else if (e.key === "s" || e.key === "S") { e.preventDefault(); next(); }
+  else if (e.key === "?") { e.preventDefault(); $("notes").focus(); }
+});
+
+// remember labeler
+$("labeler").value = localStorage.getItem("brain_labeler") || "user";
+$("labeler").addEventListener("change", () => {
+  localStorage.setItem("brain_labeler", $("labeler").value);
+});
+
+loadPairs();
+</script>
+</body>
+</html>

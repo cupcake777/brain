@@ -923,7 +923,7 @@ def retrospect(repo: HermesRepository, *, dry_run: bool = False) -> dict:
                         elif hybrid_sim > 0.55:
                             review_pairs_list.append((active_nodes[i].id, active_nodes[j].id, hybrid_sim))
                             seen_pairs.add(pair_key)
-            else:
+            if use_embeddings and embs is None:
                 use_embeddings = False  # Fall through to text-only below
         except Exception:
             use_embeddings = False

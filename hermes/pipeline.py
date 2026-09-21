@@ -20,9 +20,17 @@ def _category(value: object) -> str:
     return category if category in {"rule", "workflow_hint", "preference", "fact"} else "fact"
 
 
-def _domain(value: object) -> str:
-    domain = str(value or "general").strip().lower()
-    return domain or "general"
+def _domain(proposal: dict[str, Any]) -> str:
+    from hermes.lane import assign_lane, lane_text
+    return assign_lane(
+        hinted=proposal.get("domain"),
+        project_key=proposal.get("project_key"),
+        text=lane_text(
+            proposal.get("summary"),
+            proposal.get("observation"),
+            proposal.get("suggested_memory"),
+        ),
+    )
 
 
 def _content(proposal: dict[str, Any]) -> str:
@@ -71,7 +79,7 @@ def sync_approved_proposals(repo: HermesRepository, *, limit: int | None = None)
                 content=_content(proposal),
                 source=f"proposal:{proposal_id[:12]}",
                 category=_category(proposal.get("category")),
-                domain=_domain(proposal.get("project_key")),
+                domain=_domain(proposal),
                 repo=repo,
             )
             repo.link_proposal_knowledge(proposal_id, result.node_id, action=result.action)

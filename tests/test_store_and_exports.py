@@ -54,6 +54,7 @@ def test_ingestion_routes_low_risk_preference_to_db_only(tmp_path: Path) -> None
     assert outcome.route == "approved_db_only"
     assert stored["state"] == "approved_db_only"
     assert stored["semantic_duplicate_of"] is None
+    assert stored["domain"] in {"tech", "science"}
 
 
 def test_ingestion_keeps_semantic_duplicates_as_merge_candidates(tmp_path: Path) -> None:

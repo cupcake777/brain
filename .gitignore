@@ -47,3 +47,24 @@ Thumbs.db
 
 # Local runtime profile
 profile.json
+
+# Agent/session work products and restricted local backups
+.hermes/
+
+# Deployment-local configuration and runtime snapshots
+config/dify-addon.conf
+config/dify-sources.json
+remote-outboxes/
+
+# Generated/private evaluation datasets and reports (keep docs/UI source)
+eval/*.json
+eval/*.jsonl
+eval/status-*/
+
+# Operator-specific production helpers; portable core does not assume hosts,
+# secret stores, absolute paths, or backup destinations.
+scripts/brain_backup.py
+scripts/check_dify_source.py
+scripts/store_brain_token_vault.py
+scripts/verify_dify_addon.py
+tests/test_brain_backup.py

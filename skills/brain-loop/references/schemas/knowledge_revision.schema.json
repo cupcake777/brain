@@ -1,0 +1,187 @@
+{
+  "$defs": {
+    "KnowledgeKind": {
+      "enum": [
+        "directive",
+        "experience"
+      ],
+      "title": "KnowledgeKind",
+      "type": "string"
+    },
+    "KnowledgeLifecycleState": {
+      "enum": [
+        "candidate",
+        "formal",
+        "disputed",
+        "archive",
+        "deprecated"
+      ],
+      "title": "KnowledgeLifecycleState",
+      "type": "string"
+    },
+    "KnowledgeRevisionLink": {
+      "additionalProperties": false,
+      "description": "Typed edge between immutable knowledge revisions.",
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/KnowledgeRevisionLinkKind"
+        },
+        "target_revision_id": {
+          "description": "UUIDv4 identifier.",
+          "format": "uuid",
+          "title": "Target Revision Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "target_revision_id"
+      ],
+      "title": "KnowledgeRevisionLink",
+      "type": "object"
+    },
+    "KnowledgeRevisionLinkKind": {
+      "enum": [
+        "parent",
+        "derived",
+        "split",
+        "merge",
+        "replaces"
+      ],
+      "title": "KnowledgeRevisionLinkKind",
+      "type": "string"
+    },
+    "KnowledgeScope": {
+      "enum": [
+        "owner",
+        "workspace",
+        "project"
+      ],
+      "title": "KnowledgeScope",
+      "type": "string"
+    },
+    "KnowledgeSourceRef": {
+      "additionalProperties": false,
+      "description": "Knowledge-side source reference (alias for :class:`SourceRef`).",
+      "properties": {
+        "id": {
+          "description": "UUIDv4 identifier.",
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/SourceRefType"
+        }
+      },
+      "required": [
+        "type",
+        "id"
+      ],
+      "title": "KnowledgeSourceRef",
+      "type": "object"
+    },
+    "SourceRefType": {
+      "enum": [
+        "execution",
+        "document"
+      ],
+      "title": "SourceRefType",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Immutable revision of a curated knowledge item.",
+  "properties": {
+    "id": {
+      "description": "UUIDv4 identifier.",
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+    },
+    "kind": {
+      "$ref": "#/$defs/KnowledgeKind"
+    },
+    "lifecycle": {
+      "$ref": "#/$defs/KnowledgeLifecycleState"
+    },
+    "links": {
+      "items": {
+        "$ref": "#/$defs/KnowledgeRevisionLink"
+      },
+      "title": "Links",
+      "type": "array"
+    },
+    "owner": {
+      "maxLength": 128,
+      "title": "Owner",
+      "type": "string"
+    },
+    "policy_version": {
+      "default": 1,
+      "maximum": 1000000,
+      "minimum": 1,
+      "title": "Policy Version",
+      "type": "integer"
+    },
+    "project_id": {
+      "anyOf": [
+        {
+          "maxLength": 64,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Project Id"
+    },
+    "revision_id": {
+      "description": "UUIDv4 identifier.",
+      "format": "uuid",
+      "title": "Revision Id",
+      "type": "string"
+    },
+    "scope": {
+      "$ref": "#/$defs/KnowledgeScope"
+    },
+    "source_refs": {
+      "items": {
+        "$ref": "#/$defs/KnowledgeSourceRef"
+      },
+      "title": "Source Refs",
+      "type": "array"
+    },
+    "statement": {
+      "maxLength": 8000,
+      "minLength": 1,
+      "title": "Statement",
+      "type": "string"
+    },
+    "version": {
+      "maximum": 1000000,
+      "minimum": 1,
+      "title": "Version",
+      "type": "integer"
+    },
+    "workspace": {
+      "maxLength": 128,
+      "title": "Workspace",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "revision_id",
+    "version",
+    "scope",
+    "owner",
+    "workspace",
+    "kind",
+    "lifecycle",
+    "statement"
+  ],
+  "title": "KnowledgeRevision",
+  "type": "object"
+}
