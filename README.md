@@ -16,7 +16,7 @@
 
 ## Connect your agent in minutes
 
-Brain ships both a native Hermes plugin (Hermes Agent `>=0.21.2`) and a portable [Agent Skill](skills/brain-loop/SKILL.md). The plugin is the recommended Hermes install because it registers automatic, sanitized tool-event hooks and bundles the skill:
+Brain ships both a native Hermes plugin (Hermes Agent `>=0.21.1`) and a portable [Agent Skill](skills/brain-loop/SKILL.md). The plugin is the recommended Hermes install because it registers automatic, sanitized tool-event hooks and bundles the skill:
 
 ```bash
 hermes plugins install cupcake777/brain --enable

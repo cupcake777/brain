@@ -3,7 +3,7 @@ version: "1.2.0"
 description: "Brain shared-experience integration for Hermes Agent. Registers the Brain skill plus automatic, sanitized, durable tool-event capture and session flush hooks."
 author: Hermes Agent
 license: MIT
-requires_hermes: ">=0.21.2"
+requires_hermes: ">=0.21.1"
 requires_env:
   - name: BRAIN_URL
     description: "HTTPS origin of the operator-owned Brain service"

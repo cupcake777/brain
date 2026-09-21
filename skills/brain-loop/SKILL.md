@@ -29,7 +29,7 @@ hermes plugins install cupcake777/brain --enable
 hermes gateway restart
 ```
 
-The plugin requires Hermes Agent `>=0.21.2`, bundles this skill, and registers automatic `post_tool_call`, `on_session_finalize`, and `on_session_reset` hooks. The installer prompts for `BRAIN_URL` and a scoped `BRAIN_TOKEN`; it does not ship the repository author's credentials or endpoint. Start a new CLI/TUI session after installation so the enabled plugin is loaded.
+The plugin requires Hermes Agent `>=0.21.1`, bundles this skill, and registers automatic `post_tool_call`, `on_session_finalize`, and `on_session_reset` hooks. The installer prompts for `BRAIN_URL` and a scoped `BRAIN_TOKEN`; it does not ship the repository author's credentials or endpoint. Start a new CLI/TUI session after installation so the enabled plugin is loaded.
 
 Installing only the Skill URL remains a manual-mode fallback: it provides retrieve/outcome/propose commands but cannot register executable hooks because Hermes deliberately separates skills (instructions) from plugins (trusted code).
 

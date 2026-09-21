@@ -42,7 +42,7 @@ hermes plugins install cupcake777/brain --enable
 hermes gateway restart
 ```
 
-The installer performs its plugin security scan, requires Hermes Agent `>=0.21.2`, prompts for the operator-owned `BRAIN_URL` and a scoped `BRAIN_TOKEN`, installs the bundled `brain-loop` skill, and enables these automatic hooks:
+The installer performs its plugin security scan, requires Hermes Agent `>=0.21.1`, prompts for the operator-owned `BRAIN_URL` and a scoped `BRAIN_TOKEN`, installs the bundled `brain-loop` skill, and enables these automatic hooks:
 
 - `post_tool_call` — sanitize and save each completed/failed tool event to a durable local outbox, then drain asynchronously;
 - `on_session_finalize` — reconcile and flush the durable outbox;
