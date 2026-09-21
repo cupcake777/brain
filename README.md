@@ -25,7 +25,19 @@ hermes gateway restart
 
 The installer asks for your operator-owned `BRAIN_URL` and scoped `BRAIN_TOKEN`; this repository contains neither. After restart, the plugin records durable tool events automatically and exposes `brain:brain-loop` for the full **retrieve → verify → outcome → evidence-backed proposal → curation → export** loop.
 
-For hosts that can load skills but cannot run Hermes plugins, install the instruction/client package only:
+The same repository is installable as a plugin for Claude Code and Codex, which also registers automatic sanitized tool-event hooks:
+
+```bash
+# Claude Code
+/plugin marketplace add cupcake777/brain
+/plugin install brain@brain
+
+# Codex
+codex plugin marketplace add cupcake777/brain
+codex plugin add brain@brain
+```
+
+For hosts that can load skills but cannot run plugins, install the instruction/client package only:
 
 ```bash
 hermes skills install https://YOUR-BRAIN-HOST/skills/brain-loop/SKILL.md

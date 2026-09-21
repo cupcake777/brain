@@ -60,6 +60,33 @@ hermes skills install https://raw.githubusercontent.com/cupcake777/brain/main/sk
 
 This installs instructions and the portable client only. It cannot register executable hooks; the agent must invoke retrieve/outcome/propose/finalize itself.
 
+### Claude Code: plugin with automatic hooks
+
+```bash
+/plugin marketplace add cupcake777/brain
+/plugin install brain@brain
+```
+
+Review and authorize the `PostToolUse`, `PostToolUseFailure`, and `SessionEnd` hooks when prompted, then start a new thread.
+
+### Codex: plugin with automatic hooks
+
+```bash
+codex plugin marketplace add cupcake777/brain
+codex plugin add brain@brain
+```
+
+Open `/hooks` in a Codex session, review and trust the lifecycle hooks, then start a new thread.
+
+### Hook credential resolution
+
+The Claude Code and Codex hooks run the bundled launcher, which resolves the operator-owned endpoint and token in this order (first non-empty wins):
+
+1. `BRAIN_URL` / `BRAIN_TOKEN` (or `BRAIN_TOKEN_FILE`) environment variables inherited by the agent process;
+2. `~/.config/brain/url` and `~/.config/brain/token` (token file should be `0600`).
+
+No endpoint or token ships in the repository; configure them locally as above.
+
 ## Configure the destination and authorization
 
 Set `BRAIN_URL` to your service origin, `BRAIN_AGENT` to a stable client label, and optionally a real `BRAIN_SESSION_ID` per session. Default URL is local loopback `http://127.0.0.1:8083`; there is no connection to the repository author's hosted service.

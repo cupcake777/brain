@@ -1,0 +1,30 @@
+{
+  "name": "brain",
+  "version": "1.2.0",
+  "description": "Brain shared experience for agents: retrieve lessons, verify, report outcomes, and auto-capture sanitized tool events.",
+  "author": {
+    "name": "Hermes Agent",
+    "url": "https://github.com/cupcake777/brain"
+  },
+  "homepage": "https://github.com/cupcake777/brain",
+  "repository": "https://github.com/cupcake777/brain",
+  "license": "MIT",
+  "keywords": ["memory", "shared-experience", "feedback", "productivity"],
+  "skills": "./skills/brain-loop/",
+  "hooks": "./hooks/claude-codex-hooks.json",
+  "interface": {
+    "displayName": "Brain",
+    "shortDescription": "Shared experience and durable tool-event capture",
+    "longDescription": "Retrieve relevant lessons, verify and report outcomes, submit evidence-backed proposals, and auto-capture sanitized tool events to a durable outbox.",
+    "developerName": "Hermes Agent",
+    "category": "Productivity",
+    "capabilities": ["Instructions", "Lifecycle hooks"],
+    "websiteURL": "https://github.com/cupcake777/brain",
+    "defaultPrompt": [
+      "Retrieve relevant Brain experience before substantial work.",
+      "Report actual outcomes after verifying the task.",
+      "Submit evidence-backed proposals for reusable lessons."
+    ],
+    "brandColor": "#3b82f6"
+  }
+}

@@ -23,6 +23,11 @@ def test_packaged_skill_and_dependencies_exist():
         assert (PACKAGE/p).is_file()
     assert (ROOT/'plugin.yaml').is_file()
     assert (ROOT/'__init__.py').is_file()
+    assert (ROOT/'.claude-plugin'/'plugin.json').is_file()
+    assert (ROOT/'.claude-plugin'/'marketplace.json').is_file()
+    assert (ROOT/'.codex-plugin'/'plugin.json').is_file()
+    assert (ROOT/'hooks'/'claude-codex-hooks.json').is_file()
+    assert (PACKAGE/'scripts'/'brain_hook_launcher.py').is_file()
     text=(PACKAGE/'SKILL.md').read_text()
     assert 'finalize' in text and 'source-retrieve' in text
     assert 'hermes plugins install' in text

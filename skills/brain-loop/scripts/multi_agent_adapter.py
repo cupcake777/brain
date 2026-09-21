@@ -315,7 +315,7 @@ def flush(limit: int = 25) -> dict[str, Any]:
     return {"reconcile": reconciled, "drain": drained}
 
 
-def main() -> int:
+def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command", required=True)
     hook = sub.add_parser("hook")
@@ -328,7 +328,12 @@ def main() -> int:
     flush_cmd = sub.add_parser("flush")
     flush_cmd.add_argument("--limit", type=int, default=25)
     sub.add_parser("stats")
-    args = parser.parse_args()
+    return parser
+
+
+def main_argv(argv: list[str]) -> int:
+    """Run the CLI against an explicit argument list (reusable by launchers)."""
+    args = _build_parser().parse_args(argv)
     if args.command == "hook":
         result = capture(args.source, _read_stdin_json())
         if args.drain:
@@ -347,6 +352,10 @@ def main() -> int:
             outbox.close()
     print(json.dumps(result, ensure_ascii=False, sort_keys=True))
     return 0
+
+
+def main() -> int:
+    return main_argv(sys.argv[1:])
 
 
 if __name__ == "__main__":

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "brain",
+  "description": "Brain shared experience for AI agents: durable, sanitized tool-event capture plus retrieve/outcome/proposal feedback.",
+  "owner": {
+    "name": "Hermes Agent",
+    "url": "https://github.com/cupcake777/brain"
+  },
+  "plugins": [
+    {
+      "name": "brain",
+      "description": "Retrieve relevant lessons, report verified outcomes, and auto-capture sanitized tool events to a durable outbox.",
+      "source": "./",
+      "category": "productivity"
+    }
+  ]
+}
