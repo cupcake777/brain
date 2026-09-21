@@ -16,15 +16,22 @@
 
 ## Connect your agent in minutes
 
-Brain ships a portable [Agent Skill](skills/brain-loop/SKILL.md) with a zero-dependency Python client, protocol reference and proposal template. It teaches the full **retrieve → verify → outcome → evidence-backed proposal → curation → export** loop, with optional literature retrieval kept separate.
+Brain ships both a native Hermes plugin (Hermes Agent `>=0.21.2`) and a portable [Agent Skill](skills/brain-loop/SKILL.md). The plugin is the recommended Hermes install because it registers automatic, sanitized tool-event hooks and bundles the skill:
 
-With your Brain service running, replace the placeholder with your own origin:
+```bash
+hermes plugins install cupcake777/brain --enable
+hermes gateway restart
+```
+
+The installer asks for your operator-owned `BRAIN_URL` and scoped `BRAIN_TOKEN`; this repository contains neither. After restart, the plugin records durable tool events automatically and exposes `brain:brain-loop` for the full **retrieve → verify → outcome → evidence-backed proposal → curation → export** loop.
+
+For hosts that can load skills but cannot run Hermes plugins, install the instruction/client package only:
 
 ```bash
 hermes skills install https://YOUR-BRAIN-HOST/skills/brain-loop/SKILL.md
 ```
 
-Configure `BRAIN_URL` and securely provide your service's `BRAIN_TOKEN`. No connection to the author's service is assumed. Claude Code and other clients can install the same directory. See [agent installation and verification](docs/agent-install.md) for setup, security boundaries and cross-agent instructions.
+Skill-only installation does **not** register executable hooks. Configure `BRAIN_URL` and securely provide your service's `BRAIN_TOKEN`. See [agent installation and verification](docs/agent-install.md) for setup, security boundaries and cross-agent instructions.
 
 ## The Problem
 

@@ -1,0 +1,34 @@
+name: brain
+version: "1.2.0"
+description: "Brain shared-experience integration for Hermes Agent. Registers the Brain skill plus automatic, sanitized, durable tool-event capture and session flush hooks."
+author: Hermes Agent
+license: MIT
+requires_hermes: ">=0.21.2"
+requires_env:
+  - name: BRAIN_URL
+    description: "HTTPS origin of the operator-owned Brain service"
+    prompt: "Brain service URL"
+    password: false
+  - name: BRAIN_TOKEN
+    description: "Scoped Brain bearer token for this agent"
+    prompt: "Brain scoped bearer token"
+    password: true
+optional_env:
+  - name: BRAIN_AGENT
+    description: "Stable agent label (defaults to hermes)"
+    prompt: "Brain agent label"
+    password: false
+  - name: BRAIN_PROJECT
+    description: "Optional fixed project scope; otherwise inferred from cwd"
+    prompt: "Brain project scope"
+    password: false
+  - name: BRAIN_OUTBOX
+    description: "Optional durable SQLite outbox path"
+    prompt: "Brain outbox path"
+    password: false
+provides_hooks:
+  - post_tool_call
+  - on_session_finalize
+  - on_session_reset
+provides_skills:
+  - brain-loop

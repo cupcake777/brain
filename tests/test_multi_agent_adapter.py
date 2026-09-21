@@ -134,3 +134,60 @@ def test_concurrent_flushes_are_serialized(tmp_path, monkeypatch):
     for thread in threads: thread.join()
     assert errors == []
     assert len(results) == 2
+
+
+def test_brain_plugin_translates_hermes_payload_and_captures(tmp_path, monkeypatch):
+    plugin_path = SCRIPTS / "brain_plugin.py"
+    spec = importlib.util.spec_from_file_location("brain_plugin_adapter", plugin_path)
+    assert spec and spec.loader
+    brain_plugin = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(brain_plugin)
+    monkeypatch.setenv("BRAIN_OUTBOX", str(tmp_path / "hermes.sqlite3"))
+    monkeypatch.setenv("BRAIN_AGENT", "hermes-test")
+
+    result = brain_plugin.capture_post_tool_call(
+        tool_name="terminal",
+        args={"command": "printf ok", "api_key": "secret-value"},
+        result={"output": "ok", "exit_code": 0},
+        status="ok",
+        session_id="session-1",
+        tool_call_id="call-1",
+    )
+    assert result["status"] == "enqueued"
+    outbox = Outbox(tmp_path / "hermes.sqlite3")
+    try:
+        job = outbox.get(result["id"])
+        assert job is not None
+        assert job.payload["agent_id"] == "hermes-test"
+        assert job.payload["capture"]["input"]["api_key"] == "[REDACTED]"
+        assert "secret-value" not in json.dumps(job.payload)
+    finally:
+        outbox.close()
+
+
+def test_brain_plugin_finalize_flushes_without_raising(monkeypatch):
+    plugin_path = SCRIPTS / "brain_plugin.py"
+    spec = importlib.util.spec_from_file_location("brain_plugin_finalize", plugin_path)
+    assert spec and spec.loader
+    brain_plugin = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(brain_plugin)
+    called = []
+    monkeypatch.setattr(brain_plugin.adapter, "flush", lambda limit=25: called.append(limit) or {})
+    brain_plugin.flush_session()
+    assert called == [25]
+
+
+def test_flush_degrades_gracefully_without_fcntl(tmp_path, monkeypatch):
+    import builtins
+    monkeypatch.setenv("BRAIN_OUTBOX", str(tmp_path / "outbox.sqlite3"))
+    real_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name == "fcntl":
+            raise ImportError("fcntl unavailable")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+    result = adapter.flush(5)
+    assert set(result) == {"reconcile", "drain"}
+    assert isinstance(result["drain"], dict)

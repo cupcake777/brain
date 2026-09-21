@@ -290,16 +290,28 @@ def drain(limit: int) -> dict[str, Any]:
 
 
 def flush(limit: int = 25) -> dict[str, Any]:
-    """Serialize reconciliation and upload to avoid SessionEnd lock races."""
-    import fcntl
+    """Serialize reconciliation and upload to avoid SessionEnd lock races.
+
+    Uses an exclusive lock when the platform provides it (``fcntl`` on
+    POSIX). On platforms without ``fcntl`` the call still proceeds: the
+    underlying outbox serializes its own writes and leases each upload job,
+    so skipping the cross-process advisory lock is safe but loses the extra
+    SessionEnd-vs-worker serialization guarantee.
+    """
+    try:
+        import fcntl
+    except ImportError:  # Windows and other non-POSIX hosts
+        return {"reconcile": reconcile(limit), "drain": drain(limit)}
 
     lock_path = _outbox_path().with_suffix(".flush.lock")
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     with lock_path.open("a+", encoding="utf-8") as handle:
         fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
-        reconciled = reconcile(limit)
-        drained = drain(limit)
-        fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+        try:
+            reconciled = reconcile(limit)
+            drained = drain(limit)
+        finally:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
     return {"reconcile": reconciled, "drain": drained}
 
 

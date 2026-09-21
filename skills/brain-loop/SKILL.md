@@ -1,7 +1,7 @@
 ---
 name: brain-loop
 description: "Use when working with Brain shared experience or evidence. Retrieve relevant lessons, report actual outcomes, submit evidence-backed proposals, and keep external literature separate."
-version: 1.1.0
+version: 1.2.0
 author: Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]
@@ -19,6 +19,19 @@ Brain is curated shared experience, **not** a transcript archive, personal-memor
 **retrieve → apply selectively → verify task → report outcomes → propose a reusable lesson → server reviews/curates → exports inform future work**.
 
 A proposal is a submission, not validated knowledge. Lifecycle stage, confidence and retrieval similarity describe different things; none overrides current evidence. External literature is a separate evidence lane, never a knowledge node by default.
+
+## Install the Hermes plugin (recommended)
+
+For Hermes Agent, install the repository as a plugin rather than installing only `SKILL.md`:
+
+```bash
+hermes plugins install cupcake777/brain --enable
+hermes gateway restart
+```
+
+The plugin requires Hermes Agent `>=0.21.2`, bundles this skill, and registers automatic `post_tool_call`, `on_session_finalize`, and `on_session_reset` hooks. The installer prompts for `BRAIN_URL` and a scoped `BRAIN_TOKEN`; it does not ship the repository author's credentials or endpoint. Start a new CLI/TUI session after installation so the enabled plugin is loaded.
+
+Installing only the Skill URL remains a manual-mode fallback: it provides retrieve/outcome/propose commands but cannot register executable hooks because Hermes deliberately separates skills (instructions) from plugins (trusted code).
 
 ## Setup once
 

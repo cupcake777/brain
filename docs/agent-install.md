@@ -31,6 +31,35 @@ cp -R /path/to/brain/skills/brain-loop .claude/skills/brain-loop
 
 Use the equivalent documented skill directory for other clients. Do not blindly overwrite an existing customised skill. Clients without skill loaders can read SKILL.md and run the bundled Python script directly; add a short project rule pointing to it instead of pasting the whole protocol into every system prompt.
 
+## Install Brain for an agent
+
+### Hermes Agent: plugin install with automatic hooks
+
+Use the repository plugin installer, not the standalone Skill URL:
+
+```bash
+hermes plugins install cupcake777/brain --enable
+hermes gateway restart
+```
+
+The installer performs its plugin security scan, requires Hermes Agent `>=0.21.2`, prompts for the operator-owned `BRAIN_URL` and a scoped `BRAIN_TOKEN`, installs the bundled `brain-loop` skill, and enables these automatic hooks:
+
+- `post_tool_call` — sanitize and save each completed/failed tool event to a durable local outbox, then drain asynchronously;
+- `on_session_finalize` — reconcile and flush the durable outbox;
+- `on_session_reset` — flush before the old session identity is discarded.
+
+For an already running CLI/TUI, start a new session/process after install. Gateway users must restart the gateway as shown above.
+
+### Skill-only fallback (manual loop)
+
+Installing the Skill URL is still supported when plugin execution is unavailable:
+
+```bash
+hermes skills install https://raw.githubusercontent.com/cupcake777/brain/main/skills/brain-loop/SKILL.md
+```
+
+This installs instructions and the portable client only. It cannot register executable hooks; the agent must invoke retrieve/outcome/propose/finalize itself.
+
 ## Configure the destination and authorization
 
 Set `BRAIN_URL` to your service origin, `BRAIN_AGENT` to a stable client label, and optionally a real `BRAIN_SESSION_ID` per session. Default URL is local loopback `http://127.0.0.1:8083`; there is no connection to the repository author's hosted service.
