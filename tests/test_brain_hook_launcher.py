@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 import importlib.util
+import io
+import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -86,3 +89,55 @@ def test_hook_captures_into_outbox(monkeypatch, tmp_path):
         assert "[REDACTED]" in row[0]
     finally:
         outbox.close()
+
+
+def test_codex_manifest_uses_own_source_and_bounded_session_end():
+    manifest = json.loads((ROOT / ".codex-plugin" / "plugin.json").read_text())
+    assert manifest["version"] == "1.2.1"
+    hooks = json.loads((ROOT / manifest["hooks"]).read_text())["hooks"]
+    for event in ("PostToolUse", "PostToolUseFailure"):
+        handler = hooks[event][0]["hooks"][0]
+        assert handler["command"].endswith(" hook codex")
+        assert handler["async"] is True
+    ending = hooks["SessionEnd"][0]["hooks"][0]
+    assert ending["timeout"] <= 3
+    assert ending["command"].endswith(" flush-background")
+    claude = json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text())
+    assert claude["hooks"] != manifest["hooks"]
+    claude_hooks = json.loads((ROOT / claude["hooks"]).read_text())["hooks"]
+    assert claude_hooks["PostToolUse"][0]["hooks"][0]["command"].endswith(" hook claude-code")
+
+
+def test_codex_hook_records_codex_identity(monkeypatch, tmp_path):
+    monkeypatch.setenv("BRAIN_OUTBOX", str(tmp_path / "outbox.sqlite3"))
+    monkeypatch.delenv("BRAIN_AGENT", raising=False)
+    monkeypatch.setattr(launcher, "_config_dir", lambda: tmp_path / "missing")
+    monkeypatch.setattr(adapter, "drain", lambda limit: {})
+    monkeypatch.setattr(sys, "argv", ["brain_hook_launcher.py", "hook", "codex"])
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({
+        "session_id": "s", "tool_use_id": "t", "hook_event_name": "PostToolUse",
+        "tool_name": "Bash", "cwd": str(tmp_path),
+    })))
+    assert launcher.main() == 0
+    outbox = Outbox(tmp_path / "outbox.sqlite3")
+    try:
+        payload = json.loads(outbox._conn.execute("SELECT payload_json FROM jobs").fetchone()[0])
+        assert payload["agent_id"] == "codex"
+        assert payload["action"] == "codex PostToolUse Bash completed"
+    finally:
+        outbox.close()
+
+
+def test_session_end_detaches_flush(monkeypatch):
+    calls = []
+    monkeypatch.setattr(launcher, "_apply_credentials", lambda host: None)
+    monkeypatch.setattr(subprocess, "Popen", lambda *args, **kwargs: calls.append((args, kwargs)))
+    monkeypatch.setattr(sys, "argv", ["brain_hook_launcher.py", "flush-background"])
+    assert launcher.main() == 0
+    assert len(calls) == 1
+    args, kwargs = calls[0]
+    assert args[0][2] == "flush"
+    assert kwargs["start_new_session"] is True
+    assert kwargs["stdin"] == subprocess.DEVNULL
+    assert kwargs["stdout"] == subprocess.DEVNULL
+    assert kwargs["stderr"] == subprocess.DEVNULL

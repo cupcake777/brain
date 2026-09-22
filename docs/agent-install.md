@@ -78,6 +78,16 @@ codex plugin add brain@brain
 
 Open `/hooks` in a Codex session, review and trust the lifecycle hooks, then start a new thread.
 
+For an existing installation, refresh the marketplace and reinstall the plugin so Codex replaces its cached version:
+
+```bash
+codex plugin marketplace upgrade brain
+codex plugin remove brain@brain
+codex plugin add brain@brain
+```
+
+The Codex manifest is version `1.2.1`. Review and trust the **new** hook definition in `/hooks`, then start a new thread. Codex tool events use `agent_id=codex`; the earlier `1.2.0` package mislabeled them `claude-code`. The Codex `SessionEnd` hook has a 3-second limit and starts a detached flush of the durable outbox; check `multi_agent_adapter.py stats` after a real tool call to verify uploads. Existing event labels are not rewritten.
+
 ### Hook credential resolution
 
 The Claude Code and Codex hooks run the bundled launcher, which resolves the operator-owned endpoint and token in this order (first non-empty wins):

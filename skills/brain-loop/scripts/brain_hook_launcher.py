@@ -19,6 +19,7 @@ continues if it is not, but it never logs the token itself.
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -82,13 +83,25 @@ def _apply_credentials(host: str) -> None:
 
 def main() -> int:
     command = sys.argv[1] if len(sys.argv) > 1 else "hook"
-    if command not in {"hook", "flush"}:
-        print("usage: brain_hook_launcher.py [hook <host> | flush]", file=sys.stderr)
+    if command not in {"hook", "flush", "flush-background"}:
+        print("usage: brain_hook_launcher.py [hook <host> | flush | flush-background]", file=sys.stderr)
         return 2
     host = sys.argv[2] if command == "hook" and len(sys.argv) > 2 else "claude-code"
     _apply_credentials(host)
     if command == "hook":
         return adapter.main_argv(["hook", "--source", host, "--drain"])
+    if command == "flush-background":
+        # Codex hard-caps SessionEnd at three seconds. The outbox is durable;
+        # detach the network flush so a slow upload cannot time out the hook.
+        subprocess.Popen(
+            [sys.executable, str(Path(__file__).resolve()), "flush"],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            close_fds=True,
+            start_new_session=True,
+        )
+        return 0
     return adapter.main_argv(["flush", "--limit", "25"])
 
 

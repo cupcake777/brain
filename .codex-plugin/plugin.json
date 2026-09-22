@@ -1,6 +1,6 @@
 {
   "name": "brain",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Brain shared experience for agents: retrieve lessons, verify, report outcomes, and auto-capture sanitized tool events.",
   "author": {
     "name": "Hermes Agent",
@@ -11,7 +11,7 @@
   "license": "MIT",
   "keywords": ["memory", "shared-experience", "feedback", "productivity"],
   "skills": "./skills/brain-loop/",
-  "hooks": "./hooks/claude-codex-hooks.json",
+  "hooks": "./hooks/codex-hooks.json",
   "interface": {
     "displayName": "Brain",
     "shortDescription": "Shared experience and durable tool-event capture",
