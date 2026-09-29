@@ -32,12 +32,12 @@ from hermes.homebase import home_page
 from hermes.cassette import cassette_page
 from hermes.orbit import orbit_page
 from hermes.lane import assign_lane as _assign_lane
+from hermes.knowledgebase import knowledge_tree_page as knowledge_page
 from hermes.templates import (
     dashboard_page,
     gallery_detail_page,
     gallery_page,
     knowledge_detail_page,
-    knowledge_tree_page as knowledge_page,
     linuxdo_board_page,
     login_page,
     profile_page,
@@ -740,7 +740,7 @@ def create_app(
         }
 
     @app.get("/api/knowledge/graph")
-    def knowledge_graph(limit: int = 200) -> dict:
+    def knowledge_graph(limit: int = Query(default=200, ge=1, le=500)) -> dict:
         """Return nodes and edges for the knowledge graph visualization (v3)."""
         return repo.get_knowledge_graph(limit=limit)
 
@@ -790,7 +790,7 @@ def create_app(
         stage: str | None = None,
         category: str | None = None,
         domain: str | None = None,
-        limit: int = Query(default=50, le=500),
+        limit: int = Query(default=50, ge=1, le=500),
         offset: int = Query(default=0, ge=0),
     ) -> list[dict]:
         """List knowledge nodes with optional filters."""
@@ -1071,7 +1071,9 @@ def create_app(
         category: str = Query(default=""),
         domain: str = Query(default=""),
         q: str = Query(default=""),
+        view: str = Query(default="list"),
     ) -> str:
+        requested_view = view if view in {"list", "graph"} else "list"
         if stage not in _VALID_KN_STAGES:
             stage = "all"
         node_stage = None if stage == "all" else stage
@@ -1094,6 +1096,8 @@ def create_app(
             active_category=category,
             active_domain=domain,
             domains=domains,
+            query=q,
+            view=requested_view,
         )
 
     @app.get("/knowledge/{node_id}", response_class=HTMLResponse)
@@ -1346,7 +1350,7 @@ def create_app(
 
     @app.get("/brain-map", response_class=HTMLResponse, response_model=None)
     def brain_map_route():
-        return RedirectResponse("/proposals", status_code=301)
+        return RedirectResponse("/knowledge?view=graph", status_code=301)
 
     @app.get("/proposals", response_class=HTMLResponse, response_model=None)
     def proposal_lifecycle_route(
