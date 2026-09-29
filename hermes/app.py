@@ -10,6 +10,7 @@ from dataclasses import asdict as _asdict
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
+from uuid import uuid4
 
 import httpx
 
@@ -2227,6 +2228,7 @@ def create_app(
     # Gallery script upload – accept .py/.R/.zip template files
     # ------------------------------------------------------------------
     _TEMPLATE_DIR = Path(os.environ.get("BRAIN_PLOTTING_DIR", "")) / "templates"
+    _MAX_SCRIPT_UPLOAD_BYTES = 2 * 1024 * 1024
 
     @app.post("/api/gallery/upload_script")
     async def gallery_upload_script(request: Request) -> dict:
@@ -2240,16 +2242,30 @@ def create_app(
         if not chart_name or not upload or not hasattr(upload, "filename"):
             return {"ok": False, "error": "chart_name and file required"}
 
-        fname = upload.filename or "script.py"
-        # Security: only allow specific extensions
-        ext = Path(fname).suffix.lower()
-        if ext not in (".py", ".r", ".zip"):
-            return {"ok": False, "error": "Only .py, .R, .zip files allowed"}
+        raw_name = upload.filename or ""
+        normalized_name = raw_name.replace("\\", "/")
+        if not raw_name or normalized_name != Path(normalized_name).name:
+            raise HTTPException(status_code=422, detail="filename must not contain directories")
 
-        # Save to templates directory
-        dest = _TEMPLATE_DIR / fname
-        data = await upload.read()
-        dest.write_bytes(data)
+        # Security: only allow specific extensions. The client filename is never
+        # used as the destination filename.
+        ext = Path(normalized_name).suffix.lower()
+        if ext not in (".py", ".r", ".zip"):
+            raise HTTPException(status_code=422, detail="Only .py, .R, .zip files allowed")
+
+        data = await upload.read(_MAX_SCRIPT_UPLOAD_BYTES + 1)
+        if len(data) > _MAX_SCRIPT_UPLOAD_BYTES:
+            raise HTTPException(status_code=413, detail="script upload exceeds 2 MiB")
+        if not data:
+            raise HTTPException(status_code=422, detail="script upload is empty")
+
+        template_root = _TEMPLATE_DIR.resolve()
+        fname = f"{uuid4().hex}{ext}"
+        dest = (template_root / fname).resolve()
+        if not dest.is_relative_to(template_root) or dest.parent != template_root:
+            raise HTTPException(status_code=422, detail="invalid upload destination")
+        with dest.open("xb") as output:
+            output.write(data)
 
         # Log to feedback
         entry = {

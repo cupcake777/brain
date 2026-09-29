@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from hermes.app import create_app
@@ -276,6 +277,61 @@ class TestAvatarSecurity:
 
 
 # -- eviction tests -----------------------------------------------------------
+
+class TestGalleryScriptUploadSecurity:
+    @staticmethod
+    def _client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[TestClient, Path]:
+        plotting_dir = tmp_path / "plotting"
+        monkeypatch.setenv("BRAIN_PLOTTING_DIR", str(plotting_dir))
+        *_, client = _make_stack(tmp_path)
+        return client, plotting_dir
+
+    @pytest.mark.parametrize(
+        "filename",
+        ("../../outside.py", "/tmp/outside.py", "..\\..\\outside.py", "nested/script.py"),
+    )
+    def test_rejects_filename_with_directories(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, filename: str
+    ) -> None:
+        client, plotting_dir = self._client(tmp_path, monkeypatch)
+        response = client.post(
+            "/api/gallery/upload_script",
+            data={"chart_name": "test", "description": "test"},
+            files={"file": (filename, b"print('safe')", "text/x-python")},
+        )
+        assert response.status_code == 422
+        assert not (tmp_path / "outside.py").exists()
+        assert list((plotting_dir / "templates").glob("*")) == []
+
+    def test_uses_generated_name_inside_template_root(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        client, plotting_dir = self._client(tmp_path, monkeypatch)
+        response = client.post(
+            "/api/gallery/upload_script",
+            data={"chart_name": "test", "description": "test"},
+            files={"file": ("safe.py", b"print('safe')", "text/x-python")},
+        )
+        assert response.status_code == 200
+        stored_name = response.json()["filename"]
+        assert stored_name != "safe.py"
+        assert stored_name.endswith(".py")
+        stored = (plotting_dir / "templates" / stored_name).resolve()
+        assert stored.parent == (plotting_dir / "templates").resolve()
+        assert stored.read_bytes() == b"print('safe')"
+
+    def test_rejects_oversized_upload_without_partial_file(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        client, plotting_dir = self._client(tmp_path, monkeypatch)
+        response = client.post(
+            "/api/gallery/upload_script",
+            data={"chart_name": "test", "description": "test"},
+            files={"file": ("large.py", b"x" * (2 * 1024 * 1024 + 1), "text/x-python")},
+        )
+        assert response.status_code == 413
+        assert list((plotting_dir / "templates").glob("*")) == []
+
 
 class TestEvictionService:
     def test_detect_stale_exports_empty(self, tmp_path: Path) -> None:
