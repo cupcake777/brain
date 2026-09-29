@@ -143,6 +143,34 @@ class TokenAuthMiddleware(BaseHTTPMiddleware):
 # ---------------------------------------------------------------------------
 
 _MUTATING_METHODS = frozenset({"POST", "PUT", "DELETE", "PATCH"})
+_DEFAULT_PORTS = {"http": 80, "https": 443}
+
+
+def _canonical_origin(value: str, *, allow_path: bool) -> tuple[str, str, int] | None:
+    """Return a strict ``(scheme, host, port)`` tuple for an HTTP(S) URL."""
+    try:
+        parsed = urlparse(value)
+        scheme = parsed.scheme.lower()
+        if scheme not in _DEFAULT_PORTS or not parsed.netloc:
+            return None
+        if parsed.username is not None or parsed.password is not None:
+            return None
+        if not allow_path and (parsed.path not in ("", "/") or parsed.query or parsed.fragment):
+            return None
+        host = (parsed.hostname or "").rstrip(".").casefold()
+        if not host:
+            return None
+        port = parsed.port or _DEFAULT_PORTS[scheme]
+    except (TypeError, ValueError):
+        return None
+    return scheme, host, port
+
+
+def _request_origin(request: Request) -> tuple[str, str, int] | None:
+    host = request.headers.get("host", "")
+    if not host:
+        return None
+    return _canonical_origin(f"{request.url.scheme}://{host}", allow_path=False)
 
 
 class CSRFMiddleware(BaseHTTPMiddleware):
@@ -190,8 +218,8 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         if self._scoped_registry is not None and self._scoped_registry.authorize_http(request):
             return await call_next(request)
 
-        # Login form and explicitly public write endpoints do not need CSRF.
-        if request.url.path in ("/login", "/api/knowledge/record-query", "/api/v1/brain/retrieve"):
+        # Public machine-to-machine endpoints do not carry cookie authority.
+        if request.url.path in ("/api/knowledge/record-query", "/api/v1/brain/retrieve"):
             return await call_next(request)
 
         # 1) Valid bearer token → pass (API client, not browser form)
@@ -205,31 +233,16 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         if self._csrf_secret is not None and csrf_header == self._csrf_secret:
             return await call_next(request)
 
-        # 3) Origin / Referer same-origin check
-        host = request.headers.get("host", "")
+        # 3) Strict Origin / Referer same-origin check. Prefer Origin when it
+        # is present: a conflicting Referer must never rescue a bad Origin.
         origin = request.headers.get("origin", "")
         referer = request.headers.get("referer", "")
-
-        if host:
-            for header_value in (origin, referer):
-                if not header_value:
-                    continue
-                parsed = urlparse(header_value)
-                # Compare scheme+host+port (netloc) against Host header
-                # Host header may or may not include port; be lenient
-                header_host = parsed.hostname or ""
-                header_port = parsed.port
-                host_parts = host.split(":")
-                host_name = host_parts[0]
-                host_port = int(host_parts[1]) if len(host_parts) > 1 else None
-
-                if header_host == host_name:
-                    # If both specify a port, they must match; otherwise OK
-                    if header_port is not None and host_port is not None:
-                        if header_port == host_port:
-                            return await call_next(request)
-                    else:
-                        return await call_next(request)
+        expected = _request_origin(request)
+        supplied = origin or referer
+        if expected is not None and supplied:
+            actual = _canonical_origin(supplied, allow_path=not bool(origin))
+            if actual == expected:
+                return await call_next(request)
 
         return Response(
             content='{"detail":"csrf check failed"}',

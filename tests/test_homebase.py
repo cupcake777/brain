@@ -203,6 +203,7 @@ def test_homebase_preserves_auth_and_existing_business_routes(tmp_path: Path) ->
     login = client.post(
         "/login",
         data={"username": "owner", "password": "test-password"},
+        headers={"Origin": "http://testserver"},
         follow_redirects=False,
     )
     assert login.status_code == 303

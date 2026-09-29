@@ -73,7 +73,7 @@ def test_quota_error_contract(tmp_path,monkeypatch):
 
 def test_cookie_auth_requires_csrf(tmp_path,monkeypatch):
     c=client(tmp_path,monkeypatch)
-    c.post('/login',data={'username':'agent','password':'test-token'})
+    c.post('/login',data={'username':'agent','password':'test-token'},headers={'Origin':'http://testserver'})
     assert c.post('/api/v1/brain/sources/retrieve',json=PAYLOAD).status_code==403
     assert not (tmp_path/'quota').exists()
     r=c.post('/api/v1/brain/sources/retrieve',json=PAYLOAD,headers={'Origin':'http://testserver'})

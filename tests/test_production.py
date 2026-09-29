@@ -116,6 +116,85 @@ class TestTokenAuth:
         headers = {"Authorization": "Bearer wrong"}
         assert client.get("/api/review/pending", headers=headers).status_code == 401
 
+    def test_login_requires_same_origin_and_sets_secure_cookie_on_https(
+        self, tmp_path: Path
+    ) -> None:
+        *_, default_client = _make_stack(tmp_path, auth_token="secret123")
+
+        assert default_client.post(
+            "/login", data={"username": "owner", "password": "secret123"}
+        ).status_code == 403
+
+        secure_client = TestClient(default_client.app, base_url="https://testserver")
+        response = secure_client.post(
+            "/login",
+            data={"username": "owner", "password": "secret123"},
+            headers={"Origin": "https://testserver"},
+            follow_redirects=False,
+        )
+        assert response.status_code == 303
+        cookie = response.headers["set-cookie"].lower()
+        assert "httponly" in cookie
+        assert "secure" in cookie
+        assert "samesite=lax" in cookie
+        assert "path=/" in cookie
+
+    @pytest.mark.parametrize(
+        "headers",
+        (
+            {"Origin": "https://testserver"},
+            {"Origin": "http://testserver:81"},
+            {"Origin": "http://testserver:bad"},
+            {"Origin": "null"},
+            {"Origin": "http://evil.test", "Referer": "http://testserver/settings"},
+        ),
+    )
+    def test_cookie_write_rejects_non_matching_origin(
+        self, tmp_path: Path, headers: dict[str, str]
+    ) -> None:
+        *_, client = _make_stack(tmp_path, auth_token="secret123")
+        login = client.post(
+            "/login",
+            data={"username": "owner", "password": "secret123"},
+            headers={"Origin": "http://testserver"},
+            follow_redirects=False,
+        )
+        assert login.status_code == 303
+
+        response = client.post(
+            "/api/settings/profile",
+            data={"display_name": "owner", "avatar_url": "", "theme": "light", "lang": "zh"},
+            headers=headers,
+        )
+        assert response.status_code == 403
+
+    @pytest.mark.parametrize(
+        "headers",
+        (
+            {"Origin": "http://testserver"},
+            {"Origin": "http://testserver:80"},
+            {"Referer": "http://testserver/settings?tab=profile"},
+        ),
+    )
+    def test_cookie_write_accepts_exact_same_origin(
+        self, tmp_path: Path, headers: dict[str, str]
+    ) -> None:
+        *_, client = _make_stack(tmp_path, auth_token="secret123")
+        login = client.post(
+            "/login",
+            data={"username": "owner", "password": "secret123"},
+            headers={"Origin": "http://testserver"},
+            follow_redirects=False,
+        )
+        assert login.status_code == 303
+
+        response = client.post(
+            "/api/settings/profile",
+            data={"display_name": "owner", "avatar_url": "", "theme": "light", "lang": "zh"},
+            headers=headers,
+        )
+        assert response.status_code == 200
+
     def test_exports_public_even_with_auth(self, tmp_path: Path) -> None:
         _, repo, writer, ingest, compiler, client = _make_stack(tmp_path, auth_token="secret123")
         proposal_path = _write_proposal(writer, suggested_memory="Export me.")

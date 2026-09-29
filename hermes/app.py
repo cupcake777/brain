@@ -105,9 +105,17 @@ def create_app(
         cookie_val = request.cookies.get(_AUTH_COOKIE)
         return cookie_val == _make_cookie_value()
 
-    def _set_auth_cookie(response: Response) -> Response:
+    def _set_auth_cookie(response: Response, request: Request) -> Response:
         """Set the auth cookie on a response (login success)."""
-        response.set_cookie(_AUTH_COOKIE, _make_cookie_value(), httponly=True, samesite="lax", max_age=86400 * 30)
+        response.set_cookie(
+            _AUTH_COOKIE,
+            _make_cookie_value(),
+            httponly=True,
+            secure=request.url.scheme == "https",
+            samesite="lax",
+            max_age=86400 * 30,
+            path="/",
+        )
         return response
 
     # -- middleware stack (outermost first) ------------------------------------
@@ -181,7 +189,7 @@ def create_app(
             return RedirectResponse("/", status_code=303)
         if _valid_login(username, password):
             resp = RedirectResponse("/", status_code=303)
-            return _set_auth_cookie(resp)
+            return _set_auth_cookie(resp, request)
         return login_page(error="Invalid username or password")
 
     @app.get("/logout")
