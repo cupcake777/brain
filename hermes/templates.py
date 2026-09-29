@@ -2607,7 +2607,7 @@ def gallery_page() -> str:
         '<img id="modal-img" src=""></div>'
         '<div class="iframe-modal" id="iframe-modal">'
         '<div class="iframe-header"><h3 id="iframe-title" data-i18n="gl_interactive">Interactive Chart</h3><span class="iframe-close" onclick="closeInteractive()">&times;</span></div>'
-        '<iframe id="iframe-chart" src="" sandbox="allow-scripts allow-same-origin"></iframe>'
+        '<iframe id="iframe-chart" src="" sandbox="allow-scripts"></iframe>'
         '</div>'
         '<div class="toast" id="toast"></div>'
         '</div>'

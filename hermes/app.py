@@ -15,7 +15,7 @@ from uuid import uuid4
 import httpx
 
 from fastapi import FastAPI, Form, HTTPException, Query, Request, Response
-from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, RedirectResponse
 
 from hermes.auth import CSRFMiddleware, DBFailClosedMiddleware, TokenAuthMiddleware
 from hermes.brain_protocol import register_brain_protocol_routes
@@ -1793,8 +1793,6 @@ def create_app(
     # ------------------------------------------------------------------
     # Plotting Gallery – renders sci-fig template gallery
     # ------------------------------------------------------------------
-    from fastapi.staticfiles import StaticFiles
-
     @app.get("/gallery", response_class=HTMLResponse)
     def gallery_route() -> str:
         return gallery_page()
@@ -1803,10 +1801,9 @@ def create_app(
     def gallery_detail_route(chart_name: str) -> str:
         return gallery_detail_page(chart_name)
 
-    # Serve demo images for the gallery
+    # Gallery storage is private by default. Individual catalog-declared assets
+    # are served by an allowlisted route below; never mount this root wholesale.
     _PLOTTING_STATIC = Path(os.environ.get("BRAIN_PLOTTING_DIR", ""))
-    if _PLOTTING_STATIC.is_dir():
-        app.mount("/gallery/static", StaticFiles(directory=str(_PLOTTING_STATIC)), name="gallery-static")
 
     # ------------------------------------------------------------------
     # Gallery REST API – catalog, templates, submit
@@ -1930,15 +1927,78 @@ def create_app(
 
         return {"charts": charts}
 
+    def _safe_gallery_relative_path(value: object) -> str | None:
+        """Normalize a catalog path without allowing absolute/traversal paths."""
+        raw = str(value or "")
+        if not raw or "\\" in raw or "\x00" in raw:
+            return None
+        candidate = Path(raw)
+        if candidate.is_absolute() or any(part in ("", ".", "..") for part in candidate.parts):
+            return None
+        return candidate.as_posix()
+
+    def _gallery_asset_allowlist() -> set[str]:
+        allowed: set[str] = set()
+        catalog = _load_catalog()
+        chart_names: set[str] = set()
+        for chart in catalog.get("charts", []):
+            chart_name = str(chart.get("name", ""))
+            if chart_name:
+                chart_names.add(chart_name)
+            for key in ("demo", "interactive", "template"):
+                relative = _safe_gallery_relative_path(chart.get(key))
+                if relative:
+                    allowed.add(relative)
+            for ext in (".py", ".R"):
+                relative = _safe_gallery_relative_path(f"templates/{chart_name}{ext}")
+                if chart_name and relative:
+                    allowed.add(relative)
+
+        try:
+            with _GALLERY_FEEDBACK.open(encoding="utf-8") as feedback:
+                for line in feedback:
+                    try:
+                        entry = _json.loads(line)
+                    except (TypeError, ValueError):
+                        continue
+                    if entry.get("action") != "upload_script" or str(entry.get("chart", "")) not in chart_names:
+                        continue
+                    filename = Path(str(entry.get("filename", ""))).name
+                    relative = _safe_gallery_relative_path(f"templates/{filename}")
+                    if relative and Path(filename).suffix.lower() in (".py", ".r"):
+                        allowed.add(relative)
+        except OSError:
+            pass
+        return allowed
+
+    def _safe_gallery_file(relative: str | None) -> Path | None:
+        """Resolve an allowlisted gallery file beneath the private gallery root."""
+        if relative is None or relative not in _gallery_asset_allowlist():
+            return None
+        root = _PLOTTING_STATIC.resolve()
+        target = (root / relative).resolve()
+        if not target.is_relative_to(root) or not target.is_file():
+            return None
+        return target
+
+    @app.get("/gallery/static/{asset_path:path}", response_class=FileResponse)
+    def gallery_static_asset(asset_path: str):
+        """Serve only files explicitly referenced by the local gallery catalog."""
+        relative = _safe_gallery_relative_path(asset_path)
+        target = _safe_gallery_file(relative)
+        if target is None:
+            raise HTTPException(status_code=404, detail="gallery asset not found")
+        return FileResponse(target)
+
     def _chart_status(name: str, chart: dict) -> dict:
         """Build per-chart status: has_template, has_demo, template_lang, template_size."""
-        _tpl_dir = _PLOTTING_STATIC / "templates"
         tpl_path = chart.get("template", "")
         files_found = []
         for ext in (".py", ".R"):
             fname = f"{name}{ext}"
-            fpath = _tpl_dir / fname
-            if fpath.is_file():
+            relative = _safe_gallery_relative_path(f"templates/{fname}")
+            fpath = _safe_gallery_file(relative)
+            if fpath is not None:
                 files_found.append({
                     "filename": fname,
                     "lang": "Python" if ext == ".py" else "R",
@@ -1946,9 +2006,10 @@ def create_app(
                 })
         # Also check explicit template path
         if tpl_path:
-            full_tpl = _PLOTTING_STATIC / tpl_path
+            relative = _safe_gallery_relative_path(tpl_path)
+            full_tpl = _safe_gallery_file(relative)
             tpl_fname = Path(tpl_path).name
-            if full_tpl.is_file() and not any(t["filename"] == tpl_fname for t in files_found):
+            if full_tpl is not None and not any(t["filename"] == tpl_fname for t in files_found):
                 ext = Path(tpl_fname).suffix.lower()
                 files_found.append({
                     "filename": tpl_fname,
@@ -1956,7 +2017,7 @@ def create_app(
                     "size": full_tpl.stat().st_size,
                 })
         demo_file = chart.get("demo", "")
-        has_demo = bool(demo_file) and (_PLOTTING_STATIC / demo_file).is_file()
+        has_demo = _safe_gallery_file(_safe_gallery_relative_path(demo_file)) is not None
         return {
             "has_template": len(files_found) > 0,
             "has_demo": has_demo,
@@ -2007,21 +2068,23 @@ def create_app(
             return {"ok": False, "error": f"Chart '{chart_name}' not found"}
         info = _chart_status(chart_name, chart)
         # Read template source code
-        tpl_dir = _PLOTTING_STATIC / "templates"
         sources = {}
         for ext in (".py", ".R"):
-            fpath = tpl_dir / f"{chart_name}{ext}"
-            if fpath.is_file():
+            filename = f"{chart_name}{ext}"
+            relative = _safe_gallery_relative_path(f"templates/{filename}")
+            fpath = _safe_gallery_file(relative)
+            if fpath is not None:
                 try:
-                    sources[f"{chart_name}{ext}"] = fpath.read_text(encoding="utf-8", errors="replace")
+                    sources[filename] = fpath.read_text(encoding="utf-8", errors="replace")
                 except Exception:
-                    sources[f"{chart_name}{ext}"] = f"[Error reading file]"
+                    sources[filename] = "[Error reading file]"
         # Check explicit template path
         tpl_path = chart.get("template", "")
         if tpl_path:
-            full_tpl = _PLOTTING_STATIC / tpl_path
+            relative = _safe_gallery_relative_path(tpl_path)
+            full_tpl = _safe_gallery_file(relative)
             tpl_fname = Path(tpl_path).name
-            if full_tpl.is_file() and tpl_fname not in sources:
+            if full_tpl is not None and tpl_fname not in sources:
                 try:
                     sources[tpl_fname] = full_tpl.read_text(encoding="utf-8", errors="replace")
                 except Exception:
@@ -2031,9 +2094,10 @@ def create_app(
         demo_file = chart.get("demo", "")
         demo_info = None
         if demo_file:
-            demo_path = _PLOTTING_STATIC / demo_file
-            if demo_path.is_file():
-                demo_info = {"filename": demo_file, "size": demo_path.stat().st_size, "url": f"/gallery/static/{demo_file}"}
+            relative = _safe_gallery_relative_path(demo_file)
+            demo_path = _safe_gallery_file(relative)
+            if demo_path is not None:
+                demo_info = {"filename": relative, "size": demo_path.stat().st_size, "url": f"/gallery/static/{relative}"}
 
         return {
             "ok": True,
@@ -2050,20 +2114,11 @@ def create_app(
     @app.get("/api/gallery/template/{filename}")
     def gallery_template_source_api(filename: str) -> dict:
         """Read a single template file source code."""
-        # Security: validate filename BEFORE any filesystem access
-        if ".." in filename or "/" in filename or "\\" in filename:
+        if filename != Path(filename).name or "\\" in filename or "\x00" in filename:
             return {"ok": False, "error": "Invalid filename"}
-        _tpl_dir = _PLOTTING_STATIC / "templates"
-        fpath = _tpl_dir / filename
-        # Resolve and verify the path stays within the templates directory
-        try:
-            fpath = fpath.resolve()
-            _tpl_dir_resolved = _tpl_dir.resolve()
-            if not str(fpath).startswith(str(_tpl_dir_resolved)):
-                return {"ok": False, "error": "Invalid filename"}
-        except Exception:
-            return {"ok": False, "error": "Invalid filename"}
-        if not fpath.is_file():
+        relative = _safe_gallery_relative_path(f"templates/{filename}")
+        fpath = _safe_gallery_file(relative)
+        if fpath is None:
             return {"ok": False, "error": f"Template file '{filename}' not found"}
         ext = fpath.suffix.lower()
         if ext not in (".py", ".r"):

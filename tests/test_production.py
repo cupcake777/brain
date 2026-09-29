@@ -437,6 +437,80 @@ class TestGallerySubmissionSurface:
         assert "/gallery/submitted" not in route_paths
         assert not (plotting_dir / "submitted_figures").exists()
 
+    def test_interactive_gallery_iframe_has_no_same_origin_capability(self) -> None:
+        from hermes.templates import gallery_page
+
+        html = gallery_page()
+        assert 'id="iframe-chart"' in html
+        assert 'sandbox="allow-scripts"' in html
+        assert "allow-same-origin" not in html
+
+    def test_gallery_static_serves_only_catalog_allowlisted_assets(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        plotting_dir = tmp_path / "plotting"
+        templates_dir = plotting_dir / "templates"
+        submitted_dir = plotting_dir / "submitted_figures"
+        templates_dir.mkdir(parents=True)
+        submitted_dir.mkdir()
+        (plotting_dir / "catalog.yaml").write_text(
+            "charts:\n"
+            "  - name: safe_chart\n"
+            "    title: Safe\n"
+            "    demo: demos/safe.png\n"
+            "    template: templates/safe_chart.py\n",
+            encoding="utf-8",
+        )
+        (plotting_dir / "demos").mkdir()
+        (plotting_dir / "demos" / "safe.png").write_bytes(b"safe-image")
+        (plotting_dir / "interactive").mkdir()
+        (plotting_dir / "interactive" / "safe.html").write_text(
+            "<script>window.parent.document.body.dataset.pwned='yes'</script>",
+            encoding="utf-8",
+        )
+        (templates_dir / "safe_chart.py").write_text("print('safe')", encoding="utf-8")
+        (templates_dir / "unlisted.py").write_text("print('private')", encoding="utf-8")
+        (plotting_dir / "secret.txt").write_text("secret", encoding="utf-8")
+        (submitted_dir / "old-poster.png").write_bytes(b"private")
+        monkeypatch.setenv("BRAIN_PLOTTING_DIR", str(plotting_dir))
+        *_, client = _make_stack(tmp_path)
+
+        assert client.get("/gallery/static/demos/safe.png").content == b"safe-image"
+        assert client.get("/gallery/static/templates/safe_chart.py").status_code == 200
+        assert client.get("/gallery/static/templates/unlisted.py").status_code == 404
+        assert client.get("/api/gallery/template/unlisted.py").json()["ok"] is False
+        assert client.get("/gallery/static/secret.txt").status_code == 404
+        assert client.get("/gallery/static/submitted_figures/old-poster.png").status_code == 404
+        assert client.get("/gallery/static/%2e%2e/secret.txt").status_code == 404
+
+    def test_gallery_catalog_paths_cannot_escape_or_follow_outside_symlinks(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        plotting_dir = tmp_path / "plotting"
+        templates_dir = plotting_dir / "templates"
+        demos_dir = plotting_dir / "demos"
+        templates_dir.mkdir(parents=True)
+        demos_dir.mkdir()
+        outside = tmp_path / "outside.py"
+        outside.write_text("secret", encoding="utf-8")
+        (templates_dir / "linked.py").symlink_to(outside)
+        (plotting_dir / "catalog.yaml").write_text(
+            "charts:\n"
+            "  - name: linked\n"
+            "    template: templates/linked.py\n"
+            "    demo: ../outside.py\n",
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("BRAIN_PLOTTING_DIR", str(plotting_dir))
+        *_, client = _make_stack(tmp_path)
+
+        assert client.get("/gallery/static/templates/linked.py").status_code == 404
+        detail = client.get("/api/gallery/catalog/linked").json()["chart"]
+        assert detail["has_template"] is False
+        assert detail["has_demo"] is False
+        assert detail["sources"] == {}
+        assert detail["demo"] is None
+
     def test_generic_gallery_uploader_is_retired(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
