@@ -2068,68 +2068,11 @@ def create_app(
 
     @app.post("/api/gallery/submit")
     async def gallery_submit_api(request: Request) -> dict:
-        """Submit a script (.py/.R) or demo image file. Also updates catalog.yaml if chart_name provided."""
-        content_type = request.headers.get("content-type", "")
-        chart_name = ""
-        filename = ""
-        file_data = b""
-        description = ""
-
-        if "multipart/form-data" in content_type:
-            form = await request.form()
-            chart_name = form.get("chart_name", "")
-            description = form.get("description", "")
-            upload = form.get("file")
-            if upload and hasattr(upload, "filename"):
-                filename = upload.filename or ""
-                file_data = await upload.read()
-        else:
-            body = await request.json()
-            chart_name = body.get("chart_name", "")
-            filename = body.get("filename", "")
-            # For JSON, content must be provided as base64 or text
-            import base64
-            raw = body.get("content", "")
-            description = body.get("description", "")
-            if body.get("encoding") == "base64":
-                file_data = base64.b64decode(raw)
-            else:
-                file_data = raw.encode("utf-8")
-
-        if not chart_name or not filename or not file_data:
-            return {"ok": False, "error": "chart_name, filename, and file content required"}
-
-        ext = Path(filename).suffix.lower()
-        if ext not in (".py", ".r", ".png", ".jpg", ".jpeg", ".svg"):
-            return {"ok": False, "error": f"Unsupported file type: {ext}"}
-
-        # Security: prevent path traversal
-        safe_name = Path(filename).name
-        if ".." in safe_name or "/" in safe_name:
-            return {"ok": False, "error": "Invalid filename"}
-
-        # Determine destination
-        if ext in (".py", ".r"):
-            dest = _PLOTTING_STATIC / "templates" / safe_name
-        else:
-            dest = _PLOTTING_STATIC / safe_name
-
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_bytes(file_data)
-
-        # Log to feedback
-        entry = {
-            "chart": chart_name,
-            "action": "submit_file",
-            "filename": safe_name,
-            "size_bytes": len(file_data),
-            "description": description,
-            "timestamp": _dt.now(_tz.utc).isoformat(),
-        }
-        with open(_GALLERY_FEEDBACK, "a") as f:
-            f.write(_json.dumps(entry) + "\n")
-
-        return {"ok": True, "filename": safe_name, "size": len(file_data), "destination": str(dest)}
+        """Retired unsafe generic uploader; use the typed upload routes."""
+        raise HTTPException(
+            status_code=410,
+            detail="generic gallery upload retired; use /api/gallery/upload_script or /api/gallery/submit_figure",
+        )
 
     # ------------------------------------------------------------------
     # Gallery feedback API – approve/suggest/reject for chart templates
@@ -2188,6 +2131,8 @@ def create_app(
             notes = form.get("notes", "")
             upload = form.get("file")
             if upload and hasattr(upload, "filename"):
+                if image_url:
+                    raise HTTPException(status_code=422, detail="provide either image_url or file, not both")
                 data = await upload.read(_MAX_FIGURE_UPLOAD_BYTES + 1)
                 if len(data) > _MAX_FIGURE_UPLOAD_BYTES:
                     raise HTTPException(status_code=413, detail="figure upload exceeds 10 MiB")
@@ -2234,7 +2179,7 @@ def create_app(
     app.mount("/gallery/submitted", StaticFiles(directory=str(_FIGURE_SUBMIT_DIR)), name="gallery-submitted")
 
     # ------------------------------------------------------------------
-    # Gallery script upload – accept .py/.R/.zip template files
+    # Gallery script upload – accept source templates only
     # ------------------------------------------------------------------
     _TEMPLATE_DIR = Path(os.environ.get("BRAIN_PLOTTING_DIR", "")) / "templates"
     _MAX_SCRIPT_UPLOAD_BYTES = 2 * 1024 * 1024
@@ -2259,8 +2204,8 @@ def create_app(
         # Security: only allow specific extensions. The client filename is never
         # used as the destination filename.
         ext = Path(normalized_name).suffix.lower()
-        if ext not in (".py", ".r", ".zip"):
-            raise HTTPException(status_code=422, detail="Only .py, .R, .zip files allowed")
+        if ext not in (".py", ".r"):
+            raise HTTPException(status_code=422, detail="Only .py and .R files allowed")
 
         data = await upload.read(_MAX_SCRIPT_UPLOAD_BYTES + 1)
         if len(data) > _MAX_SCRIPT_UPLOAD_BYTES:
@@ -2578,6 +2523,8 @@ def create_app(
                 and not parsed_avatar.netloc
                 and avatar_url.startswith("/")
                 and not avatar_url.startswith("//")
+                and "\\" not in avatar_url
+                and all(ord(char) >= 32 and ord(char) != 127 for char in avatar_url)
             )
             if not (is_https or is_local_path):
                 raise HTTPException(status_code=422, detail="avatar URL must use HTTPS or a local absolute path")

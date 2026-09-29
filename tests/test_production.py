@@ -251,6 +251,8 @@ class TestAvatarSecurity:
             "data:text/html,<script>alert(1)</script>",
             "http://example.test/avatar.png",
             "//example.test/avatar.png",
+            "/\\evil.example/avatar.png",
+            "/safe\nunsafe.png",
         ):
             response = client.post(
                 "/api/settings/profile",
@@ -332,6 +334,16 @@ class TestGalleryScriptUploadSecurity:
         assert response.status_code == 413
         assert list((plotting_dir / "templates").glob("*")) == []
 
+    def test_rejects_zip_upload(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        client, plotting_dir = self._client(tmp_path, monkeypatch)
+        response = client.post(
+            "/api/gallery/upload_script",
+            data={"chart_name": "test", "description": "test"},
+            files={"file": ("archive.zip", b"PK\x03\x04unsafe", "application/zip")},
+        )
+        assert response.status_code == 422
+        assert list((plotting_dir / "templates").glob("*")) == []
+
 
 class TestGalleryFigureSubmissionSecurity:
     @staticmethod
@@ -396,6 +408,31 @@ class TestGalleryFigureSubmissionSecurity:
         )
         assert response.status_code == 413
         assert list((plotting_dir / "submitted_figures").glob("*")) == []
+
+    def test_rejects_file_and_url_before_writing(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        client, plotting_dir = self._client(tmp_path, monkeypatch)
+        png = b"\x89PNG\r\n\x1a\n" + b"safe-test-payload"
+        response = client.post(
+            "/api/gallery/submit_figure",
+            data={"image_url": "http://127.0.0.1/private.png"},
+            files={"file": ("figure.png", png, "image/png")},
+        )
+        assert response.status_code == 422
+        assert list((plotting_dir / "submitted_figures").glob("*")) == []
+
+    def test_generic_gallery_uploader_is_retired(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        client, plotting_dir = self._client(tmp_path, monkeypatch)
+        response = client.post(
+            "/api/gallery/submit",
+            files={"file": ("unsafe.svg", b"<svg onload='alert(1)'></svg>", "image/svg+xml")},
+            data={"chart_name": "test"},
+        )
+        assert response.status_code == 410
+        assert list(plotting_dir.glob("*")) == [plotting_dir / "submitted_figures"]
 
 
 class TestEvictionService:

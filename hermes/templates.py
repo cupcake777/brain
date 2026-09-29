@@ -1204,7 +1204,7 @@ document.addEventListener('click',function(e){
 <title>{_html.escape(title)}</title>
 <style>{_DARK_CSS}</style>
 <script>var _I18N={_json.dumps(_I18N_DICT, ensure_ascii=False)};function _t(key){{var lang=localStorage.getItem('hermes_lang')||'zh';var dict=_I18N[lang]||_I18N.zh;return dict[key]||key;}}function applyI18n(lang){{if(!lang)lang=localStorage.getItem('hermes_lang')||'zh';var dict=_I18N[lang]||_I18N.zh;document.querySelectorAll('[data-i18n]').forEach(function(el){{var key=el.getAttribute('data-i18n');if(dict[key])el.textContent=dict[key];}});document.querySelectorAll('[data-i18n-ph]').forEach(function(el){{var key=el.getAttribute('data-i18n-ph');if(dict[key])el.placeholder=dict[key];}});var g=document.getElementById('dash-greeting-text');if(g){{var h=new Date().getHours();var name=localStorage.getItem('hermes_display_name')||dict.pf_explorer;g.textContent=(h<12?dict.greeting_morning:h<18?dict.greeting_afternoon:dict.greeting_evening)+dict.time_comma+name;}}}}function switchLang(lang){{localStorage.setItem('hermes_lang',lang);var sel=document.getElementById('lang-select');if(sel)sel.value=lang;applyI18n(lang);}}</script>
-<script>(function(){{var t=localStorage.getItem('hermes_theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');else if(t==='modern-dark')document.documentElement.setAttribute('data-theme','modern-dark');}})();function renderStoredAvatar(){{var a=localStorage.getItem('hermes_avatar_url');var sa=document.getElementById('sidebar-avatar');if(!a||!sa)return;try{{var u=new URL(a,window.location.origin);if(u.protocol!=='https:'&&u.origin!==window.location.origin)return;var img=document.createElement('img');img.alt='';img.src=u.href;img.style.cssText='width:100%;height:100%;object-fit:cover;border-radius:50%';img.addEventListener('error',function(){{sa.replaceChildren(document.createTextNode('👤'));}},{{once:true}});sa.replaceChildren(img);}}catch(_err){{return;}}}}document.addEventListener('DOMContentLoaded',function(){{var n=localStorage.getItem('hermes_display_name');if(n){{var su=document.getElementById('sidebar-username');if(su)su.textContent=n;}}renderStoredAvatar();applyI18n();}});</script>
+<script>(function(){{var t=localStorage.getItem('hermes_theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');else if(t==='modern-dark')document.documentElement.setAttribute('data-theme','modern-dark');}})();function renderStoredAvatar(){{var a=localStorage.getItem('hermes_avatar_url');var sa=document.getElementById('sidebar-avatar');if(!a||!sa)return;for(var c=0;c<a.length;c++){{var n=a.charCodeAt(c);if(n<32||n===127)return;}}if(a.includes(String.fromCharCode(92)))return;try{{var u=new URL(a,window.location.origin);var absHttps=a.toLowerCase().startsWith('https://')&&u.protocol==='https:';var localPath=a.startsWith('/')&&!a.startsWith('//')&&u.origin===window.location.origin;if(!absHttps&&!localPath)return;var img=document.createElement('img');img.alt='';img.src=u.href;img.style.cssText='width:100%;height:100%;object-fit:cover;border-radius:50%';img.addEventListener('error',function(){{sa.replaceChildren(document.createTextNode('👤'));}},{{once:true}});sa.replaceChildren(img);}}catch(_err){{return;}}}}document.addEventListener('DOMContentLoaded',function(){{var n=localStorage.getItem('hermes_display_name');if(n){{var su=document.getElementById('sidebar-username');if(su)su.textContent=n;}}renderStoredAvatar();applyI18n();}});</script>
 </head>
 <body>
 {nav_html}
@@ -2622,8 +2622,7 @@ def gallery_page() -> str:
         '</div></div>'
         '<div class="submit-form" id="submit-form">'
         '<div class="submit-grid">'
-        '<div><label data-i18n="gl_image_url">Image URL</label><input type="text" id="submit-url" data-i18n-ph="gl_image_url_ph" placeholder="https://..."></div>'
-        '<div><label data-i18n="gl_or_upload">Or Upload</label><input type="file" id="submit-file" accept="image/*"></div>'
+        '<div><label data-i18n="gl_or_upload">Upload image</label><input type="file" id="submit-file" accept="image/png,image/jpeg,image/webp"></div>'
         '</div>'
         '<div class="submit-notes-row"><label data-i18n="gl_notes">Notes</label>'
         '<textarea id="submit-notes" rows="2" data-i18n-ph="gl_notes_ph" placeholder="Figure type, paper source, what you like..."></textarea></div>'
@@ -2723,21 +2722,18 @@ function toggleSubmitForm() {
   form.classList.toggle('open');
 }
 function submitFigure() {
-  var urlInput = document.getElementById('submit-url');
   var fileInput = document.getElementById('submit-file');
   var notesInput = document.getElementById('submit-notes');
-  var url = urlInput.value.trim();
   var notes = notesInput.value.trim();
   var file = fileInput.files[0];
 
-  if (!url && !file) {
+  if (!file) {
     showToast(_t('toast_enter_url_or_file'), 'reject');
     return;
   }
 
   var formData = new FormData();
-  if (url) formData.append('image_url', url);
-  if (file) formData.append('file', file);
+  formData.append('file', file);
   if (notes) formData.append('notes', notes);
 
   fetch('/api/gallery/submit_figure', {
@@ -2749,7 +2745,6 @@ function submitFigure() {
   }).then(function(data) {
     if (data.ok) {
       showToast(_t('toast_figure_submitted'), 'approve');
-      urlInput.value = '';
       notesInput.value = '';
       fileInput.value = '';
       document.getElementById('submit-form').classList.remove('open');
@@ -2915,6 +2910,23 @@ def gallery_detail_page(name: str) -> str:
             lang = "Python" if ext == ".py" else "R"
             template_files.append({"filename": fname, "size": fsize, "lang": lang})
 
+    # Uploaded templates use generated storage names. Recover the chart-to-file
+    # mapping from the append-only feedback log instead of trusting client names.
+    for entry in feedback_entries:
+        if entry.get("action") != "upload_script":
+            continue
+        fname = _os.path.basename(str(entry.get("filename", "")))
+        ext = _os.path.splitext(fname)[1].lower()
+        if not fname or ext not in (".py", ".r"):
+            continue
+        fpath = _os.path.join(_templates_dir, fname)
+        if _os.path.isfile(fpath) and not any(t["filename"] == fname for t in template_files):
+            template_files.append({
+                "filename": fname,
+                "size": _os.path.getsize(fpath),
+                "lang": "Python" if ext == ".py" else "R",
+            })
+
     # Also check the explicit template path from catalog
     tpl_path = chart.get("template", "")
     if tpl_path:
@@ -3063,7 +3075,7 @@ def gallery_detail_page(name: str) -> str:
         f'style="display:flex;flex-direction:column;gap:10px;">'
         f'<input type="hidden" name="chart_name" value="{_html.escape(name)}">'
         '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
-        '<input type="file" name="file" accept=".py,.R,.zip" '
+        '<input type="file" name="file" accept=".py,.R" '
         'style="padding:6px;border:1px solid var(--border-hover);border-radius:var(--r-sm);'
         'background:var(--bg);color:var(--ink);font-size:12px;flex:1;min-width:200px;">'
         '<input type="text" name="description" placeholder="描述（可选）" '
