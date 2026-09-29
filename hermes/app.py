@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict as _asdict
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urlparse
 
 import httpx
 
@@ -2541,8 +2542,20 @@ def create_app(
             cleaned["lang"] = _PROFILE_DEFAULTS["lang"]
         if len(cleaned["display_name"]) > 40:
             cleaned["display_name"] = cleaned["display_name"][:40]
-        if len(cleaned["avatar_url"]) > 300000:
-            raise HTTPException(status_code=413, detail="avatar too large")
+        avatar_url = cleaned["avatar_url"]
+        if len(avatar_url) > 2048:
+            raise HTTPException(status_code=413, detail="avatar URL too large")
+        if avatar_url:
+            parsed_avatar = urlparse(avatar_url)
+            is_https = parsed_avatar.scheme == "https" and bool(parsed_avatar.netloc)
+            is_local_path = (
+                not parsed_avatar.scheme
+                and not parsed_avatar.netloc
+                and avatar_url.startswith("/")
+                and not avatar_url.startswith("//")
+            )
+            if not (is_https or is_local_path):
+                raise HTTPException(status_code=422, detail="avatar URL must use HTTPS or a local absolute path")
         _PROFILE_PATH.parent.mkdir(parents=True, exist_ok=True)
         tmp_path = _PROFILE_PATH.with_suffix(".tmp")
         tmp_path.write_text(json.dumps(cleaned, ensure_ascii=False, indent=2), encoding="utf-8")

@@ -15,6 +15,7 @@ from hermes.ingest import IngestionService
 from hermes.notifier import NotificationRouter, TelegramNotifier
 from hermes.proposals import ProposalWriter
 from hermes.repository import HermesRepository
+from hermes.templates import _page
 
 
 # -- helpers -----------------------------------------------------------------
@@ -239,6 +240,39 @@ class TestMobileReviewUI:
 
         resp = client.get("/review?state=all")
         assert resp.status_code == 200
+
+
+class TestAvatarSecurity:
+    def test_profile_rejects_unsafe_avatar_schemes(self, tmp_path: Path) -> None:
+        _, _, _, _, _, client = _make_stack(tmp_path)
+        for value in (
+            "javascript:alert(1)",
+            "data:text/html,<script>alert(1)</script>",
+            "http://example.test/avatar.png",
+            "//example.test/avatar.png",
+        ):
+            response = client.post(
+                "/api/settings/profile",
+                data={"display_name": "test", "avatar_url": value, "theme": "light", "lang": "zh"},
+            )
+            assert response.status_code == 422
+
+    def test_profile_accepts_https_and_local_avatar_paths(self, tmp_path: Path) -> None:
+        _, _, _, _, _, client = _make_stack(tmp_path)
+        for value in ("https://example.test/avatar.png", "/static/avatar.png"):
+            response = client.post(
+                "/api/settings/profile",
+                data={"display_name": "test", "avatar_url": value, "theme": "light", "lang": "zh"},
+            )
+            assert response.status_code == 200
+            assert response.json()["profile"]["avatar_url"] == value
+
+    def test_page_uses_dom_api_for_stored_avatar(self) -> None:
+        html = _page("test", "<main>test</main>")
+        assert "renderStoredAvatar" in html
+        assert "sa.replaceChildren(img)" in html
+        assert "sa.innerHTML='<img src" not in html
+        assert "onerror=" not in html
 
 
 # -- eviction tests -----------------------------------------------------------
