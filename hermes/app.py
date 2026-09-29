@@ -2162,16 +2162,23 @@ def create_app(
     # ------------------------------------------------------------------
     _FIGURE_SUBMIT_DIR = Path(os.environ.get("BRAIN_PLOTTING_DIR", "")) / "submitted_figures"
     _FIGURE_SUBMIT_DIR.mkdir(parents=True, exist_ok=True)
+    _MAX_FIGURE_UPLOAD_BYTES = 10 * 1024 * 1024
+
+    def _figure_extension(data: bytes) -> str | None:
+        if data.startswith(b"\x89PNG\r\n\x1a\n"):
+            return ".png"
+        if data.startswith(b"\xff\xd8\xff"):
+            return ".jpg"
+        if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+            return ".webp"
+        return None
 
     @app.post("/api/gallery/submit_figure")
     async def gallery_submit_figure(request: Request) -> dict:
         """Submit a figure image URL or upload for reverse-engineering analysis."""
-        import urllib.request as _urlreq
-        import hashlib as _hashlib
         content_type = request.headers.get("content-type", "")
 
         image_url = ""
-        image_b64 = ""
         notes = ""
 
         if "multipart/form-data" in content_type:
@@ -2181,11 +2188,18 @@ def create_app(
             notes = form.get("notes", "")
             upload = form.get("file")
             if upload and hasattr(upload, "filename"):
-                data = await upload.read()
-                ext = Path(upload.filename or "img.png").suffix or ".png"
-                fname = _hashlib.md5(data).hexdigest()[:12] + ext
-                fpath = _FIGURE_SUBMIT_DIR / fname
-                fpath.write_bytes(data)
+                data = await upload.read(_MAX_FIGURE_UPLOAD_BYTES + 1)
+                if len(data) > _MAX_FIGURE_UPLOAD_BYTES:
+                    raise HTTPException(status_code=413, detail="figure upload exceeds 10 MiB")
+                ext = _figure_extension(data)
+                if ext is None:
+                    raise HTTPException(status_code=422, detail="figure must be PNG, JPEG, or WebP")
+                fname = f"{uuid4().hex}{ext}"
+                fpath = (_FIGURE_SUBMIT_DIR.resolve() / fname).resolve()
+                if not fpath.is_relative_to(_FIGURE_SUBMIT_DIR.resolve()):
+                    raise HTTPException(status_code=422, detail="invalid figure destination")
+                with fpath.open("xb") as output:
+                    output.write(data)
                 image_url = image_url or f"/gallery/submitted/{fname}"
         else:
             body = await request.json()
@@ -2195,21 +2209,16 @@ def create_app(
         if not image_url:
             return {"ok": False, "error": "image_url or file required"}
 
-        # Download remote URLs locally
-        if image_url.startswith("http"):
-            try:
-                resp = _urlreq.urlopen(image_url, timeout=15)
-                data = resp.read()
-                ext = Path(image_url.split("?")[0]).suffix or ".png"
-                if len(ext) > 5:
-                    ext = ".png"
-                fname = _hashlib.md5(data).hexdigest()[:12] + ext
-                fpath = _FIGURE_SUBMIT_DIR / fname
-                fpath.write_bytes(data)
-                image_url = f"/gallery/submitted/{fname}"
-            except Exception as e:
-                # Keep original URL if download fails
-                pass
+        # Remote fetches are intentionally disabled. Fetching a caller-supplied
+        # URL from the web process would expose loopback and private services.
+        submitted_prefix = "/gallery/submitted/"
+        parsed_image_url = urlparse(str(image_url))
+        if parsed_image_url.scheme or parsed_image_url.netloc:
+            raise HTTPException(status_code=422, detail="remote figure URLs are disabled; upload the image file")
+        submitted_name = Path(str(image_url)).name
+        canonical_image_url = f"{submitted_prefix}{submitted_name}"
+        if str(image_url) != canonical_image_url or not (_FIGURE_SUBMIT_DIR / submitted_name).is_file():
+            raise HTTPException(status_code=422, detail="invalid figure reference")
 
         entry = {
             "action": "analyze_figure",
