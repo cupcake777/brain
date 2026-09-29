@@ -2068,10 +2068,10 @@ def create_app(
 
     @app.post("/api/gallery/submit")
     async def gallery_submit_api(request: Request) -> dict:
-        """Retired unsafe generic uploader; use the typed upload routes."""
+        """Retired unsafe generic uploader; use the typed script upload route."""
         raise HTTPException(
             status_code=410,
-            detail="generic gallery upload retired; use /api/gallery/upload_script or /api/gallery/submit_figure",
+            detail="generic gallery upload retired; use /api/gallery/upload_script",
         )
 
     # ------------------------------------------------------------------
@@ -2099,84 +2099,6 @@ def create_app(
         with open(_GALLERY_FEEDBACK, "a") as f:
             f.write(_json.dumps(entry) + "\n")
         return {"ok": True, "action": action, "chart": chart}
-
-    # ------------------------------------------------------------------
-    # Gallery figure submission – submit an external figure for analysis
-    # ------------------------------------------------------------------
-    _FIGURE_SUBMIT_DIR = Path(os.environ.get("BRAIN_PLOTTING_DIR", "")) / "submitted_figures"
-    _FIGURE_SUBMIT_DIR.mkdir(parents=True, exist_ok=True)
-    _MAX_FIGURE_UPLOAD_BYTES = 10 * 1024 * 1024
-
-    def _figure_extension(data: bytes) -> str | None:
-        if data.startswith(b"\x89PNG\r\n\x1a\n"):
-            return ".png"
-        if data.startswith(b"\xff\xd8\xff"):
-            return ".jpg"
-        if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
-            return ".webp"
-        return None
-
-    @app.post("/api/gallery/submit_figure")
-    async def gallery_submit_figure(request: Request) -> dict:
-        """Submit a figure image URL or upload for reverse-engineering analysis."""
-        content_type = request.headers.get("content-type", "")
-
-        image_url = ""
-        notes = ""
-
-        if "multipart/form-data" in content_type:
-            # Handle file upload
-            form = await request.form()
-            image_url = form.get("image_url", "")
-            notes = form.get("notes", "")
-            upload = form.get("file")
-            if upload and hasattr(upload, "filename"):
-                if image_url:
-                    raise HTTPException(status_code=422, detail="provide either image_url or file, not both")
-                data = await upload.read(_MAX_FIGURE_UPLOAD_BYTES + 1)
-                if len(data) > _MAX_FIGURE_UPLOAD_BYTES:
-                    raise HTTPException(status_code=413, detail="figure upload exceeds 10 MiB")
-                ext = _figure_extension(data)
-                if ext is None:
-                    raise HTTPException(status_code=422, detail="figure must be PNG, JPEG, or WebP")
-                fname = f"{uuid4().hex}{ext}"
-                fpath = (_FIGURE_SUBMIT_DIR.resolve() / fname).resolve()
-                if not fpath.is_relative_to(_FIGURE_SUBMIT_DIR.resolve()):
-                    raise HTTPException(status_code=422, detail="invalid figure destination")
-                with fpath.open("xb") as output:
-                    output.write(data)
-                image_url = image_url or f"/gallery/submitted/{fname}"
-        else:
-            body = await request.json()
-            image_url = body.get("image_url", "")
-            notes = body.get("notes", "")
-
-        if not image_url:
-            return {"ok": False, "error": "image_url or file required"}
-
-        # Remote fetches are intentionally disabled. Fetching a caller-supplied
-        # URL from the web process would expose loopback and private services.
-        submitted_prefix = "/gallery/submitted/"
-        parsed_image_url = urlparse(str(image_url))
-        if parsed_image_url.scheme or parsed_image_url.netloc:
-            raise HTTPException(status_code=422, detail="remote figure URLs are disabled; upload the image file")
-        submitted_name = Path(str(image_url)).name
-        canonical_image_url = f"{submitted_prefix}{submitted_name}"
-        if str(image_url) != canonical_image_url or not (_FIGURE_SUBMIT_DIR / submitted_name).is_file():
-            raise HTTPException(status_code=422, detail="invalid figure reference")
-
-        entry = {
-            "action": "analyze_figure",
-            "image_url": image_url,
-            "notes": notes,
-            "timestamp": _dt.now(_tz.utc).isoformat(),
-        }
-        with open(_GALLERY_FEEDBACK, "a") as f:
-            f.write(_json.dumps(entry) + "\n")
-        return {"ok": True, "image_url": image_url, "notes": notes}
-
-    # Serve submitted figures
-    app.mount("/gallery/submitted", StaticFiles(directory=str(_FIGURE_SUBMIT_DIR)), name="gallery-submitted")
 
     # ------------------------------------------------------------------
     # Gallery script upload – accept source templates only

@@ -128,10 +128,7 @@ _I18N_DICT = {
         "gl_title": "Sci-Fig Gallery",
         "gl_subtitle": "科研图表模板库 — 查看、审核与贡献",
         "gl_search": "搜索图表…", "gl_showing": "显示", "gl_of": "/",
-        "gl_submit": "+ 提交", "gl_image_url": "图片链接",
-        "gl_image_url_ph": "https://...", "gl_or_upload": "或上传",
-        "gl_notes": "备注", "gl_notes_ph": "图表类型、论文来源、你喜欢什么…",
-        "gl_submit_btn": "提交", "gl_interactive": "交互式图表",
+        "gl_submit": "+ 提交", "gl_interactive": "交互式图表",
         "gl_planned": "计划中",
         "gl_suggest": "✎ 建议", "gl_suggest_ph": "输入建议…",
         "gl_approve_btn": "✓ 批准",
@@ -278,10 +275,7 @@ _I18N_DICT = {
         "gl_title": "Sci-Fig Gallery",
         "gl_subtitle": "Scientific figure template library — view, approve, and contribute",
         "gl_search": "Search charts…", "gl_showing": "Showing", "gl_of": "of",
-        "gl_submit": "+ Submit", "gl_image_url": "Image URL",
-        "gl_image_url_ph": "https://...", "gl_or_upload": "Or Upload",
-        "gl_notes": "Notes", "gl_notes_ph": "Figure type, paper source, what you like…",
-        "gl_submit_btn": "Submit", "gl_interactive": "Interactive Chart",
+        "gl_submit": "+ Submit", "gl_interactive": "Interactive Chart",
         "gl_planned": "Planned",
         "gl_suggest": "✎ Suggest", "gl_suggest_ph": "Enter your suggestion…",
         "gl_approve_btn": "✓ Approve",
@@ -2509,19 +2503,6 @@ def gallery_page() -> str:
 .toast.suggest { background: var(--primary); }
 .toast.reject { background: var(--danger); }
 
-/* ── Submit Figure ── */
-.submit-form { display: none; margin-top: 10px; margin-bottom: 12px; }
-.submit-form.open { display: block; }
-.submit-toggle-btn { background: var(--card); border: 1px solid var(--border-hover); color: var(--ink-muted); padding: 6px 16px; border-radius: var(--r-pill); cursor: pointer; font-size: 12px; transition: all var(--duration) var(--ease-out); }
-.submit-toggle-btn:hover { background: var(--card-hover); border-color: var(--primary); color: var(--primary); }
-.submit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-width: 600px; margin: 0 auto; }
-.submit-grid label, .submit-notes-row label { color: var(--ink-muted); font-size: 11px; display: block; margin-bottom: 2px; }
-.submit-grid input[type="text"], .submit-grid input[type="file"] { width: 100%; padding: 6px 8px; border: 1px solid var(--border-hover); border-radius:var(--r-sm); background: var(--bg); color: var(--ink); font-size: 12px; box-sizing: border-box; }
-.submit-grid input[type="file"] { padding: 4px; }
-.submit-notes-row { max-width: 600px; margin: 6px auto 0; }
-.submit-notes-row textarea { width: 100%; padding: 6px 8px; border: 1px solid var(--border-hover); border-radius:var(--r-sm); background: var(--bg); color: var(--ink); font-size: 12px; resize: vertical; box-sizing: border-box; min-height: 40px; }
-.submit-actions { max-width: 600px; margin: 6px auto 0; text-align: right; }
-.submit-go { padding: 6px 16px; border-radius:var(--r-sm); background: var(--primary); color: var(--bg); border: none; font-size: 12px; cursor: pointer; }
 
 /* ── Approved State ── */
 .has-approved { border-left-color: var(--success) !important; }
@@ -2618,16 +2599,7 @@ def gallery_page() -> str:
         '</div>'
         '<div class="toolbar-actions">'
         f'<span class="card-count" id="card-count" data-i18n-args data-i18n="gl_showing">Showing {_total} of {_total}</span>'
-        '<button class="submit-toggle-btn" data-i18n="gl_submit" onclick="toggleSubmitForm()">+ Submit</button>'
         '</div></div>'
-        '<div class="submit-form" id="submit-form">'
-        '<div class="submit-grid">'
-        '<div><label data-i18n="gl_or_upload">Upload image</label><input type="file" id="submit-file" accept="image/png,image/jpeg,image/webp"></div>'
-        '</div>'
-        '<div class="submit-notes-row"><label data-i18n="gl_notes">Notes</label>'
-        '<textarea id="submit-notes" rows="2" data-i18n-ph="gl_notes_ph" placeholder="Figure type, paper source, what you like..."></textarea></div>'
-        '<div class="submit-actions"><button class="submit-go" data-i18n="gl_submit_btn" onclick="submitFigure()">Submit</button></div>'
-        '</div>'
         '<div class="filter-bar">' + filter_btns + '</div>'
         + _build_palettes_section()
         + '<div class="gallery-grid">' + chart_cards + '</div>'
@@ -2693,10 +2665,8 @@ function feedback(chart, action, ev) {
     body: JSON.stringify({chart: chart, action: action, suggestion: ''}),
     credentials: 'same-origin'
   }).then(function(r) {
-if (r.ok) { showToast(chart + (action === 'approve' ? ' ✓ ' + _t('toast_approved') : ' ✕ ' + _t('toast_rejected')), action); }
+    if (r.ok) { showToast(chart + (action === 'approve' ? ' ✓ ' + _t('toast_approved') : ' ✕ ' + _t('toast_rejected')), action); }
     else { showToast(_t('toast_error') + ': ' + r.status, 'reject'); }
-  }
-  showToast(chart + (action === 'approve' ? ' ✓ ' + _t('toast_approved') : ' ✕ ' + _t('toast_rejected')), action);
   });
 }
 function submitSuggest(chart) {
@@ -2715,45 +2685,6 @@ function submitSuggest(chart) {
   });
   var input = textarea.closest('.suggest-input');
   if (input) input.remove();
-}
-// Submit figure for analysis
-function toggleSubmitForm() {
-  var form = document.getElementById('submit-form');
-  form.classList.toggle('open');
-}
-function submitFigure() {
-  var fileInput = document.getElementById('submit-file');
-  var notesInput = document.getElementById('submit-notes');
-  var notes = notesInput.value.trim();
-  var file = fileInput.files[0];
-
-  if (!file) {
-    showToast(_t('toast_enter_url_or_file'), 'reject');
-    return;
-  }
-
-  var formData = new FormData();
-  formData.append('file', file);
-  if (notes) formData.append('notes', notes);
-
-  fetch('/api/gallery/submit_figure', {
-    method: 'POST',
-    body: formData
-  }).then(function(r) {
-    if (r.ok) { return r.json(); }
-    throw new Error('Server error: ' + r.status);
-  }).then(function(data) {
-    if (data.ok) {
-      showToast(_t('toast_figure_submitted'), 'approve');
-      notesInput.value = '';
-      fileInput.value = '';
-      document.getElementById('submit-form').classList.remove('open');
-    } else {
-      showToast(data.error || _t('toast_error'), 'reject');
-    }
-  }).catch(function(e) {
-    showToast(_t('toast_error') + ': ' + e.message, 'reject');
-  });
 }
 // Search functionality
 var searchInput = document.getElementById('gallery-search');

@@ -345,94 +345,28 @@ class TestGalleryScriptUploadSecurity:
         assert list((plotting_dir / "templates").glob("*")) == []
 
 
-class TestGalleryFigureSubmissionSecurity:
-    @staticmethod
-    def _client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[TestClient, Path]:
+class TestGallerySubmissionSurface:
+    def test_poster_submission_routes_are_absent(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         plotting_dir = tmp_path / "plotting"
         monkeypatch.setenv("BRAIN_PLOTTING_DIR", str(plotting_dir))
         *_, client = _make_stack(tmp_path)
-        return client, plotting_dir
 
-    @pytest.mark.parametrize(
-        "url",
-        (
-            "http://127.0.0.1:8083/private.png",
-            "http://169.254.169.254/latest/meta-data/",
-            "https://example.test/figure.png",
-            "file:///etc/passwd",
-        ),
-    )
-    def test_rejects_remote_and_nonlocal_figure_references(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, url: str
-    ) -> None:
-        client, plotting_dir = self._client(tmp_path, monkeypatch)
-        response = client.post("/api/gallery/submit_figure", json={"image_url": url, "notes": "test"})
-        assert response.status_code == 422
-        assert list((plotting_dir / "submitted_figures").glob("*")) == []
-
-    def test_accepts_sniffed_png_with_server_generated_name(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        client, plotting_dir = self._client(tmp_path, monkeypatch)
-        png = b"\x89PNG\r\n\x1a\n" + b"safe-test-payload"
-        response = client.post(
-            "/api/gallery/submit_figure",
-            data={"notes": "test"},
-            files={"file": ("../../unsafe.svg", png, "image/svg+xml")},
-        )
-        assert response.status_code == 200
-        stored_url = response.json()["image_url"]
-        assert stored_url.startswith("/gallery/submitted/")
-        assert stored_url.endswith(".png")
-        stored = plotting_dir / "submitted_figures" / Path(stored_url).name
-        assert stored.read_bytes() == png
-
-    def test_rejects_svg_disguised_as_png(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        client, plotting_dir = self._client(tmp_path, monkeypatch)
-        response = client.post(
-            "/api/gallery/submit_figure",
-            files={"file": ("figure.png", b"<svg onload='alert(1)'></svg>", "image/png")},
-        )
-        assert response.status_code == 422
-        assert list((plotting_dir / "submitted_figures").glob("*")) == []
-
-    def test_rejects_oversized_figure_without_partial_file(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        client, plotting_dir = self._client(tmp_path, monkeypatch)
-        response = client.post(
-            "/api/gallery/submit_figure",
-            files={"file": ("large.png", b"\x89PNG\r\n\x1a\n" + b"x" * (10 * 1024 * 1024), "image/png")},
-        )
-        assert response.status_code == 413
-        assert list((plotting_dir / "submitted_figures").glob("*")) == []
-
-    def test_rejects_file_and_url_before_writing(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        client, plotting_dir = self._client(tmp_path, monkeypatch)
-        png = b"\x89PNG\r\n\x1a\n" + b"safe-test-payload"
-        response = client.post(
-            "/api/gallery/submit_figure",
-            data={"image_url": "http://127.0.0.1/private.png"},
-            files={"file": ("figure.png", png, "image/png")},
-        )
-        assert response.status_code == 422
-        assert list((plotting_dir / "submitted_figures").glob("*")) == []
+        route_paths = [getattr(route, "path", None) for route in getattr(client.app, "routes", ())]
+        assert "/api/gallery/submit_figure" not in route_paths
+        assert "/gallery/submitted" not in route_paths
+        assert not (plotting_dir / "submitted_figures").exists()
 
     def test_generic_gallery_uploader_is_retired(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        client, plotting_dir = self._client(tmp_path, monkeypatch)
-        response = client.post(
-            "/api/gallery/submit",
-            files={"file": ("unsafe.svg", b"<svg onload='alert(1)'></svg>", "image/svg+xml")},
-            data={"chart_name": "test"},
-        )
+        plotting_dir = tmp_path / "plotting"
+        monkeypatch.setenv("BRAIN_PLOTTING_DIR", str(plotting_dir))
+        *_, client = _make_stack(tmp_path)
+        response = client.post("/api/gallery/submit", data={"chart_name": "test"})
         assert response.status_code == 410
-        assert list(plotting_dir.glob("*")) == [plotting_dir / "submitted_figures"]
+        assert not plotting_dir.exists()
 
 
 class TestEvictionService:
