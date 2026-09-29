@@ -1,9 +1,12 @@
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
+import inspect
 
 from fastapi.testclient import TestClient
 
 from hermes.app import create_app
+from hermes.homebase import home_page
 from hermes.cassette import _agent_rows, _project_rows, _safe_review_href, cassette_page
 from hermes.config import HermesConfig
 from hermes.ingest import IngestionService
@@ -43,12 +46,12 @@ def _add_pending_proposal(repo: HermesRepository, sync_root: Path) -> str:
     return IngestionService(repo=repo, sync_root=sync_root).ingest_path(proposal_path).proposal_id
 
 
-def test_root_renders_homebase_with_live_brain_and_signal_data(tmp_path: Path, monkeypatch) -> None:
+def test_root_renders_engram_home_with_only_knowledge_and_gallery_modules(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
     board_path = tmp_path / "self/knowledge/daily-learnings/linuxdo-board.json"
     board_path.parent.mkdir(parents=True)
     board_path.write_text(
-        '{"updated_at":"2026-07-19T07:30:00Z","items":[{"title":"Live signal from the Brain board","url":"https://example.test/live"},{"title":"Untrusted signal","url":"javascript:alert(1)"}]}',
+        '{"updated_at":"2026-07-19T07:30:00Z","items":[{"title":"Infrastructure signal that must not leak into Home","url":"https://example.test/live"}]}',
         encoding="utf-8",
     )
 
@@ -59,23 +62,164 @@ def test_root_renders_homebase_with_live_brain_and_signal_data(tmp_path: Path, m
 
     assert response.status_code == 200
     html = response.text
-    assert "<title>Homebase · Brain</title>" in html
-    assert 'class="homebase-sidebar"' in html
-    assert 'id="home-system-pulse"' in html
-    assert 'id="home-attention"' in html
-    assert 'id="home-servers"' in html
-    assert 'id="home-agents"' in html
-    assert 'id="home-projects"' in html
-    assert 'id="home-signals"' in html
-    assert "System Pulse" in html
-    assert "Needs your attention" in html
+    assert "<title>Engram · Brain</title>" in html
+    assert 'class="engram-home"' in html
+    assert 'id="engram-ledger"' in html
+    assert 'id="engram-knowledge"' in html
+    assert 'id="engram-gallery"' in html
+    assert 'href="/knowledge"' in html
+    assert 'href="/gallery"' in html
     assert "Homebase live proposal requires a decision." in html
     assert proposal_id in html
-    assert "Live signal from the Brain board" in html
-    assert 'href="javascript:alert(1)"' not in html
-    assert 'href="/linuxdo"' in html
+
+    forbidden = (
+        "homebase-sidebar",
+        "home-system-pulse",
+        "home-servers",
+        "home-agents",
+        "home-projects",
+        "home-signals",
+        "System Pulse",
+        "Infrastructure signal that must not leak into Home",
+        'href="/fleet"',
+        'href="/hub"',
+        'href="/linuxdo"',
+        'href="/control"',
+        "/api/vps/fleet",
+        "/api/dashboard/health",
+        "/api/render",
+    )
+    assert not [marker for marker in forbidden if marker in html]
     assert "INDEPENDENT PROTOTYPE" not in html
     assert "MOCK DATA" not in html
+
+
+def test_root_does_not_collect_infrastructure_or_linuxdo_data(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    board_path = tmp_path / "self/knowledge/daily-learnings/linuxdo-board.json"
+    board_path.parent.mkdir(parents=True)
+    board_path.write_text("not valid json", encoding="utf-8")
+
+    import hermes.app as app_module
+
+    def _forbidden_collection(*args, **kwargs):
+        raise AssertionError("Home must not collect infrastructure data")
+
+    for name in (
+        "_collect_dashboard_data",
+        "_collect_do_security",
+        "_collect_proxy_ssh",
+        "_collect_sub2api_stats",
+    ):
+        if hasattr(app_module, name):
+            monkeypatch.setattr(app_module, name, _forbidden_collection)
+
+    _, client, app = _client(tmp_path)
+    render_home = next(route.endpoint for route in app.routes if route.path == "/")
+    closure_names = render_home.__code__.co_freevars
+    closure_values = [cell.cell_contents for cell in render_home.__closure__ or ()]
+    workbench_renderer = closure_values[closure_names.index("_render_workbench_page")]
+
+    assert "_collect_dashboard_data" not in workbench_renderer.__code__.co_freevars
+
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert 'class="engram-home"' in response.text
+
+
+def test_home_api_excludes_retired_infrastructure_inputs() -> None:
+    parameters = inspect.signature(home_page).parameters
+    assert not {
+        "do_status",
+        "proxy_status",
+        "proxy_traffic",
+        "sub2api",
+        "linuxdo_board",
+    } & parameters.keys()
+
+
+def test_home_prioritizes_modules_and_exposes_keyboard_navigation() -> None:
+    rendered = home_page(
+        node_counts={"draft": 1, "refined": 1, "verified": 1, "canonized": 1, "deprecated": 0},
+        chart_count=2,
+        health_summary={},
+        recent_nodes=[],
+        proposal_counts={"pending": 1},
+        pending_proposals=[{"proposal_id": "p-1", "summary": "Review me"}],
+    )
+
+    assert 'class="skip-link" href="#main-content"' in rendered
+    assert '<main class="engram-main" id="main-content"' in rendered
+    assert 'href="/" aria-current="page"' in rendered
+    assert rendered.index('id="engram-knowledge"') < rendered.index('id="decision-title"')
+    assert rendered.index('id="engram-gallery"') < rendered.index('id="decision-title"')
+    assert "a:focus-visible" in rendered
+    assert "@media(max-width:760px)" in rendered
+    mobile_css = rendered.split("@media(max-width:760px)", 1)[1].split("</style>", 1)[0]
+    assert ".engram-nav a{min-height:44px" in mobile_css
+    assert ".engram-nav .utility{display:none}" not in mobile_css
+    assert ".module-card:focus-visible{outline:3px solid var(--oxide)" in rendered
+    assert "@media(max-width:380px)" in rendered
+    narrow_css = rendered.split("@media(max-width:380px)", 1)[1].split("</style>", 1)[0]
+    assert ".engram-topbar{flex-wrap:wrap" in narrow_css
+    assert ".engram-nav{width:100%" in narrow_css
+    assert ".engram-nav a{flex:1" in narrow_css
+    assert ".ledger-row,.recent-row{min-width:0" in narrow_css
+    assert "overflow-wrap:anywhere" in narrow_css
+
+
+def test_home_renders_empty_unicode_long_and_malicious_inputs_safely() -> None:
+    empty = home_page(node_counts={}, chart_count=0, health_summary={})
+    assert "No decisions waiting" in empty
+    assert "No knowledge entries yet" in empty
+    assert "<strong>0</strong> records" in empty
+    assert "<script" not in empty
+
+    malicious = '</style><script>alert(1)</script><img src=x onerror=alert(2)>'
+    rendered = home_page(
+        node_counts={"verified": 1},
+        chart_count=1,
+        health_summary={},
+        recent_nodes=[{
+            "id": '../../节点/α\" onclick=\"alert(3)',
+            "summary": "人脑 APA 🧠 " + malicious + "A" * 300,
+            "stage": 'verified\" onmouseover=\"alert(4)',
+            "category": '<svg onload=alert(5)>',
+            "created_at": "2026-09-29",
+        }],
+        proposal_counts={"pending": 1},
+        pending_proposals=[{
+            "proposal_id": '../提案/β\" onclick=\"alert(6)',
+            "summary": "复核证据 " + malicious + "B" * 300,
+            "risk_level": '\" autofocus onfocus=alert(7) x=\"',
+        }],
+    )
+
+    assert "人脑 APA 🧠" in rendered
+    assert "复核证据" in rendered
+    assert malicious not in rendered
+    assert "<img src=x" not in rendered
+    assert "<svg onload" not in rendered
+    assert "/knowledge/..%2F..%2F%E8%8A%82%E7%82%B9%2F%CE%B1%22%20onclick%3D%22alert%283%29" in rendered
+    assert "/review/..%2F%E6%8F%90%E6%A1%88%2F%CE%B2%22%20onclick%3D%22alert%286%29" in rendered
+    assert "A" * 141 not in rendered
+    assert "B" * 181 not in rendered
+    assert all(marker not in rendered for marker in ("javascript:", "fetch(", "innerHTML", "<script"))
+
+    class _EventAttributeParser(HTMLParser):
+        event_attributes: list[tuple[str, str | None]]
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.event_attributes = []
+
+        def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+            self.event_attributes.extend((name, value) for name, value in attrs if name.lower().startswith("on"))
+
+    parser = _EventAttributeParser()
+    parser.feed(rendered)
+    assert parser.event_attributes == []
 
 
 def test_cassette_design_route_is_isolated_and_uses_live_data(tmp_path: Path, monkeypatch) -> None:
@@ -93,7 +237,9 @@ def test_cassette_design_route_is_isolated_and_uses_live_data(tmp_path: Path, mo
     candidate = client.get("/design/cassette")
 
     assert home.status_code == 200
-    assert 'class="homebase-sidebar"' in home.text
+    assert 'class="engram-home"' in home.text
+    assert 'id="engram-knowledge"' in home.text
+    assert 'id="engram-gallery"' in home.text
     assert "cassette-workbench" not in home.text
     assert candidate.status_code == 200
     html = candidate.text

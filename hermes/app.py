@@ -252,20 +252,9 @@ def create_app(
             ]
         except Exception:
             pass
-        dash_data = _collect_dashboard_data()
-        linuxdo_board = {}
-        board_path = Path.home() / "self/knowledge/daily-learnings/linuxdo-board.json"
-        if board_path.exists():
-            try:
-                import json as _json
-                linuxdo_board = _json.loads(board_path.read_text(encoding="utf-8"))
-            except Exception:
-                linuxdo_board = {"fetch_errors": ["failed to read board json"], "items": []}
         return home_page(
             node_counts=node_counts, chart_count=chart_count, health_summary=knowledge_health,
             recent_nodes=recent_nodes,
-            do_status=dash_data["do"], proxy_status=dash_data["proxy_status"],
-            proxy_traffic=dash_data["proxy_traffic"], sub2api=dash_data["sub2api"], linuxdo_board=linuxdo_board,
             proposal_counts=proposal_counts, knowledge_health=knowledge_health,
             lifecycle_overview=lifecycle_overview, pending_proposals=pending_proposals,
         )
