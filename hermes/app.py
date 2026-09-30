@@ -33,11 +33,11 @@ from hermes.cassette import cassette_page
 from hermes.orbit import orbit_page
 from hermes.lane import assign_lane as _assign_lane
 from hermes.knowledgebase import knowledge_tree_page as knowledge_page
+from hermes.knowledge_detail import knowledge_detail_page
 from hermes.templates import (
     dashboard_page,
     gallery_detail_page,
     gallery_page,
-    knowledge_detail_page,
     linuxdo_board_page,
     login_page,
     profile_page,
@@ -1121,6 +1121,18 @@ def create_app(
                 supersedes_node = {"id": sn.id, "summary": sn.summary, "stage": sn.stage}
         # Resolve superseded_by (nodes that supersede this one)
         superseded_by_nodes = repo.find_superseded_nodes(node_id)
+        contradicts_nodes = []
+        try:
+            contradiction_ids = json.loads(node.contradicts or "[]")
+        except (TypeError, ValueError, json.JSONDecodeError):
+            contradiction_ids = []
+        if isinstance(contradiction_ids, list):
+            for contradiction_id in contradiction_ids:
+                related = repo.get_knowledge_node(str(contradiction_id))
+                if related:
+                    contradicts_nodes.append(
+                        {"id": related.id, "summary": related.summary, "stage": related.stage}
+                    )
         return knowledge_detail_page(
             node={
                 "id": node.id,
@@ -1164,6 +1176,7 @@ def create_app(
             child_nodes=[{"id": c.id, "summary": c.summary, "stage": c.stage} for c in children],
             supersedes_node=supersedes_node,
             superseded_by=[{"id": s.id, "summary": s.summary, "stage": s.stage} for s in superseded_by_nodes],
+            contradicts_nodes=contradicts_nodes,
         )
 
     @app.post("/knowledge/{node_id}/stage")
