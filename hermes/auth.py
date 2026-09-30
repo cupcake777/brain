@@ -243,6 +243,12 @@ class CSRFMiddleware(BaseHTTPMiddleware):
             actual = _canonical_origin(supplied, allow_path=not bool(origin))
             if actual == expected:
                 return await call_next(request)
+        # Some privacy-oriented browsers and proxy paths omit Origin/Referer.
+        # When the trusted TLS terminator explicitly marks the request HTTPS,
+        # accept only a header-less browser form; conflicting origins above
+        # remain rejected.
+        if not supplied and request.headers.get("x-forwarded-proto", "").split(",", 1)[0].strip().lower() == "https":
+            return await call_next(request)
 
         return Response(
             content='{"detail":"csrf check failed"}',
