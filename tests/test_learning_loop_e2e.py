@@ -35,6 +35,7 @@ def test_retrieve_outcome_propose_review_link_retrieve_loop(tmp_path: Path) -> N
 
     retrieval = client.post(
         "/api/v1/brain/retrieve",
+        headers=auth,
         json={
             "query": "provider configuration logs",
             "agent": "codex",
@@ -97,6 +98,7 @@ def test_retrieve_outcome_propose_review_link_retrieve_loop(tmp_path: Path) -> N
 
     second = client.post(
         "/api/v1/brain/retrieve",
+        headers=auth,
         json={
             "query": "syntax validator generated configuration restart",
             "agent": "codex",
@@ -166,6 +168,7 @@ def test_finalize_reports_missing_outcome_without_fabricating_feedback(tmp_path:
     repo.update_knowledge_node(node.node_id, stage="verified")
     retrieval = client.post(
         "/api/v1/brain/retrieve",
+        headers={"Authorization": "Bearer token"},
         json={
             "query": "exact candidate IDs outcomes",
             "agent": "codex",

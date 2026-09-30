@@ -31,7 +31,7 @@ def test_health_separates_liveness_telemetry_and_learning_loop(tmp_path: Path) -
             ("event-1", "2026-09-25T10:00:00+00:00"),
         )
 
-    response = client.get("/api/v1/brain/health")
+    response = client.get("/api/v1/brain/health", headers={"Authorization": "Bearer token"})
 
     assert response.status_code == 200
     payload = response.json()
@@ -60,6 +60,7 @@ def test_health_reports_real_closed_loop_activity(tmp_path: Path) -> None:
     repo.update_knowledge_node(node.node_id, stage="verified")
     retrieval = client.post(
         "/api/v1/brain/retrieve",
+        headers={"Authorization": "Bearer token"},
         json={
             "query": "current state configuration",
             "agent": "codex",
@@ -85,7 +86,7 @@ def test_health_reports_real_closed_loop_activity(tmp_path: Path) -> None:
     )
     assert finalized.status_code == 200
 
-    payload = client.get("/api/v1/brain/health").json()
+    payload = client.get("/api/v1/brain/health", headers={"Authorization": "Bearer token"}).json()
 
     assert payload["status"] == "ok"
     assert payload["telemetry"]["status"] == "idle"
