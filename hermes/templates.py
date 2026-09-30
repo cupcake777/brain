@@ -1176,7 +1176,17 @@ html:not([data-theme]) .theme-icon-moon,html[data-theme="modern-dark"] .theme-ic
 # Shared page shell
 # ---------------------------------------------------------------------------
 
-def _page(title: str, body: str, *, extra_js: str = "", nav_active: str = "home", show_nav: bool = True, show_fab: bool = False) -> str:
+def _page(
+    title: str,
+    body: str,
+    *,
+    extra_js: str = "",
+    nav_active: str = "home",
+    show_nav: bool = True,
+    show_fab: bool = False,
+    show_welcome: bool = True,
+    nav_scope: str = "portal",
+) -> str:
     """Return a full HTML document with sidebar + top header layout."""
     _fab_js = """/* FAB toggle */
 function toggleFab(){
@@ -1188,7 +1198,7 @@ document.addEventListener('click',function(e){
   if(fab&&fab.classList.contains('open')&&!fab.contains(e.target))fab.classList.remove('open');
 });""" if show_fab else ""
     if show_nav:
-        nav_html = _nav(active=nav_active)
+        nav_html = _nav(active=nav_active, scope=nav_scope)
         return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1217,17 +1227,17 @@ document.addEventListener('click',function(e){
   <div class="shortcuts-modal">
     <h2>⌨️ Keyboard Shortcuts</h2>
     <div class="shortcuts-row"><span class="sk-label">Command Palette</span><span class="sk-keys"><kbd>⌘</kbd><kbd>K</kbd></span></div>
-    <div class="shortcuts-row"><span class="sk-label">Go to Workbench</span><span class="sk-keys"><kbd>g</kbd><kbd>w</kbd></span></div>
+    {'' if nav_scope == 'product' else '''<div class="shortcuts-row"><span class="sk-label">Go to Workbench</span><span class="sk-keys"><kbd>g</kbd><kbd>w</kbd></span></div>'''}
     <div class="shortcuts-row"><span class="sk-label">Go to Knowledge</span><span class="sk-keys"><kbd>g</kbd><kbd>k</kbd></span></div>
-    <div class="shortcuts-row"><span class="sk-label">Go to Hub</span><span class="sk-keys"><kbd>g</kbd><kbd>h</kbd></span></div>
+    {'' if nav_scope == 'product' else '''<div class="shortcuts-row"><span class="sk-label">Go to Hub</span><span class="sk-keys"><kbd>g</kbd><kbd>h</kbd></span></div>
     <div class="shortcuts-row"><span class="sk-label">Go to Control</span><span class="sk-keys"><kbd>g</kbd><kbd>c</kbd></span></div>
-    <div class="shortcuts-row"><span class="sk-label">Go to Settings</span><span class="sk-keys"><kbd>g</kbd><kbd>s</kbd></span></div>
+    <div class="shortcuts-row"><span class="sk-label">Go to Settings</span><span class="sk-keys"><kbd>g</kbd><kbd>s</kbd></span></div>'''}
     <div class="shortcuts-row"><span class="sk-label">Toggle Theme</span><span class="sk-keys"><kbd>t</kbd></span></div>
     <div class="shortcuts-row"><span class="sk-label">Show Shortcuts</span><span class="sk-keys"><kbd>?</kbd></span></div>
     <div class="shortcuts-row"><span class="sk-label">Close Modal</span><span class="sk-keys"><kbd>Esc</kbd></span></div>
   </div>
 </div>
-<!-- Welcome Modal -->
+{'''<!-- Welcome Modal -->
 <div class="welcome-overlay" id="welcomeOverlay">
   <div class="welcome-modal">
     <h2>🧠 Welcome to Brain</h2>
@@ -1240,7 +1250,7 @@ document.addEventListener('click',function(e){
     </ul>
     <button class="welcome-btn" onclick="closeWelcome()">Get Started</button>
   </div>
-</div>
+</div>''' if show_welcome else ''}
 <!-- Floating Action Button -->
 {'''<div class="fab-container" id="fabContainer">
   <button class="fab-main" onclick="toggleFab()" title="Quick actions">
@@ -1263,11 +1273,8 @@ function toggleTheme(){{
 }}
 /* Command Palette */
 var _cmdActions=[
-  {{icon:'⌘',label:'Go to Workbench',href:'/',kbd:'g w'}},
+  {{icon:'⌂',label:'Go to Home',href:'/',kbd:'g h'}},
   {{icon:'🌳',label:'Go to Knowledge',href:'/knowledge',kbd:'g k'}},
-  {{icon:'▣',label:'Go to Hub',href:'/hub',kbd:'g h'}},
-  {{icon:'🛡',label:'Go to Control',href:'/control',kbd:'g c'}},
-  {{icon:'⚙',label:'Go to Settings',href:'/settings',kbd:'g s'}},
   {{icon:'🖼',label:'Open Gallery / viz-skills',href:'/gallery',kbd:'gallery'}},
   {{icon:'🧠',label:'Open Proposal Lifecycle',href:'/proposals',kbd:'brain'}},
   {{icon:'➕',label:'Add Knowledge',action:function(){{window.location.href='/knowledge';}},kbd:'n'}},
@@ -1328,7 +1335,7 @@ document.addEventListener('keydown',function(e){{
   if(e.key==='Escape'){{
     closeCmdPalette();
     document.getElementById('shortcutsOverlay').classList.remove('open');
-    document.getElementById('welcomeOverlay').classList.remove('open');
+    var welcome=document.getElementById('welcomeOverlay');if(welcome)welcome.classList.remove('open');
     var npo=document.getElementById('nodePreviewOverlay');if(npo)npo.classList.remove('open');
     return;
   }}
@@ -1344,21 +1351,19 @@ document.addEventListener('keydown',function(e){{
   }}
   if(_gPending){{
     _gPending=false;clearTimeout(_gTimer);
-    if(e.key==='w'){{window.location.href='/';return;}}
+    if(e.key==='h'){{window.location.href='/';return;}}
     if(e.key==='k'){{window.location.href='/knowledge';return;}}
-    if(e.key==='h'){{window.location.href='/hub';return;}}
-    if(e.key==='c'){{window.location.href='/control';return;}}
-    if(e.key==='s'){{window.location.href='/settings';return;}}
   }}
 }});
 /* Welcome modal */
 function closeWelcome(){{
   localStorage.setItem('brain_welcomed','1');
-  document.getElementById('welcomeOverlay').classList.remove('open');
+  var welcome=document.getElementById('welcomeOverlay');if(welcome)welcome.classList.remove('open');
 }}
 document.addEventListener('DOMContentLoaded',function(){{
-  if(!localStorage.getItem('brain_welcomed')){{
-    document.getElementById('welcomeOverlay').classList.add('open');
+  var welcome=document.getElementById('welcomeOverlay');
+  if(welcome&&!localStorage.getItem('brain_welcomed')){{
+    welcome.classList.add('open');
   }}
 }});
 {_fab_js}
@@ -1408,19 +1413,27 @@ _ICON_USER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-
 
 _ICON_EXTERNAL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>'
 
-def _nav(*, active: str = "home") -> str:
+def _nav(*, active: str = "home", scope: str = "portal") -> str:
     """Sidebar navigation + top header bar with toggle."""
     # Icon for sidebar collapse/expand (hamburger / menu)
     icon_menu = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>'
     icon_chevron = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>'
 
-    nav_items = [
-        ("workbench", "Workbench", "/", _ICON_HOME),
-        ("knowledge", "Knowledge", "/knowledge", _ICON_KNOWLEDGE),
-        ("hub", "Hub", "/hub", _ICON_EXPORT),
-        ("control", "Control", "/control", _ICON_SHIELD),
-        ("settings", "Settings", "/settings", _ICON_SETTINGS),
-    ]
+    nav_items = (
+        [
+            ("home", "Home", "/", _ICON_HOME),
+            ("knowledge", "Knowledge", "/knowledge", _ICON_KNOWLEDGE),
+            ("gallery", "Gallery", "/gallery", _ICON_GALLERY),
+        ]
+        if scope == "product"
+        else [
+            ("workbench", "Workbench", "/", _ICON_HOME),
+            ("knowledge", "Knowledge", "/knowledge", _ICON_KNOWLEDGE),
+            ("hub", "Hub", "/hub", _ICON_EXPORT),
+            ("control", "Control", "/control", _ICON_SHIELD),
+            ("settings", "Settings", "/settings", _ICON_SETTINGS),
+        ]
+    )
     active_aliases = {
         "home": "workbench",
         "resources": "hub",
@@ -1457,7 +1470,7 @@ def _nav(*, active: str = "home") -> str:
     <div class="sidebar-user-avatar" id="sidebar-avatar">{_ICON_USER}</div>
     <span class="sidebar-user-name" id="sidebar-username" data-i18n="nav_user">用户</span>
   </a>
-  <a href="/logout" class="sidebar-nav-item" title="退出登录">{_ICON_LOGOUT}<span data-i18n="pf_logout">退出登录</span></a>
+  <form method="post" action="/logout"><button type="submit" class="sidebar-nav-item" title="退出登录">{_ICON_LOGOUT}<span data-i18n="pf_logout">退出登录</span></button></form>
 </aside>"""
 
     top_header = f"""<header class="top-header" id="topHeader">
@@ -1472,7 +1485,7 @@ def _nav(*, active: str = "home") -> str:
       <svg class="theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
     </button>
     <a href="/profile" class="header-btn" title="Profile">{_ICON_USER}</a>
-    <a href="/logout" class="header-btn" title="Logout">{_ICON_LOGOUT}</a>
+    <form method="post" action="/logout"><button type="submit" class="header-btn" title="Logout">{_ICON_LOGOUT}</button></form>
   </div>
 </header>"""
 
@@ -1708,7 +1721,13 @@ function filterCards(){{
 }}
 </script>
 """
-    return _page("Hermes Review Queue", body, nav_active="home")
+    return _page(
+        "Hermes Review Queue",
+        body,
+        nav_active="knowledge",
+        nav_scope="product",
+        show_welcome=False,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1917,7 +1936,14 @@ def review_detail_page(*, proposal: dict) -> str:
   </div>
 </div>
 """
-    return _page(f"Proposal {pid[:12]}", body, extra_js=_ACTION_JS, nav_active="home")
+    return _page(
+        f"Proposal {pid[:12]}",
+        body,
+        extra_js=_ACTION_JS,
+        nav_active="knowledge",
+        nav_scope="product",
+        show_welcome=False,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -3223,12 +3249,9 @@ def gallery_detail_page(name: str) -> str:
         '</div>'
     )
 
-    live_editor_html = (
-        '<div style="background:var(--card);border:1px solid var(--border-hover);border-radius:var(--r-md);'
-        'overflow:hidden;margin-bottom:var(--sp-md);">'
-        + _editor_toolbar + _editor_body + _editor_preview +
-        '</div>'
-    )
+    # Remote code execution/rendering has no safe local API contract. Keep the
+    # reusable source record, but do not advertise an editor that cannot run.
+    live_editor_html = ""
 
     # Row 1: Actions (left) | Upload (right), Row 2: Feedback (full width)
     _bottom_grid = (
@@ -3349,10 +3372,9 @@ function toggleCodePreview(id, filename) {
   }
 }
 
-/* ── Live Editor (CodeMirror + HF Space API) ── */
+/* ── Legacy editor helpers (rendering intentionally disabled) ── */
 var EDITOR_CM = null;
 var EDITOR_ORIG_CODE = EDITOR_INITIAL_CODE;
-var RENDER_API = (window.BRAIN_CONFIG && window.BRAIN_CONFIG.renderApi) || '/api/render';
 
 function _loadCSS(href) {
   return new Promise(function(resolve) {
@@ -3398,50 +3420,7 @@ function initLiveEditor() {
 }
 
 function runEditorCode() {
-  if (!EDITOR_CM) return;
-  var code = EDITOR_CM.getValue();
-  var fmt = (document.getElementById('editor-format') || {}).value || 'png';
-  var btn = document.getElementById('editor-run-btn');
-  var img = document.getElementById('editor-preview-img');
-  var ph = document.getElementById('editor-preview-placeholder');
-  var err = document.getElementById('editor-preview-error');
-  var status = document.getElementById('editor-preview-status');
-
-  // UI: loading
-  if (btn) { btn.textContent = '⏳ Running...'; btn.style.opacity = '0.6'; btn.disabled = true; }
-  if (ph) ph.style.display = 'none';
-  if (img) img.style.display = 'none';
-  if (err) err.style.display = 'none';
-  if (status) { status.style.display = 'none'; status.textContent = ''; }
-
-  var start = Date.now();
-  fetch(RENDER_API, {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({script: code, format: fmt})
-  }).then(function(r) {
-    var elapsed = ((Date.now() - start) / 1000).toFixed(1);
-    if (!r.ok) {
-      return r.json().then(function(e) { throw new Error(e.detail || e.error || 'HTTP ' + r.status); });
-    }
-    if (fmt === 'pdf') {
-      return r.blob().then(function(blob) {
-        var url = URL.createObjectURL(blob);
-        var a = document.createElement('a');
-        a.href = url; a.download = CHART_NAME + '_output.pdf'; a.click();
-        if (status) { status.textContent = 'PDF downloaded (' + elapsed + 's)'; status.style.display = 'block'; status.style.color = 'var(--success)'; }
-      });
-    }
-    return r.blob().then(function(blob) {
-      var url = URL.createObjectURL(blob);
-      if (img) { img.src = url; img.style.display = 'block'; }
-      if (status) { status.textContent = 'Generated in ' + elapsed + 's'; status.style.display = 'block'; status.style.color = 'var(--success)'; }
-    });
-  }).catch(function(e) {
-    if (err) { err.textContent = 'Error: ' + e.message; err.style.display = 'block'; }
-  }).finally(function() {
-    if (btn) { btn.textContent = '▶ Run'; btn.style.opacity = '1'; btn.disabled = false; }
-  });
+  return false;
 }
 
 function resetEditorCode() {
@@ -5529,7 +5508,13 @@ def proposal_lifecycle_page(overview: dict, tab="flow", review_html="", knowledg
 }})();
 </script>
 """
-    return _page("Knowledge Graph", body, nav_active="knowledge")
+    return _page(
+        "Knowledge Graph",
+        body,
+        nav_active="knowledge",
+        nav_scope="product",
+        show_welcome=False,
+    )
 
 def brain_map_page() -> str:
     """Compatibility wrapper for the former proposal map page."""

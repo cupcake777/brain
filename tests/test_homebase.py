@@ -69,6 +69,7 @@ def test_root_renders_engram_home_with_only_knowledge_and_gallery_modules(tmp_pa
     assert 'id="engram-gallery"' in html
     assert 'href="/knowledge"' in html
     assert 'href="/gallery"' in html
+    assert 'href="/opening/"' in html
     assert "Homebase live proposal requires a decision." in html
     assert proposal_id in html
 
@@ -376,3 +377,77 @@ def test_homebase_preserves_auth_and_existing_business_routes(tmp_path: Path) ->
         "/api/dashboard/resources",
         "/api/vps/fleet",
     } <= route_paths
+
+
+def test_opening_mount_preserves_both_v30_runs_and_has_a_non_blocking_exit(tmp_path: Path) -> None:
+    _, client, app = _client(tmp_path)
+
+    page = client.get("/opening/")
+    script = client.get("/opening/app.js")
+    styles = client.get("/opening/styles.css")
+
+    assert page.status_code == 200
+    assert script.status_code == 200
+    assert styles.status_code == 200
+    assert 'data-scene="sunset"' in page.text
+    assert 'data-scene="blade"' in page.text
+    assert 'href="/" class="opening-exit"' in page.text
+    assert "fonts.googleapis.com" not in page.text
+    assert 'selectedScene === "blade" ? "spinner" : "cruiser"' in script.text
+    assert "if (!reduced) startBootPreview(selectedScene);" in script.text
+    assert "opening-load-error" in page.text
+    assert "/opening" in {route.path for route in app.routes}
+    assert "default-src 'self'" in page.headers["content-security-policy"]
+    assert "frame-ancestors 'self'" in page.headers["content-security-policy"]
+
+
+def test_opening_accessibility_contract_covers_motion_dialog_status_and_touch_controls(tmp_path: Path) -> None:
+    _, client, _ = _client(tmp_path)
+
+    page = client.get("/opening/")
+    script = client.get("/opening/app.js")
+
+    assert 'role="status"' in page.text
+    assert 'aria-live="polite"' in page.text
+    assert 'role="radiogroup"' in page.text
+    assert page.text.count('role="radio"') == 2
+    assert page.text.count('aria-label=') >= 5
+    assert 'role="dialog"' in page.text
+    assert 'aria-modal="true"' in page.text
+    assert 'aria-labelledby="pauseTitle"' in page.text
+    assert 'id="pauseTitle"' in page.text
+    assert 'pauseOverlay?.setAttribute("aria-hidden", paused ? "false" : "true")' in script.text
+    assert 'resumeBtn?.focus()' in script.text
+    assert "function trapPauseFocus" in script.text
+    assert 'pauseOverlay?.addEventListener("keydown", trapPauseFocus)' in script.text
+    assert 'motionEnabled = true' in script.text
+    assert 'ENABLE MOTION & START' in script.text
+    assert 'id="openingError"' in page.text
+    assert 'role="alert"' in page.text
+    assert 'openingError.hidden = false' in script.text
+
+
+def test_opening_csp_allows_only_the_runtime_style_attributes_it_uses(tmp_path: Path) -> None:
+    _, client, _ = _client(tmp_path)
+
+    response = client.get("/opening/")
+    csp = response.headers["content-security-policy"]
+
+    assert "style-src 'self'" in csp
+    assert "style-src-attr 'unsafe-inline'" in csp
+    assert "script-src 'self'" in csp
+    assert "'wasm-unsafe-eval'" in csp
+    assert "worker-src 'self' blob:" in csp
+    assert "connect-src 'self' blob:" in csp
+    assert "img-src 'self' data: blob:" in csp
+
+
+def test_opening_requires_auth_when_brain_auth_is_enabled(tmp_path: Path) -> None:
+    _, client, _ = _client(tmp_path, auth=True)
+
+    response = client.get("/opening/", follow_redirects=False)
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/login"
+
+    assert client.get("/opening/app.js", follow_redirects=False).status_code in (303, 401)

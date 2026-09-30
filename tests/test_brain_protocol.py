@@ -18,7 +18,7 @@ def client_with_token(tmp_path: Path) -> tuple[TestClient, HermesRepository, Pat
     return TestClient(app), repo, sync_root
 
 
-def test_protocol_health_and_public_retrieve(tmp_path: Path) -> None:
+def test_protocol_health_and_retrieve_require_auth(tmp_path: Path) -> None:
     client, repo, _ = client_with_token(tmp_path)
     result = integrate(
         content="Before changing a provider configuration, inspect the live config and logs.",
@@ -30,11 +30,20 @@ def test_protocol_health_and_public_retrieve(tmp_path: Path) -> None:
     )
     repo.update_knowledge_node(result.node_id, stage="verified")
 
-    health = client.get("/api/v1/brain/health")
+    assert client.get("/api/v1/brain/health").status_code == 401
+    health = client.get(
+        "/api/v1/brain/health",
+        headers={"Authorization": "Bearer test-token"},
+    )
     assert health.status_code == 200
     assert health.json()["schema"] == 1
 
-    response = client.post("/api/v1/brain/retrieve", json={"query": "provider config logs", "agent": "clean-agent", "host_hash": "host-a"})
+    assert client.post("/api/v1/brain/retrieve", json={"query": "provider config logs"}).status_code == 401
+    response = client.post(
+        "/api/v1/brain/retrieve",
+        headers={"Authorization": "Bearer test-token"},
+        json={"query": "provider config logs", "agent": "clean-agent", "host_hash": "host-a"},
+    )
     assert response.status_code == 200
     payload = response.json()
     assert payload["retrieval_id"]
@@ -53,7 +62,11 @@ def test_protocol_outcome_is_bound_to_retrieval(tmp_path: Path) -> None:
         repo=repo,
     )
     repo.update_knowledge_node(result.node_id, stage="verified")
-    retrieval = client.post("/api/v1/brain/retrieve", json={"query": "atomic generated configuration"}).json()
+    retrieval = client.post(
+        "/api/v1/brain/retrieve",
+        headers={"Authorization": "Bearer test-token"},
+        json={"query": "atomic generated configuration"},
+    ).json()
 
     unauthenticated = client.post("/api/v1/brain/outcome", json={"retrieval_id": retrieval["retrieval_id"], "node_id": result.node_id, "status": "applied"})
     assert unauthenticated.status_code == 401
@@ -104,11 +117,13 @@ def test_protocol_proposal_requires_evidence_and_queues_file(tmp_path: Path) -> 
     assert "Preserve exact identifiers" in proposal_path.read_text(encoding="utf-8")
 
 
-def test_skill_package_is_public_and_references_support_files(tmp_path: Path) -> None:
+def test_skill_package_requires_auth_and_references_support_files(tmp_path: Path) -> None:
     client, _, _ = client_with_token(tmp_path)
-    skill = client.get("/skills/brain-loop/SKILL.md")
+    assert client.get("/skills/brain-loop/SKILL.md").status_code == 401
+    headers = {"Authorization": "Bearer test-token"}
+    skill = client.get("/skills/brain-loop/SKILL.md", headers=headers)
     assert skill.status_code == 200
     assert "scripts/brain.py" in skill.text
-    script = client.get("/skills/brain-loop/scripts/brain.py")
+    script = client.get("/skills/brain-loop/scripts/brain.py", headers=headers)
     assert script.status_code == 200
     assert "api/v1/brain/retrieve" in script.text

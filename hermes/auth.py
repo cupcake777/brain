@@ -45,11 +45,10 @@ async def require_bearer(
 # TokenAuthMiddleware  – blanket bearer protection on every route
 # ---------------------------------------------------------------------------
 
-# Paths that never require authentication.
-# Note: /exports/projects/ and /exports/global/ are public for file downloads,
-# but /exports/ (the list page) requires auth.
-_PUBLIC_PREFIXES = ("/health", "/api/dashboard/health", "/api/dashboard/resources", "/api/dashboard/data", "/api/v1/brain/health", "/api/v1/brain/retrieve", "/skills/brain-loop/", "/exports/projects/", "/exports/global/", "/login", "/favicon", "/api/knowledge/record-query")
-_PUBLIC_EXACT = frozenset({"/health", "/login", "/logout"})
+# Only liveness and login assets are public. Knowledge, exports, dashboard data,
+# and packaged agent assets may contain private material and require auth.
+_PUBLIC_PREFIXES = ("/favicon",)
+_PUBLIC_EXACT = frozenset({"/health", "/login"})
 _PAGE_EXTENSIONS = ("", ".html", ".htm")
 
 
@@ -79,7 +78,7 @@ class TokenAuthMiddleware(BaseHTTPMiddleware):
     * Username/password only (auth_token None but auth_enabled True): only accepts session cookies
     * Disabled (auth_token None, auth_enabled False): all requests pass through
 
-    Public routes: ``/health``, ``/exports/*``, ``/login``, ``/logout``.
+    Public routes are limited to liveness checks, login, and favicon assets.
     """
 
     def __init__(self, app: ASGIApp, *, auth_token: str | None = None, auth_enabled: bool = False, session_cookie_value: str | None = None, scoped_registry: ScopedPrincipalRegistry | None = None) -> None:
@@ -216,10 +215,6 @@ class CSRFMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         if self._scoped_registry is not None and self._scoped_registry.authorize_http(request):
-            return await call_next(request)
-
-        # Public machine-to-machine endpoints do not carry cookie authority.
-        if request.url.path in ("/api/knowledge/record-query", "/api/v1/brain/retrieve"):
             return await call_next(request)
 
         # 1) Valid bearer token → pass (API client, not browser form)

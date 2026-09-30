@@ -16,6 +16,7 @@ import httpx
 
 from fastapi import FastAPI, Form, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 from hermes.auth import CSRFMiddleware, DBFailClosedMiddleware, TokenAuthMiddleware
 from hermes.brain_protocol import register_brain_protocol_routes
@@ -34,10 +35,9 @@ from hermes.orbit import orbit_page
 from hermes.lane import assign_lane as _assign_lane
 from hermes.knowledgebase import knowledge_tree_page as knowledge_page
 from hermes.knowledge_detail import knowledge_detail_page
+from hermes.gallerybase import gallery_detail_page, gallery_page
 from hermes.templates import (
     dashboard_page,
-    gallery_detail_page,
-    gallery_page,
     linuxdo_board_page,
     login_page,
     profile_page,
@@ -77,9 +77,18 @@ def create_app(
             response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
             response.headers["Pragma"] = "no-cache"
             response.headers["Expires"] = "0"
+            if request.url.path.startswith("/opening"):
+                response.headers["Content-Security-Policy"] = (
+                    "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self'; "
+                    "style-src-attr 'unsafe-inline'; worker-src 'self' blob:; "
+                    "img-src 'self' data: blob:; connect-src 'self' blob:; object-src 'none'; "
+                    "base-uri 'none'; form-action 'self'; frame-ancestors 'self'"
+                )
         return response
 
     # -- auth helpers (must be defined before middleware) ----------------------
+    if bool(config.auth_username) != bool(config.auth_password):
+        raise ValueError("HERMES_USERNAME and HERMES_PASSWORD must be configured together")
     auth_enabled = bool(config.auth_token or config.auth_username)
     _AUTH_COOKIE = "hermes_auth"
     _session_secret: str = secrets.token_hex(16)  # random per startup for cookie signing
@@ -192,11 +201,15 @@ def create_app(
             return _set_auth_cookie(resp, request)
         return login_page(error="Invalid username or password")
 
-    @app.get("/logout")
+    @app.post("/logout")
     def logout():
         resp = RedirectResponse("/login", status_code=303)
         resp.delete_cookie(_AUTH_COOKIE)
         return resp
+
+    @app.get("/logout", include_in_schema=False)
+    def logout_get_not_allowed():
+        raise HTTPException(status_code=405, detail="use POST to log out")
 
     # ------------------------------------------------------------------
     # JSON API endpoints (unchanged – tests depend on these)
@@ -264,6 +277,10 @@ def create_app(
         if auth_enabled and not _has_valid_cookie(request):
             return RedirectResponse("/login", status_code=303)
         return _render_workbench_page()
+
+    opening_dir = Path(__file__).with_name("opening")
+    if opening_dir.is_dir():
+        app.mount("/opening", StaticFiles(directory=opening_dir, html=True), name="opening")
 
     @app.get("/overview", response_class=HTMLResponse, response_model=None)
     def overview_page(request: Request):
@@ -636,19 +653,22 @@ def create_app(
             agent = str(body.get("agent", "unknown"))
             host = str(body.get("host", "unknown"))
             session_id = str(body.get("session_id", ""))
-            limit = int(body.get("limit", 10))
+            try:
+                limit = int(body.get("limit", 10))
+            except (TypeError, ValueError) as exc:
+                raise HTTPException(status_code=400, detail="limit must be an integer") from exc
+            if not 1 <= limit <= 100:
+                raise HTTPException(status_code=400, detail="limit must be between 1 and 100")
         else:
             form = await request.form()
             query = str(form.get("query", ""))
             agent = str(form.get("agent", "unknown"))
             host = str(form.get("host", "unknown"))
             session_id = str(form.get("session_id", ""))
-            limit = 10
         """Record a knowledge query for retrieval tracking.
 
-        Called by brain-query-hpc.sh (HPC) and brain-query CLI (VPS).
+        Called by authenticated Brain clients and scoped agents.
         Increments retrieval_count for knowledge nodes matching the query.
-        PUBLIC endpoint — no auth required (only increments counters).
         Rate-limited to 1 request per 2s per agent+host key.
         """
         # Rate limit check
@@ -1799,14 +1819,6 @@ def create_app(
     # ------------------------------------------------------------------
     # Plotting Gallery – renders sci-fig template gallery
     # ------------------------------------------------------------------
-    @app.get("/gallery", response_class=HTMLResponse)
-    def gallery_route() -> str:
-        return gallery_page()
-
-    @app.get("/gallery/{chart_name}", response_class=HTMLResponse)
-    def gallery_detail_route(chart_name: str) -> str:
-        return gallery_detail_page(chart_name)
-
     # Gallery storage is private by default. Individual catalog-declared assets
     # are served by an allowlisted route below; never mount this root wholesale.
     _PLOTTING_STATIC = Path(os.environ.get("BRAIN_PLOTTING_DIR", ""))
@@ -1904,13 +1916,24 @@ def create_app(
         except Exception:
             raw = {}
 
-        # Already v2 format?
+        if not isinstance(raw, dict):
+            return {"charts": []}
+
+        # Already v2 format? Keep only records that can be rendered safely.
         if "charts" in raw:
-            return raw
+            raw_charts = raw.get("charts")
+            if not isinstance(raw_charts, list):
+                return {"charts": []}
+            return {"charts": [chart for chart in raw_charts if isinstance(chart, dict)]}
 
         # ---- v3 normalization ----
         charts = []
-        for tpl in raw.get("templates", []):
+        templates = raw.get("templates")
+        if not isinstance(templates, list):
+            templates = []
+        for tpl in templates:
+            if not isinstance(tpl, dict):
+                continue
             _id = tpl.get("id", "")
             _shape = tpl.get("input_shape", "")
             entry = {
@@ -1927,11 +1950,18 @@ def create_app(
                 "tags": tpl.get("tags", _SHAPE_TAGS.get(_shape, [])),
                 "template": tpl.get("template", ""),
                 "demo": tpl.get("demo_png", tpl.get("demo", "")),
+                "interactive": tpl.get("interactive_html", tpl.get("interactive", "")),
                 "visual_grammar": tpl.get("visual_grammar", ""),
             }
             charts.append(entry)
 
         return {"charts": charts}
+
+    @app.get("/gallery", response_class=HTMLResponse)
+    def gallery_route() -> str:
+        charts = [_catalog_chart_for_render(chart) for chart in _load_catalog().get("charts", [])]
+        return gallery_page(charts=charts)
+
 
     def _safe_gallery_relative_path(value: object) -> str | None:
         """Normalize a catalog path without allowing absolute/traversal paths."""
@@ -1951,9 +1981,14 @@ def create_app(
             chart_name = str(chart.get("name", ""))
             if chart_name:
                 chart_names.add(chart_name)
-            for key in ("demo", "interactive", "template"):
+            suffixes_by_key = {
+                "demo": {".png", ".jpg", ".jpeg", ".webp"},
+                "interactive": {".html", ".htm"},
+                "template": {".py", ".r"},
+            }
+            for key, suffixes in suffixes_by_key.items():
                 relative = _safe_gallery_relative_path(chart.get(key))
-                if relative:
+                if relative and Path(relative).suffix.lower() in suffixes:
                     allowed.add(relative)
             for ext in (".py", ".R"):
                 relative = _safe_gallery_relative_path(f"templates/{chart_name}{ext}")
@@ -1994,7 +2029,37 @@ def create_app(
         target = _safe_gallery_file(relative)
         if target is None:
             raise HTTPException(status_code=404, detail="gallery asset not found")
-        return FileResponse(target)
+        response = FileResponse(target)
+        if target.suffix.lower() in (".html", ".htm"):
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "
+                "img-src 'self' data:; connect-src 'none'; frame-ancestors 'self'; base-uri 'none'"
+            )
+        return response
+
+    @app.get("/gallery/static", include_in_schema=False)
+    def gallery_static_root():
+        raise HTTPException(status_code=404, detail="gallery asset not found")
+
+    def _catalog_chart_for_render(chart: dict) -> dict:
+        """Remove catalog asset references that are absent or unsafe to display."""
+        rendered = dict(chart)
+        for key in ("demo", "interactive"):
+            relative = _safe_gallery_relative_path(rendered.get(key))
+            if _safe_gallery_file(relative) is None:
+                rendered[key] = ""
+        return rendered
+
+    @app.get("/gallery/{chart_name}", response_class=HTMLResponse)
+    def gallery_detail_route(chart_name: str) -> str:
+        chart = next(
+            (entry for entry in _load_catalog().get("charts", []) if entry.get("name") == chart_name),
+            None,
+        )
+        return gallery_detail_page(
+            chart=_catalog_chart_for_render(chart) if chart else None,
+            chart_name=chart_name,
+        )
 
     def _chart_status(name: str, chart: dict) -> dict:
         """Build per-chart status: has_template, has_demo, template_lang, template_size."""
@@ -2117,12 +2182,14 @@ def create_app(
             },
         }
 
-    @app.get("/api/gallery/template/{filename}")
+    @app.get("/api/gallery/template/{filename:path}")
     def gallery_template_source_api(filename: str) -> dict:
         """Read a single template file source code."""
-        if filename != Path(filename).name or "\\" in filename or "\x00" in filename:
+        if "\\" in filename or "\x00" in filename:
             return {"ok": False, "error": "Invalid filename"}
-        relative = _safe_gallery_relative_path(f"templates/{filename}")
+        relative = _safe_gallery_relative_path(filename)
+        if relative is None or not relative.startswith("templates/"):
+            relative = _safe_gallery_relative_path(f"templates/{filename}")
         fpath = _safe_gallery_file(relative)
         if fpath is None:
             return {"ok": False, "error": f"Template file '{filename}' not found"}
@@ -2133,7 +2200,7 @@ def create_app(
             content = fpath.read_text(encoding="utf-8", errors="replace")
         except Exception as e:
             return {"ok": False, "error": str(e)}
-        return {"ok": True, "filename": filename, "lang": "Python" if ext == ".py" else "R", "content": content, "size": fpath.stat().st_size}
+        return {"ok": True, "filename": relative, "lang": "Python" if ext == ".py" else "R", "content": content, "size": fpath.stat().st_size}
 
     @app.post("/api/gallery/submit")
     async def gallery_submit_api(request: Request) -> dict:

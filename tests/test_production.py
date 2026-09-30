@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+import hermes.templates as legacy_templates
 from fastapi.testclient import TestClient
 
 from hermes.app import create_app
@@ -67,6 +68,69 @@ def _make_stack(tmp_path: Path, *, auth_token: str | None = None):
 # -- auth tests ---------------------------------------------------------------
 
 class TestTokenAuth:
+    def test_sensitive_public_route_near_misses_are_not_public(self, tmp_path: Path) -> None:
+        *_, client = _make_stack(tmp_path, auth_token="secret123")
+        for path in (
+            "/api/dashboard/health",
+            "/api/v1/brain/health",
+            "/api/dashboard/data",
+            "/api/dashboard/resources",
+            "/api/v1/brain/retrieve",
+            "/api/knowledge/record-query",
+            "/exports/projects/report.txt",
+            "/api/dashboard/data/anything",
+        ):
+            assert client.get(path).status_code == 401
+
+    @pytest.mark.parametrize("path", ["/api/v1/brain/retrieve", "/api/knowledge/record-query"])
+    def test_cookie_authenticated_retrieval_writes_reject_cross_site_posts(
+        self, tmp_path: Path, path: str
+    ) -> None:
+        *_, client = _make_stack(tmp_path, auth_token="secret123")
+        login = client.post(
+            "/login",
+            data={"username": "owner", "password": "secret123"},
+            headers={"Origin": "http://testserver"},
+        )
+        assert login.status_code == 200
+
+        response = client.post(
+            path,
+            json={"query": "provider config logs", "agent": "browser", "host": "test"},
+            headers={"Origin": "https://evil.test"},
+        )
+        assert response.status_code == 403
+
+    def test_get_logout_does_not_clear_session_and_post_logout_does(self, tmp_path: Path) -> None:
+        *_, client = _make_stack(tmp_path, auth_token="secret123")
+        login = client.post("/login", data={"username": "owner", "password": "secret123"}, headers={"Origin": "http://testserver"}, follow_redirects=False)
+        assert login.status_code == 303
+        cookie = client.cookies.get("hermes_auth")
+        get_response = client.get("/logout", follow_redirects=False)
+        assert get_response.status_code == 405
+        assert client.cookies.get("hermes_auth") == cookie
+        post_response = client.post("/logout", headers={"Origin": "http://testserver"}, follow_redirects=False)
+        assert post_response.status_code == 303
+        assert "hermes_auth" in post_response.headers.get("set-cookie", "")
+
+    def test_cookie_auth_without_csrf_secret_remains_same_origin_only(self, tmp_path: Path) -> None:
+        config, *_rest, client = _make_stack(tmp_path, auth_token="secret123")
+        assert config.csrf_secret is None
+        assert client.post("/login", data={"username": "owner", "password": "secret123"}, headers={"Origin": "http://evil.test"}).status_code == 403
+
+    def test_record_query_rejects_invalid_limit_as_bad_request(self, tmp_path: Path) -> None:
+        *_, client = _make_stack(tmp_path, auth_token="secret123")
+        response = client.post(
+            "/api/knowledge/record-query",
+            headers={"Authorization": "Bearer secret123"},
+            json={"query": "provider logs", "limit": "not-an-integer"},
+        )
+        assert response.status_code == 400
+
+    def test_legacy_templates_do_not_advertise_missing_render_api(self) -> None:
+        source = Path(legacy_templates.__file__).read_text(encoding="utf-8")
+        assert "/api/render" not in source
+        assert "fetch(RENDER_API" not in source
     def test_no_auth_token_allows_all(self, tmp_path: Path) -> None:
         _, repo, writer, ingest, _, client = _make_stack(tmp_path)
         proposal_path = _write_proposal(writer, category="preference", risk_level="low")
@@ -195,7 +259,7 @@ class TestTokenAuth:
         )
         assert response.status_code == 200
 
-    def test_exports_public_even_with_auth(self, tmp_path: Path) -> None:
+    def test_exports_require_auth(self, tmp_path: Path) -> None:
         _, repo, writer, ingest, compiler, client = _make_stack(tmp_path, auth_token="secret123")
         proposal_path = _write_proposal(writer, suggested_memory="Export me.")
         ingest.ingest_path(proposal_path)
@@ -203,8 +267,11 @@ class TestTokenAuth:
         repo.transition_state(pid, "approved_for_export")
         compiler.build_project_export("brain")
 
-        # Export files are public (no auth needed)
-        resp = client.get("/exports/projects/brain.md")
+        assert client.get("/exports/projects/brain.md").status_code == 401
+        resp = client.get(
+            "/exports/projects/brain.md",
+            headers={"Authorization": "Bearer secret123"},
+        )
         assert resp.status_code == 200
         assert "Export me." in resp.text
 
@@ -482,6 +549,27 @@ class TestGallerySubmissionSurface:
         assert client.get("/gallery/static/secret.txt").status_code == 404
         assert client.get("/gallery/static/submitted_figures/old-poster.png").status_code == 404
         assert client.get("/gallery/static/%2e%2e/secret.txt").status_code == 404
+
+    def test_gallery_interactive_html_can_be_framed_only_by_same_origin(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        plotting_dir = tmp_path / "plotting"
+        interactive_dir = plotting_dir / "interactive"
+        interactive_dir.mkdir(parents=True)
+        (plotting_dir / "catalog.yaml").write_text(
+            "charts:\n"
+            "  - name: safe_chart\n"
+            "    interactive: interactive/safe.html\n",
+            encoding="utf-8",
+        )
+        (interactive_dir / "safe.html").write_text("<p>interactive</p>", encoding="utf-8")
+        monkeypatch.setenv("BRAIN_PLOTTING_DIR", str(plotting_dir))
+        *_, client = _make_stack(tmp_path)
+
+        response = client.get("/gallery/static/interactive/safe.html")
+        assert response.status_code == 200
+        assert "frame-ancestors 'self'" in response.headers["content-security-policy"]
+        assert "frame-ancestors 'none'" not in response.headers["content-security-policy"]
 
     def test_gallery_catalog_paths_cannot_escape_or_follow_outside_symlinks(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

@@ -85,4 +85,4 @@ def test_missing_config_does_not_break_startup(tmp_path,monkeypatch):
     monkeypatch.setenv('BRAIN_DIFY_KEY_FILE',str(tmp_path/'missing'))
     r=c.post('/api/v1/brain/sources/retrieve',headers=AUTH,json=PAYLOAD)
     assert r.status_code==503 and r.json()['error']['code']=='invalid_config'
-    assert c.get('/api/v1/brain/health').status_code==200
+    assert c.get('/api/v1/brain/health',headers=AUTH).status_code==200

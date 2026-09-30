@@ -15,6 +15,10 @@ def test_source_registered_disabled_and_local_retrieve_unaffected(tmp_path, monk
     assert response.status_code == 503
     assert response.json()['status'] == 'unavailable'
     assert not {'node_id', 'retrieval_id', 'outcome_required'} & response.json().keys()
-    local = client.post('/api/v1/brain/retrieve', json={'query': 'provider logs'})
+    local = client.post(
+        '/api/v1/brain/retrieve',
+        headers={'Authorization': 'Bearer test-token'},
+        json={'query': 'provider logs'},
+    )
     assert local.status_code == 200
     assert 'retrieval_id' in local.json()
