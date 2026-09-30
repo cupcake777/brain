@@ -1,0 +1,23 @@
+{
+  "proposals": 538,
+  "knowledge_nodes": 463,
+  "proposal_knowledge_links": 451,
+  "knowledge_retrieval_events": 45,
+  "retrieval_log": 11,
+  "outcome_log": 2,
+  "source_events": 2411,
+  "proposal_revisions": 0,
+  "outbox_events": 0,
+  "proposal_states": {
+    "approved_db_only": 65,
+    "approved_for_export": 386,
+    "pending": 68,
+    "rejected": 7,
+    "superseded": 12
+  },
+  "node_stages": {
+    "canonized": 380,
+    "deprecated": 83
+  },
+  "quick_check": "ok"
+}

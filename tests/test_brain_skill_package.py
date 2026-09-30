@@ -16,8 +16,10 @@ def test_packaged_skill_and_dependencies_exist():
     for p in [
         'SKILL.md',
         'scripts/brain.py',
+        'scripts/brain-sync-hpc.sh',
         'scripts/brain_plugin.py',
         'references/protocol.md',
+        'references/codex-workflow.md',
         'templates/proposal.json',
     ]:
         assert (PACKAGE/p).is_file()
@@ -32,6 +34,22 @@ def test_packaged_skill_and_dependencies_exist():
     assert 'finalize' in text and 'source-retrieve' in text
     assert 'hermes plugins install' in text
     assert 'brain.bioinfo.pro' not in text and '/root/' not in text
+
+
+def test_hpc_sync_uses_canonical_json_client_not_legacy_markdown():
+    script=(PACKAGE/'scripts'/'brain-sync-hpc.sh').read_text()
+    assert '"$CLIENT" propose "$proposal" --wait' in script
+    assert '/api/proposals/submit' not in script
+    assert 'propose-file /path/to/lesson.json' in script
+
+
+def test_codex_workflow_describes_real_governance_states():
+    text=(PACKAGE/'references'/'codex-workflow.md').read_text()
+    assert 'ingested_pending' in text
+    assert 'proposal-status' in text
+    assert 'auto-approve' not in text.lower()
+    assert 'bare Markdown' not in text
+    assert 'source_type' in text and 'source_uri' in text
 
 
 def test_native_plugin_registers_skill_and_lifecycle_hooks(monkeypatch):
@@ -93,3 +111,75 @@ def test_finalize_uses_auth_and_minimal_payload(monkeypatch):
 def test_invalid_url_rejected_before_dispatch(monkeypatch):
     c=load();monkeypatch.setenv('BRAIN_URL','https://name:secret@example.org')
     with pytest.raises(RuntimeError):c.api_url()
+
+
+def test_propose_waits_until_durable_status(monkeypatch, tmp_path):
+    c=load();calls=[]
+    responses=iter([
+        {'schema':1,'status':'queued','proposal_id':'proposal-1'},
+        {'schema':1,'status':'queued','proposal_id':'proposal-1'},
+        {'schema':1,'status':'ingested_pending','proposal_id':'proposal-1'},
+    ])
+    monkeypatch.setattr(c,'request',lambda p,**k:calls.append((p,k)) or next(responses))
+    monkeypatch.setattr(c.time,'sleep',lambda _seconds:None)
+    proposal=tmp_path/'lesson.json'
+    proposal.write_text('{"summary":"Reusable rule","observation":"Observed verified behavior","why_it_matters":"It recurs","suggested_memory":"Apply the verified rule","evidence":[{"source_type":"test","source_uri":"test://client"}]}')
+
+    args=c.parser().parse_args(['propose',str(proposal),'--wait','--timeout','5'])
+    result=args.handler(args)
+
+    assert result['status']=='ingested_pending'
+    assert [p for p,_ in calls]==[
+        '/api/v1/brain/propose',
+        '/api/v1/brain/proposals/proposal-1',
+        '/api/v1/brain/proposals/proposal-1',
+    ]
+
+
+def test_propose_rejects_malformed_evidence_before_request(monkeypatch, tmp_path):
+    c=load();calls=[]
+    monkeypatch.setattr(c,'request',lambda *a,**k:calls.append((a,k)) or {})
+    proposal=tmp_path/'bad.json'
+    proposal.write_text('{"summary":"Rule","observation":"Observed","why_it_matters":"Recurring","suggested_memory":"Remember","evidence":[{"note":"missing provenance"}]}')
+
+    args=c.parser().parse_args(['propose',str(proposal)])
+    with pytest.raises(RuntimeError,match='source_type'):
+        args.handler(args)
+    assert calls==[]
+
+
+def test_proposal_status_uses_authenticated_get(monkeypatch):
+    c=load();calls=[]
+    monkeypatch.setattr(c,'request',lambda p,**k:calls.append((p,k)) or {'status':'linked'})
+    args=c.parser().parse_args(['proposal-status','literal-id'])
+
+    result=args.handler(args)
+
+    assert result['status']=='linked'
+    assert calls==[('/api/v1/brain/proposals/literal-id',{'write':True})]
+
+
+def test_propose_wait_raises_on_rejected_status(monkeypatch, tmp_path):
+    c=load()
+    responses=iter([
+        {'schema':1,'status':'queued','proposal_id':'proposal-1'},
+        {'schema':1,'status':'rejected','proposal_id':'proposal-1','proposal_state':'rejected'},
+    ])
+    monkeypatch.setattr(c,'request',lambda _path,**_kwargs:next(responses))
+    proposal=tmp_path/'lesson.json'
+    proposal.write_text('{"summary":"Reusable rule","observation":"Observed verified behavior","why_it_matters":"It recurs","suggested_memory":"Apply the verified rule","evidence":[{"source_type":"test","source_uri":"test://client"}]}')
+    args=c.parser().parse_args(['propose',str(proposal),'--wait'])
+
+    with pytest.raises(RuntimeError,match='proposal rejected'):
+        args.handler(args)
+
+
+def test_propose_wait_rejects_nonpositive_polling_arguments(tmp_path):
+    c=load()
+    proposal=tmp_path/'lesson.json'
+    proposal.write_text('{"summary":"Reusable rule","observation":"Observed verified behavior","why_it_matters":"It recurs","suggested_memory":"Apply the verified rule","evidence":[{"source_type":"test","source_uri":"test://client"}]}')
+
+    with pytest.raises(SystemExit):
+        c.parser().parse_args(['propose',str(proposal),'--wait','--timeout','0'])
+    with pytest.raises(SystemExit):
+        c.parser().parse_args(['propose',str(proposal),'--wait','--poll-interval','0'])

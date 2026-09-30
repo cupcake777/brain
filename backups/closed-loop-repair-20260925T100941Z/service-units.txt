@@ -1,0 +1,57 @@
+# /etc/systemd/system/hermes-serve.service
+[Unit]
+Description=Hermes Brain - Serve
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/ops/brain
+EnvironmentFile=/root/ops/.secrets/hermes-serve.env
+EnvironmentFile=/root/ops/.secrets/embed-bioinfo-codes.env
+Environment=HERMES_USERNAME=admin
+Environment=HERMES_TELEGRAM_CHAT_ID=8742679699
+Environment=BRAIN_PLOTTING_DIR=/root/ops/plotting
+Environment=BRAIN_XUI_USER=lyc
+ExecStart=/root/ops/brain/.venv/bin/python -m hermes --sync-root /root/hermes-sync serve --host 127.0.0.1 --port 8083
+Restart=always
+RestartSec=5
+MemoryHigh=512M
+MemoryMax=768M
+RestartKillSignal=SIGTERM
+KillSignal=SIGTERM
+
+[Install]
+WantedBy=multi-user.target
+
+# /etc/systemd/system/hermes-serve.service.d/dify-addon.conf
+[Service]
+Environment=BRAIN_DIFY_ENABLED=true
+Environment=BRAIN_DIFY_DAILY_LIMIT=50
+Environment=BRAIN_DIFY_KEY_FILE=/root/ops/.secrets/dify-dataset-key
+Environment=BRAIN_DIFY_DATASETS_FILE=/root/ops/brain/config/dify-sources.json
+Environment=BRAIN_DIFY_QUOTA_DB=/root/ops/brain/data/dify-quota.sqlite3
+
+# /etc/systemd/system/hermes-watch.service
+[Unit]
+Description=Hermes Brain - Watch cycle
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/ops/brain
+EnvironmentFile=/root/ops/.secrets/hermes-serve.env
+Environment=HERMES_TELEGRAM_CHAT_ID=8742679699
+Environment=BRAIN_DISABLE_EMBEDDINGS=1
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/root/ops/brain/.venv/bin/python -m hermes --sync-root /root/hermes-sync watch
+Restart=on-failure
+RestartSec=5
+MemoryHigh=512M
+MemoryMax=768M
+
+[Install]
+WantedBy=multi-user.target

@@ -81,7 +81,7 @@ Only report candidates actually returned by that retrieval. Do not retry a 409 s
 
 ## 3. Propose only a reusable, evidenced lesson
 
-Only propose when authorized by the user/project workflow and all are true: new/corrective, portable across tasks, likely to recur, verified, and backed by exact non-secret evidence. Search first for duplicates. Project progress, temporary service state, private user facts, credentials and full transcripts stay out.
+Only propose when authorized by the user/project workflow and all are true: new/corrective, portable across tasks, likely to recur, verified, and backed by exact non-secret evidence. Search first for duplicates. Project progress, temporary service state, private user facts, credentials and full transcripts stay out. Codex deployments should also follow [the Codex workflow](references/codex-workflow.md).
 
 Copy [the proposal template](templates/proposal.json), replace placeholders with a concrete observation, portable rule and exact evidence, then:
 

@@ -13,7 +13,7 @@ from pathlib import Path
 import httpx
 
 from fastapi import FastAPI, Form, HTTPException, Query, Request, Response
-from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
 
 from hermes.auth import CSRFMiddleware, DBFailClosedMiddleware, TokenAuthMiddleware
 from hermes.brain_protocol import register_brain_protocol_routes
@@ -465,7 +465,7 @@ def create_app(
     # ------------------------------------------------------------------
 
     @app.post("/api/proposals/submit")
-    async def submit_proposal(request: Request) -> dict[str, object]:
+    async def submit_proposal(request: Request) -> JSONResponse:
         """Accept a proposal .md file from a remote agent.
 
         Body can be either:
@@ -534,7 +534,8 @@ def create_app(
                     f"Proposal {proposal_id} already exists (state: {stored['state']}). "
                     f"Review at /api/review/{proposal_id}"
                 )
-                return result
+                filepath.unlink(missing_ok=True)
+                return JSONResponse(status_code=409, content=result)
 
             # Parse and validate sections
             sections = _parse_sections(body_text)
@@ -552,7 +553,8 @@ def create_app(
                     f"Proposal is a semantic duplicate of {duplicate_of} "
                     f"(state: {existing['state']}). Review at /api/review/{duplicate_of}"
                 )
-                return result
+                filepath.unlink(missing_ok=True)
+                return JSONResponse(status_code=409, content=result)
 
             # All validations passed
             result["status"] = "validated"
@@ -560,13 +562,17 @@ def create_app(
             result["risk_level"] = front_matter.get("risk_level", "unknown")
             result["summary"] = sections.get("Summary", "")
             result["message"] = "Proposal is valid and will be ingested on next watch cycle."
+            return JSONResponse(status_code=202, content=result)
 
         except ValueError as exc:
-            # Validation failure — proposal file still written to inbox,
-            # but the agent should fix and resubmit.
+            # Validation failure is not a queued proposal. Remove the inbox
+            # file so the watcher cannot retry a payload already known invalid.
+            filepath.unlink(missing_ok=True)
             result["status"] = "rejected"
+            result["file_written"] = False
             result["reason"] = str(exc)
             result["message"] = f"Proposal rejected by validation: {exc}"
+            return JSONResponse(status_code=422, content=result)
         except Exception as exc:
             # Unexpected parse error — file written but couldn't pre-validate.
             # The watch cycle will retry, so this isn't fatal.
@@ -575,8 +581,7 @@ def create_app(
                 f"Proposal written to inbox but pre-validation failed "
                 f"(will retry on watch cycle): {exc}"
             )
-
-        return result
+            return JSONResponse(status_code=202, content=result)
 
     # ------------------------------------------------------------------
     # Export file endpoints

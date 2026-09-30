@@ -213,6 +213,31 @@ class ExportCompiler:
         )
         return path
 
+    def export_agent_assets(self) -> list[Path]:
+        """Project canonical portable Brain assets into the global export dir."""
+        package = Path(__file__).resolve().parents[1] / "skills" / "brain-loop"
+        sources = {
+            "codex-instructions.md": package / "references" / "codex-workflow.md",
+            "brain-sync-hpc.sh": package / "scripts" / "brain-sync-hpc.sh",
+            "brain.py": package / "scripts" / "brain.py",
+        }
+        export_dir = self.sync_root / "exports" / "global"
+        export_dir.mkdir(parents=True, exist_ok=True)
+        written: list[Path] = []
+        for name, source in sources.items():
+            destination = export_dir / name
+            destination.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+            if destination.suffix == ".sh":
+                destination.chmod(0o755)
+            self.repo.record_export(
+                scope_type="global",
+                project_key="global",
+                file_name=destination.name,
+                size_bytes=destination.stat().st_size,
+            )
+            written.append(destination)
+        return written
+
     def _build_empty_claude_md(self) -> str:
         now = datetime.now(timezone.utc).isoformat()
         return (

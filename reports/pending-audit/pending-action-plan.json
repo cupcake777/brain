@@ -1,0 +1,620 @@
+{
+  "schema": 1,
+  "generated_at": "2026-09-25T10:56:41.431201+00:00",
+  "database": "/root/hermes-sync/hermes.sqlite3",
+  "mode": "plan_only_no_database_writes",
+  "actions": [
+    {
+      "proposal_id": "cbb5f505-08fb-4a4d-9e88-f0762200898e",
+      "classification": "valid_reusable_global",
+      "recommended_action": "human_review_then_approve",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "b6c7acb4-de5d-4c56-8b52-78641e7fbe89",
+      "classification": "valid_reusable_global",
+      "recommended_action": "human_review_then_approve",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "ba5f11bf-57b8-4302-b08c-dabc1edc324f",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "46cebca7-db7e-4563-adb3-cbf5d0340426",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "d339674e-92ce-45b3-87e2-fd7a46653c08",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "b10dfa70-e9f1-4780-a397-2d43138d81ea",
+      "classification": "valid_reusable_global",
+      "recommended_action": "human_review_then_approve",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "36f5c915-d193-408d-8986-4c7c0d2606b3",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "b6e6edc0-ceb6-461c-95e0-26d9c9b39074",
+      "classification": "valid_reusable_global",
+      "recommended_action": "human_review_then_approve",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "336526db-72dc-4856-a4a0-36ab0cecbf02",
+      "classification": "valid_reusable_global",
+      "recommended_action": "human_review_then_approve",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "63248f13-2b70-4789-ad57-d3959d85b642",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "a0765abb-450b-4fc1-9758-5cad5b4c22ce",
+      "classification": "valid_reusable_global",
+      "recommended_action": "human_review_then_approve",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "a37ba929-c6aa-4b74-9add-46883648939a",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "6d937b03-ef62-4b86-bca8-1fe6539639f9",
+      "classification": "valid_reusable_global",
+      "recommended_action": "human_review_then_approve",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "c24f37ef-dfd3-487b-a3d9-4e43e6fac91e",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "189bb030-6d3f-46de-9948-2e447cab828a",
+      "classification": "valid_reusable_global",
+      "recommended_action": "human_review_then_approve",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "b28f0a7c-fb54-476a-8ca6-9a4bf44ab083",
+      "classification": "valid_reusable_global",
+      "recommended_action": "human_review_then_approve",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "0e9285c0-6572-4773-9914-8a72f1d454a2",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "3d5b4c5f-d588-47eb-a297-82cfd4bffe5f",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "ae23df0d-1a90-4e4b-8d7b-0046161f7cae",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "890bed5c-1722-4725-bf99-5848ef388dcc",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "80ab9002-11c7-475a-aa4a-43832ab2d4ff",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "ec8a54a1-173e-4184-83bf-ee782e6e309e",
+      "classification": "valid_reusable_global",
+      "recommended_action": "human_review_then_approve",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "85b7fe74-1000-400b-afd8-56e65bed3c8f",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "55c05121-93eb-4cc6-b83a-76aa43857a63",
+      "classification": "valid_reusable_global",
+      "recommended_action": "human_review_then_approve",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "834608e8-e9e2-4e2e-813b-6609aa255337",
+      "classification": "valid_reusable_global",
+      "recommended_action": "human_review_then_approve",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "07422b63-2142-4355-9cdd-6c2fe1ffb1a6",
+      "classification": "valid_reusable_global",
+      "recommended_action": "human_review_then_approve",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "5a4ac550-8b63-4eba-9b28-c9f5474b6c4a",
+      "classification": "valid_reusable_global",
+      "recommended_action": "human_review_then_approve",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "e09c39d5-da8f-4396-9e7c-d3dbab6122c3",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "1c2f8422-2bf7-4056-a12c-3d1884c5e192",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "915f6aa1-868f-4844-9889-6f4130d1bae4",
+      "classification": "valid_reusable_global",
+      "recommended_action": "human_review_then_approve",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "d4809eaa-504e-4768-9ee6-0c5e1c3bd6ba",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "3e891261-73b6-4071-9da8-4f7ca6f99d2a",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "18817e3c-340f-469f-904e-ef3cda8f7916",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "575663ee-599a-455f-b612-df32651b3617",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "5ddca6da-0cd1-4270-a02e-9081d1db207d",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "f026ae5b-5893-4dbb-aa0c-427e56f3f198",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "913adf12-482d-46bc-9a93-4e7161241bd7",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "34937160-fa07-47f8-9b79-f8d0b90e2bbb",
+      "classification": "valid_reusable_global",
+      "recommended_action": "human_review_then_approve",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "47892d6a-1128-4140-b2c7-777647c559d4",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "d58dde64-8f31-4e19-af6a-5bcf00e55de7",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "56145d45-4d3b-4b03-9246-84348fc82655",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "d75b164b-26da-44a2-9a4f-29ee5fb53145",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "af812983-9cea-4ada-92c0-ee14b1a091a1",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "40fd898b-0547-4dd4-9273-c69084ee13c9",
+      "classification": "valid_reusable_global",
+      "recommended_action": "human_review_then_approve",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "e0a00b9b-c80e-43e1-bbaa-90a6ac33ebf5",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "65b15965-1984-42e3-a7b5-bd710c8de5ba",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "26bd0515-7801-494c-8996-7f7ac65fd78c",
+      "classification": "valid_reusable_global",
+      "recommended_action": "human_review_then_approve",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "b2c7afdb-e45d-4bf0-92f2-cef58add811f",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "13c449e2-5232-4414-aec8-45760638a981",
+      "classification": "valid_reusable_global",
+      "recommended_action": "human_review_then_approve",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "c69775bc-3ce0-4e9a-b8c2-350f4b3d1e6e",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "25e282d7-b9f8-4c3a-ad57-0da250ee4b99",
+      "classification": "valid_reusable_global",
+      "recommended_action": "human_review_then_approve",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "ebee30cd-1284-4021-829f-5d4ed2d1a9a7",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "b933830e-027a-4556-ab49-1a8ce8b3d5b9",
+      "classification": "valid_reusable_global",
+      "recommended_action": "human_review_then_approve",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "165db501-6e59-4b41-b229-d538fe3b5433",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "dd01b0bc-a874-47d8-98d2-b4c4f4738bc7",
+      "classification": "valid_reusable_global",
+      "recommended_action": "human_review_then_approve",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "336e1edb-aa75-4398-813c-a6c6e8c4bf6f",
+      "classification": "valid_reusable_global",
+      "recommended_action": "human_review_then_approve",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "5fd45019-b61f-44c0-9d36-ab0092d8ad7b",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "23bb04d6-1214-426d-b661-114d373ff159",
+      "classification": "valid_reusable_global",
+      "recommended_action": "human_review_then_approve",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "4785239c-2424-4918-a97f-f22a3aed3019",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "72b27f8c-4d1b-478e-941f-2db3778f0805",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "cabcc0b1-225c-4347-8918-ff70b62e3a87",
+      "classification": "valid_reusable_global",
+      "recommended_action": "human_review_then_approve",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "a41ffa61-87ff-4172-939c-46550f431a9e",
+      "classification": "valid_reusable_global",
+      "recommended_action": "human_review_then_approve",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "60c7c34d-0e30-41be-a8ea-7fa782765568",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "c225b1d3-aa95-46ef-ad66-301008076d10",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "6e70b659-a262-4e7d-bd9b-f46d3a098bf6",
+      "classification": "valid_reusable_global",
+      "recommended_action": "human_review_then_approve",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "cc9de46b-49fc-4410-8e26-477bfe02f1de",
+      "classification": "valid_reusable_global",
+      "recommended_action": "human_review_then_approve",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "9d448567-8125-44b0-ad99-bb258ba7fb86",
+      "classification": "requires_human_review",
+      "recommended_action": "human_review",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    },
+    {
+      "proposal_id": "133d516a-d233-433c-8eb4-b13084c25384",
+      "classification": "valid_reusable_global",
+      "recommended_action": "human_review_then_approve",
+      "apply": false,
+      "rollback": {
+        "restore_state": "pending"
+      }
+    }
+  ]
+}

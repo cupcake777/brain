@@ -9,12 +9,20 @@ import json
 import os
 import platform
 import sys
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any
 
 DEFAULT_URL = "http://127.0.0.1:8083"
+
+
+def positive_float(value: str) -> float:
+    number = float(value)
+    if number <= 0:
+        raise argparse.ArgumentTypeError("value must be greater than zero")
+    return number
 
 
 def api_url() -> str:
@@ -98,9 +106,39 @@ def command_propose(args: argparse.Namespace) -> dict[str, Any]:
     payload = json.loads(Path(args.file).read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise RuntimeError("proposal file must contain a JSON object")
+    evidence = payload.get("evidence")
+    if not isinstance(evidence, list) or not evidence:
+        raise RuntimeError("proposal evidence must be a non-empty list")
+    for index, entry in enumerate(evidence):
+        if not isinstance(entry, dict):
+            raise RuntimeError(f"evidence[{index}] must be an object")
+        if not str(entry.get("source_type", "")).strip() or not str(entry.get("source_uri", "")).strip():
+            raise RuntimeError(f"evidence[{index}] requires source_type and source_uri")
     payload.setdefault("agent", os.environ.get("BRAIN_AGENT", "brain-loop-skill"))
     payload.setdefault("host_hash", host_hash())
-    return request("/api/v1/brain/propose", write=True, payload=payload)
+    result = request("/api/v1/brain/propose", write=True, payload=payload)
+    if not args.wait:
+        return result
+    proposal_id = str(result.get("proposal_id", "")).strip()
+    if not proposal_id:
+        raise RuntimeError("proposal response did not include proposal_id")
+    deadline = time.monotonic() + args.timeout
+    # ``--wait`` means wait for durable server receipt, not governance approval.
+    # ingested_pending is therefore terminal: the proposal is in SQLite and can
+    # be reviewed later, while approved/linked represent later lifecycle states.
+    terminal_statuses = {"ingested_pending", "approved", "linked", "duplicate", "rejected"}
+    while time.monotonic() < deadline:
+        current = request(f"/api/v1/brain/proposals/{proposal_id}", write=True)
+        if current.get("status") in terminal_statuses:
+            if current.get("status") == "rejected":
+                raise RuntimeError(f"proposal rejected: {current}")
+            return current
+        time.sleep(args.poll_interval)
+    raise RuntimeError(f"timed out waiting for proposal {proposal_id} durable status")
+
+
+def command_proposal_status(args: argparse.Namespace) -> dict[str, Any]:
+    return request(f"/api/v1/brain/proposals/{args.proposal_id}", write=True)
 
 
 def command_finalize(args: argparse.Namespace) -> dict[str, Any]:
@@ -152,7 +190,14 @@ def parser() -> argparse.ArgumentParser:
 
     propose = sub.add_parser("propose")
     propose.add_argument("file")
+    propose.add_argument("--wait", action="store_true")
+    propose.add_argument("--timeout", type=positive_float, default=90.0)
+    propose.add_argument("--poll-interval", type=positive_float, default=1.0)
     propose.set_defaults(handler=command_propose)
+
+    proposal_status = sub.add_parser("proposal-status")
+    proposal_status.add_argument("proposal_id")
+    proposal_status.set_defaults(handler=command_proposal_status)
 
     finalize = sub.add_parser("finalize")
     finalize.add_argument("--session-id", default="",
