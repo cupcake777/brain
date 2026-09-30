@@ -169,7 +169,12 @@ def _request_origin(request: Request) -> tuple[str, str, int] | None:
     host = request.headers.get("host", "")
     if not host:
         return None
-    return _canonical_origin(f"{request.url.scheme}://{host}", allow_path=False)
+    # TLS terminates at nginx/Cloudflare in production.  The application is
+    # intentionally bound to loopback, so the proxy-provided scheme is the
+    # authoritative external origin; direct local tests fall back to the URL.
+    forwarded_proto = request.headers.get("x-forwarded-proto", "").split(",", 1)[0].strip()
+    scheme = forwarded_proto or request.url.scheme
+    return _canonical_origin(f"{scheme}://{host}", allow_path=False)
 
 
 class CSRFMiddleware(BaseHTTPMiddleware):
