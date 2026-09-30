@@ -128,10 +128,7 @@ _I18N_DICT = {
         "gl_title": "Sci-Fig Gallery",
         "gl_subtitle": "科研图表模板库 — 查看、审核与贡献",
         "gl_search": "搜索图表…", "gl_showing": "显示", "gl_of": "/",
-        "gl_submit": "+ 提交", "gl_image_url": "图片链接",
-        "gl_image_url_ph": "https://...", "gl_or_upload": "或上传",
-        "gl_notes": "备注", "gl_notes_ph": "图表类型、论文来源、你喜欢什么…",
-        "gl_submit_btn": "提交", "gl_interactive": "交互式图表",
+        "gl_submit": "+ 提交", "gl_interactive": "交互式图表",
         "gl_planned": "计划中",
         "gl_suggest": "✎ 建议", "gl_suggest_ph": "输入建议…",
         "gl_approve_btn": "✓ 批准",
@@ -278,10 +275,7 @@ _I18N_DICT = {
         "gl_title": "Sci-Fig Gallery",
         "gl_subtitle": "Scientific figure template library — view, approve, and contribute",
         "gl_search": "Search charts…", "gl_showing": "Showing", "gl_of": "of",
-        "gl_submit": "+ Submit", "gl_image_url": "Image URL",
-        "gl_image_url_ph": "https://...", "gl_or_upload": "Or Upload",
-        "gl_notes": "Notes", "gl_notes_ph": "Figure type, paper source, what you like…",
-        "gl_submit_btn": "Submit", "gl_interactive": "Interactive Chart",
+        "gl_submit": "+ Submit", "gl_interactive": "Interactive Chart",
         "gl_planned": "Planned",
         "gl_suggest": "✎ Suggest", "gl_suggest_ph": "Enter your suggestion…",
         "gl_approve_btn": "✓ Approve",
@@ -1182,7 +1176,17 @@ html:not([data-theme]) .theme-icon-moon,html[data-theme="modern-dark"] .theme-ic
 # Shared page shell
 # ---------------------------------------------------------------------------
 
-def _page(title: str, body: str, *, extra_js: str = "", nav_active: str = "home", show_nav: bool = True, show_fab: bool = False) -> str:
+def _page(
+    title: str,
+    body: str,
+    *,
+    extra_js: str = "",
+    nav_active: str = "home",
+    show_nav: bool = True,
+    show_fab: bool = False,
+    show_welcome: bool = True,
+    nav_scope: str = "portal",
+) -> str:
     """Return a full HTML document with sidebar + top header layout."""
     _fab_js = """/* FAB toggle */
 function toggleFab(){
@@ -1194,7 +1198,7 @@ document.addEventListener('click',function(e){
   if(fab&&fab.classList.contains('open')&&!fab.contains(e.target))fab.classList.remove('open');
 });""" if show_fab else ""
     if show_nav:
-        nav_html = _nav(active=nav_active)
+        nav_html = _nav(active=nav_active, scope=nav_scope)
         return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1204,7 +1208,7 @@ document.addEventListener('click',function(e){
 <title>{_html.escape(title)}</title>
 <style>{_DARK_CSS}</style>
 <script>var _I18N={_json.dumps(_I18N_DICT, ensure_ascii=False)};function _t(key){{var lang=localStorage.getItem('hermes_lang')||'zh';var dict=_I18N[lang]||_I18N.zh;return dict[key]||key;}}function applyI18n(lang){{if(!lang)lang=localStorage.getItem('hermes_lang')||'zh';var dict=_I18N[lang]||_I18N.zh;document.querySelectorAll('[data-i18n]').forEach(function(el){{var key=el.getAttribute('data-i18n');if(dict[key])el.textContent=dict[key];}});document.querySelectorAll('[data-i18n-ph]').forEach(function(el){{var key=el.getAttribute('data-i18n-ph');if(dict[key])el.placeholder=dict[key];}});var g=document.getElementById('dash-greeting-text');if(g){{var h=new Date().getHours();var name=localStorage.getItem('hermes_display_name')||dict.pf_explorer;g.textContent=(h<12?dict.greeting_morning:h<18?dict.greeting_afternoon:dict.greeting_evening)+dict.time_comma+name;}}}}function switchLang(lang){{localStorage.setItem('hermes_lang',lang);var sel=document.getElementById('lang-select');if(sel)sel.value=lang;applyI18n(lang);}}</script>
-<script>(function(){{var t=localStorage.getItem('hermes_theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');else if(t==='modern-dark')document.documentElement.setAttribute('data-theme','modern-dark');}})();document.addEventListener('DOMContentLoaded',function(){{var n=localStorage.getItem('hermes_display_name');if(n){{var su=document.getElementById('sidebar-username');if(su)su.textContent=n;}}var a=localStorage.getItem('hermes_avatar_url');if(a){{var sa=document.getElementById('sidebar-avatar');if(sa)sa.innerHTML='<img src=\\"'+a+'\\" style=\\"width:100%;height:100%;object-fit:cover;border-radius:50%\\" onerror=\\"this.outerHTML=this.dataset.fallback\\" data-fallback=\\"👤\\">';}}applyI18n();}});</script>
+<script>(function(){{var t=localStorage.getItem('hermes_theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');else if(t==='modern-dark')document.documentElement.setAttribute('data-theme','modern-dark');}})();function renderStoredAvatar(){{var a=localStorage.getItem('hermes_avatar_url');var sa=document.getElementById('sidebar-avatar');if(!a||!sa)return;for(var c=0;c<a.length;c++){{var n=a.charCodeAt(c);if(n<32||n===127)return;}}if(a.includes(String.fromCharCode(92)))return;try{{var u=new URL(a,window.location.origin);var absHttps=a.toLowerCase().startsWith('https://')&&u.protocol==='https:';var localPath=a.startsWith('/')&&!a.startsWith('//')&&u.origin===window.location.origin;if(!absHttps&&!localPath)return;var img=document.createElement('img');img.alt='';img.src=u.href;img.style.cssText='width:100%;height:100%;object-fit:cover;border-radius:50%';img.addEventListener('error',function(){{sa.replaceChildren(document.createTextNode('👤'));}},{{once:true}});sa.replaceChildren(img);}}catch(_err){{return;}}}}document.addEventListener('DOMContentLoaded',function(){{var n=localStorage.getItem('hermes_display_name');if(n){{var su=document.getElementById('sidebar-username');if(su)su.textContent=n;}}renderStoredAvatar();applyI18n();}});</script>
 </head>
 <body>
 {nav_html}
@@ -1223,17 +1227,17 @@ document.addEventListener('click',function(e){
   <div class="shortcuts-modal">
     <h2>⌨️ Keyboard Shortcuts</h2>
     <div class="shortcuts-row"><span class="sk-label">Command Palette</span><span class="sk-keys"><kbd>⌘</kbd><kbd>K</kbd></span></div>
-    <div class="shortcuts-row"><span class="sk-label">Go to Workbench</span><span class="sk-keys"><kbd>g</kbd><kbd>w</kbd></span></div>
+    {'' if nav_scope == 'product' else '''<div class="shortcuts-row"><span class="sk-label">Go to Workbench</span><span class="sk-keys"><kbd>g</kbd><kbd>w</kbd></span></div>'''}
     <div class="shortcuts-row"><span class="sk-label">Go to Knowledge</span><span class="sk-keys"><kbd>g</kbd><kbd>k</kbd></span></div>
-    <div class="shortcuts-row"><span class="sk-label">Go to Hub</span><span class="sk-keys"><kbd>g</kbd><kbd>h</kbd></span></div>
+    {'' if nav_scope == 'product' else '''<div class="shortcuts-row"><span class="sk-label">Go to Hub</span><span class="sk-keys"><kbd>g</kbd><kbd>h</kbd></span></div>
     <div class="shortcuts-row"><span class="sk-label">Go to Control</span><span class="sk-keys"><kbd>g</kbd><kbd>c</kbd></span></div>
-    <div class="shortcuts-row"><span class="sk-label">Go to Settings</span><span class="sk-keys"><kbd>g</kbd><kbd>s</kbd></span></div>
+    <div class="shortcuts-row"><span class="sk-label">Go to Settings</span><span class="sk-keys"><kbd>g</kbd><kbd>s</kbd></span></div>'''}
     <div class="shortcuts-row"><span class="sk-label">Toggle Theme</span><span class="sk-keys"><kbd>t</kbd></span></div>
     <div class="shortcuts-row"><span class="sk-label">Show Shortcuts</span><span class="sk-keys"><kbd>?</kbd></span></div>
     <div class="shortcuts-row"><span class="sk-label">Close Modal</span><span class="sk-keys"><kbd>Esc</kbd></span></div>
   </div>
 </div>
-<!-- Welcome Modal -->
+{'''<!-- Welcome Modal -->
 <div class="welcome-overlay" id="welcomeOverlay">
   <div class="welcome-modal">
     <h2>🧠 Welcome to Brain</h2>
@@ -1246,7 +1250,7 @@ document.addEventListener('click',function(e){
     </ul>
     <button class="welcome-btn" onclick="closeWelcome()">Get Started</button>
   </div>
-</div>
+</div>''' if show_welcome else ''}
 <!-- Floating Action Button -->
 {'''<div class="fab-container" id="fabContainer">
   <button class="fab-main" onclick="toggleFab()" title="Quick actions">
@@ -1269,11 +1273,8 @@ function toggleTheme(){{
 }}
 /* Command Palette */
 var _cmdActions=[
-  {{icon:'⌘',label:'Go to Workbench',href:'/',kbd:'g w'}},
+  {{icon:'⌂',label:'Go to Home',href:'/',kbd:'g h'}},
   {{icon:'🌳',label:'Go to Knowledge',href:'/knowledge',kbd:'g k'}},
-  {{icon:'▣',label:'Go to Hub',href:'/hub',kbd:'g h'}},
-  {{icon:'🛡',label:'Go to Control',href:'/control',kbd:'g c'}},
-  {{icon:'⚙',label:'Go to Settings',href:'/settings',kbd:'g s'}},
   {{icon:'🖼',label:'Open Gallery / viz-skills',href:'/gallery',kbd:'gallery'}},
   {{icon:'🧠',label:'Open Proposal Lifecycle',href:'/proposals',kbd:'brain'}},
   {{icon:'➕',label:'Add Knowledge',action:function(){{window.location.href='/knowledge';}},kbd:'n'}},
@@ -1334,7 +1335,7 @@ document.addEventListener('keydown',function(e){{
   if(e.key==='Escape'){{
     closeCmdPalette();
     document.getElementById('shortcutsOverlay').classList.remove('open');
-    document.getElementById('welcomeOverlay').classList.remove('open');
+    var welcome=document.getElementById('welcomeOverlay');if(welcome)welcome.classList.remove('open');
     var npo=document.getElementById('nodePreviewOverlay');if(npo)npo.classList.remove('open');
     return;
   }}
@@ -1350,21 +1351,19 @@ document.addEventListener('keydown',function(e){{
   }}
   if(_gPending){{
     _gPending=false;clearTimeout(_gTimer);
-    if(e.key==='w'){{window.location.href='/';return;}}
+    if(e.key==='h'){{window.location.href='/';return;}}
     if(e.key==='k'){{window.location.href='/knowledge';return;}}
-    if(e.key==='h'){{window.location.href='/hub';return;}}
-    if(e.key==='c'){{window.location.href='/control';return;}}
-    if(e.key==='s'){{window.location.href='/settings';return;}}
   }}
 }});
 /* Welcome modal */
 function closeWelcome(){{
   localStorage.setItem('brain_welcomed','1');
-  document.getElementById('welcomeOverlay').classList.remove('open');
+  var welcome=document.getElementById('welcomeOverlay');if(welcome)welcome.classList.remove('open');
 }}
 document.addEventListener('DOMContentLoaded',function(){{
-  if(!localStorage.getItem('brain_welcomed')){{
-    document.getElementById('welcomeOverlay').classList.add('open');
+  var welcome=document.getElementById('welcomeOverlay');
+  if(welcome&&!localStorage.getItem('brain_welcomed')){{
+    welcome.classList.add('open');
   }}
 }});
 {_fab_js}
@@ -1382,7 +1381,7 @@ document.addEventListener('DOMContentLoaded',function(){{
 <title>{_html.escape(title)}</title>
 <style>{_DARK_CSS}</style>
 <script>var _I18N={_json.dumps(_I18N_DICT, ensure_ascii=False)};function _t(key){{var lang=localStorage.getItem('hermes_lang')||'zh';var dict=_I18N[lang]||_I18N.zh;return dict[key]||key;}}function applyI18n(lang){{if(!lang)lang=localStorage.getItem('hermes_lang')||'zh';var dict=_I18N[lang]||_I18N.zh;document.querySelectorAll('[data-i18n]').forEach(function(el){{var key=el.getAttribute('data-i18n');if(dict[key])el.textContent=dict[key];}});document.querySelectorAll('[data-i18n-ph]').forEach(function(el){{var key=el.getAttribute('data-i18n-ph');if(dict[key])el.placeholder=dict[key];}});var g=document.getElementById('dash-greeting-text');if(g){{var h=new Date().getHours();var name=localStorage.getItem('hermes_display_name')||dict.pf_explorer;g.textContent=(h<12?dict.greeting_morning:h<18?dict.greeting_afternoon:dict.greeting_evening)+dict.time_comma+name;}}}}function switchLang(lang){{localStorage.setItem('hermes_lang',lang);var sel=document.getElementById('lang-select');if(sel)sel.value=lang;applyI18n(lang);}}</script>
-<script>(function(){{var t=localStorage.getItem('hermes_theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}})();document.addEventListener('DOMContentLoaded',function(){{var n=localStorage.getItem('hermes_display_name');if(n){{var su=document.getElementById('sidebar-username');if(su)su.textContent=n;}}var a=localStorage.getItem('hermes_avatar_url');if(a){{var sa=document.getElementById('sidebar-avatar');if(sa)sa.innerHTML='<img src=\"'+a+'\" style=\"width:100%;height:100%;object-fit:cover;border-radius:50%\" onerror=\"this.outerHTML=this.dataset.fallback\" data-fallback=\"👤\">';}};applyI18n();}});</script>
+<script>(function(){{var t=localStorage.getItem('hermes_theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}})();function renderStoredAvatar(){{var a=localStorage.getItem('hermes_avatar_url');var sa=document.getElementById('sidebar-avatar');if(!a||!sa)return;try{{var u=new URL(a,window.location.origin);if(u.protocol!=='https:'&&u.origin!==window.location.origin)return;var img=document.createElement('img');img.alt='';img.src=u.href;img.style.cssText='width:100%;height:100%;object-fit:cover;border-radius:50%';img.addEventListener('error',function(){{sa.replaceChildren(document.createTextNode('👤'));}},{{once:true}});sa.replaceChildren(img);}}catch(_err){{return;}}}}document.addEventListener('DOMContentLoaded',function(){{var n=localStorage.getItem('hermes_display_name');if(n){{var su=document.getElementById('sidebar-username');if(su)su.textContent=n;}}renderStoredAvatar();applyI18n();}});</script>
 </head>
 <body>
 {body}
@@ -1414,19 +1413,27 @@ _ICON_USER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-
 
 _ICON_EXTERNAL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>'
 
-def _nav(*, active: str = "home") -> str:
+def _nav(*, active: str = "home", scope: str = "portal") -> str:
     """Sidebar navigation + top header bar with toggle."""
     # Icon for sidebar collapse/expand (hamburger / menu)
     icon_menu = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>'
     icon_chevron = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>'
 
-    nav_items = [
-        ("workbench", "Workbench", "/", _ICON_HOME),
-        ("knowledge", "Knowledge", "/knowledge", _ICON_KNOWLEDGE),
-        ("hub", "Hub", "/hub", _ICON_EXPORT),
-        ("control", "Control", "/control", _ICON_SHIELD),
-        ("settings", "Settings", "/settings", _ICON_SETTINGS),
-    ]
+    nav_items = (
+        [
+            ("home", "Home", "/", _ICON_HOME),
+            ("knowledge", "Knowledge", "/knowledge", _ICON_KNOWLEDGE),
+            ("gallery", "Gallery", "/gallery", _ICON_GALLERY),
+        ]
+        if scope == "product"
+        else [
+            ("workbench", "Workbench", "/", _ICON_HOME),
+            ("knowledge", "Knowledge", "/knowledge", _ICON_KNOWLEDGE),
+            ("hub", "Hub", "/hub", _ICON_EXPORT),
+            ("control", "Control", "/control", _ICON_SHIELD),
+            ("settings", "Settings", "/settings", _ICON_SETTINGS),
+        ]
+    )
     active_aliases = {
         "home": "workbench",
         "resources": "hub",
@@ -1463,7 +1470,7 @@ def _nav(*, active: str = "home") -> str:
     <div class="sidebar-user-avatar" id="sidebar-avatar">{_ICON_USER}</div>
     <span class="sidebar-user-name" id="sidebar-username" data-i18n="nav_user">用户</span>
   </a>
-  <a href="/logout" class="sidebar-nav-item" title="退出登录">{_ICON_LOGOUT}<span data-i18n="pf_logout">退出登录</span></a>
+  <form method="post" action="/logout"><button type="submit" class="sidebar-nav-item" title="退出登录">{_ICON_LOGOUT}<span data-i18n="pf_logout">退出登录</span></button></form>
 </aside>"""
 
     top_header = f"""<header class="top-header" id="topHeader">
@@ -1478,7 +1485,7 @@ def _nav(*, active: str = "home") -> str:
       <svg class="theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
     </button>
     <a href="/profile" class="header-btn" title="Profile">{_ICON_USER}</a>
-    <a href="/logout" class="header-btn" title="Logout">{_ICON_LOGOUT}</a>
+    <form method="post" action="/logout"><button type="submit" class="header-btn" title="Logout">{_ICON_LOGOUT}</button></form>
   </div>
 </header>"""
 
@@ -1524,8 +1531,7 @@ def _nav(*, active: str = "home") -> str:
   /* Restore user prefs from localStorage */
   var _dn=localStorage.getItem('hermes_display_name');
   if(_dn){var _su=document.getElementById('sidebar-username');if(_su)_su.textContent=_dn;}
-  var _au=localStorage.getItem('hermes_avatar_url');
-  if(_au){var _sa=document.getElementById('sidebar-avatar');if(_sa)_sa.innerHTML='<img src="'+_au+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.outerHTML=this.dataset.fallback" data-fallback="👤">';}
+  if(typeof renderStoredAvatar==='function'){renderStoredAvatar();}
 })();"""
 
     return f"""{sidebar}
@@ -1715,7 +1721,13 @@ function filterCards(){{
 }}
 </script>
 """
-    return _page("Hermes Review Queue", body, nav_active="home")
+    return _page(
+        "Hermes Review Queue",
+        body,
+        nav_active="knowledge",
+        nav_scope="product",
+        show_welcome=False,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1924,7 +1936,14 @@ def review_detail_page(*, proposal: dict) -> str:
   </div>
 </div>
 """
-    return _page(f"Proposal {pid[:12]}", body, extra_js=_ACTION_JS, nav_active="home")
+    return _page(
+        f"Proposal {pid[:12]}",
+        body,
+        extra_js=_ACTION_JS,
+        nav_active="knowledge",
+        nav_scope="product",
+        show_welcome=False,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -2510,19 +2529,6 @@ def gallery_page() -> str:
 .toast.suggest { background: var(--primary); }
 .toast.reject { background: var(--danger); }
 
-/* ── Submit Figure ── */
-.submit-form { display: none; margin-top: 10px; margin-bottom: 12px; }
-.submit-form.open { display: block; }
-.submit-toggle-btn { background: var(--card); border: 1px solid var(--border-hover); color: var(--ink-muted); padding: 6px 16px; border-radius: var(--r-pill); cursor: pointer; font-size: 12px; transition: all var(--duration) var(--ease-out); }
-.submit-toggle-btn:hover { background: var(--card-hover); border-color: var(--primary); color: var(--primary); }
-.submit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-width: 600px; margin: 0 auto; }
-.submit-grid label, .submit-notes-row label { color: var(--ink-muted); font-size: 11px; display: block; margin-bottom: 2px; }
-.submit-grid input[type="text"], .submit-grid input[type="file"] { width: 100%; padding: 6px 8px; border: 1px solid var(--border-hover); border-radius:var(--r-sm); background: var(--bg); color: var(--ink); font-size: 12px; box-sizing: border-box; }
-.submit-grid input[type="file"] { padding: 4px; }
-.submit-notes-row { max-width: 600px; margin: 6px auto 0; }
-.submit-notes-row textarea { width: 100%; padding: 6px 8px; border: 1px solid var(--border-hover); border-radius:var(--r-sm); background: var(--bg); color: var(--ink); font-size: 12px; resize: vertical; box-sizing: border-box; min-height: 40px; }
-.submit-actions { max-width: 600px; margin: 6px auto 0; text-align: right; }
-.submit-go { padding: 6px 16px; border-radius:var(--r-sm); background: var(--primary); color: var(--bg); border: none; font-size: 12px; cursor: pointer; }
 
 /* ── Approved State ── */
 .has-approved { border-left-color: var(--success) !important; }
@@ -2619,17 +2625,7 @@ def gallery_page() -> str:
         '</div>'
         '<div class="toolbar-actions">'
         f'<span class="card-count" id="card-count" data-i18n-args data-i18n="gl_showing">Showing {_total} of {_total}</span>'
-        '<button class="submit-toggle-btn" data-i18n="gl_submit" onclick="toggleSubmitForm()">+ Submit</button>'
         '</div></div>'
-        '<div class="submit-form" id="submit-form">'
-        '<div class="submit-grid">'
-        '<div><label data-i18n="gl_image_url">Image URL</label><input type="text" id="submit-url" data-i18n-ph="gl_image_url_ph" placeholder="https://..."></div>'
-        '<div><label data-i18n="gl_or_upload">Or Upload</label><input type="file" id="submit-file" accept="image/*"></div>'
-        '</div>'
-        '<div class="submit-notes-row"><label data-i18n="gl_notes">Notes</label>'
-        '<textarea id="submit-notes" rows="2" data-i18n-ph="gl_notes_ph" placeholder="Figure type, paper source, what you like..."></textarea></div>'
-        '<div class="submit-actions"><button class="submit-go" data-i18n="gl_submit_btn" onclick="submitFigure()">Submit</button></div>'
-        '</div>'
         '<div class="filter-bar">' + filter_btns + '</div>'
         + _build_palettes_section()
         + '<div class="gallery-grid">' + chart_cards + '</div>'
@@ -2637,7 +2633,7 @@ def gallery_page() -> str:
         '<img id="modal-img" src=""></div>'
         '<div class="iframe-modal" id="iframe-modal">'
         '<div class="iframe-header"><h3 id="iframe-title" data-i18n="gl_interactive">Interactive Chart</h3><span class="iframe-close" onclick="closeInteractive()">&times;</span></div>'
-        '<iframe id="iframe-chart" src="" sandbox="allow-scripts allow-same-origin"></iframe>'
+        '<iframe id="iframe-chart" src="" sandbox="allow-scripts"></iframe>'
         '</div>'
         '<div class="toast" id="toast"></div>'
         '</div>'
@@ -2695,10 +2691,8 @@ function feedback(chart, action, ev) {
     body: JSON.stringify({chart: chart, action: action, suggestion: ''}),
     credentials: 'same-origin'
   }).then(function(r) {
-if (r.ok) { showToast(chart + (action === 'approve' ? ' ✓ ' + _t('toast_approved') : ' ✕ ' + _t('toast_rejected')), action); }
+    if (r.ok) { showToast(chart + (action === 'approve' ? ' ✓ ' + _t('toast_approved') : ' ✕ ' + _t('toast_rejected')), action); }
     else { showToast(_t('toast_error') + ': ' + r.status, 'reject'); }
-  }
-  showToast(chart + (action === 'approve' ? ' ✓ ' + _t('toast_approved') : ' ✕ ' + _t('toast_rejected')), action);
   });
 }
 function submitSuggest(chart) {
@@ -2717,49 +2711,6 @@ function submitSuggest(chart) {
   });
   var input = textarea.closest('.suggest-input');
   if (input) input.remove();
-}
-// Submit figure for analysis
-function toggleSubmitForm() {
-  var form = document.getElementById('submit-form');
-  form.classList.toggle('open');
-}
-function submitFigure() {
-  var urlInput = document.getElementById('submit-url');
-  var fileInput = document.getElementById('submit-file');
-  var notesInput = document.getElementById('submit-notes');
-  var url = urlInput.value.trim();
-  var notes = notesInput.value.trim();
-  var file = fileInput.files[0];
-
-  if (!url && !file) {
-    showToast(_t('toast_enter_url_or_file'), 'reject');
-    return;
-  }
-
-  var formData = new FormData();
-  if (url) formData.append('image_url', url);
-  if (file) formData.append('file', file);
-  if (notes) formData.append('notes', notes);
-
-  fetch('/api/gallery/submit_figure', {
-    method: 'POST',
-    body: formData
-  }).then(function(r) {
-    if (r.ok) { return r.json(); }
-    throw new Error('Server error: ' + r.status);
-  }).then(function(data) {
-    if (data.ok) {
-      showToast(_t('toast_figure_submitted'), 'approve');
-      urlInput.value = '';
-      notesInput.value = '';
-      fileInput.value = '';
-      document.getElementById('submit-form').classList.remove('open');
-    } else {
-      showToast(data.error || _t('toast_error'), 'reject');
-    }
-  }).catch(function(e) {
-    showToast(_t('toast_error') + ': ' + e.message, 'reject');
-  });
 }
 // Search functionality
 var searchInput = document.getElementById('gallery-search');
@@ -2916,6 +2867,23 @@ def gallery_detail_page(name: str) -> str:
             lang = "Python" if ext == ".py" else "R"
             template_files.append({"filename": fname, "size": fsize, "lang": lang})
 
+    # Uploaded templates use generated storage names. Recover the chart-to-file
+    # mapping from the append-only feedback log instead of trusting client names.
+    for entry in feedback_entries:
+        if entry.get("action") != "upload_script":
+            continue
+        fname = _os.path.basename(str(entry.get("filename", "")))
+        ext = _os.path.splitext(fname)[1].lower()
+        if not fname or ext not in (".py", ".r"):
+            continue
+        fpath = _os.path.join(_templates_dir, fname)
+        if _os.path.isfile(fpath) and not any(t["filename"] == fname for t in template_files):
+            template_files.append({
+                "filename": fname,
+                "size": _os.path.getsize(fpath),
+                "lang": "Python" if ext == ".py" else "R",
+            })
+
     # Also check the explicit template path from catalog
     tpl_path = chart.get("template", "")
     if tpl_path:
@@ -3064,7 +3032,7 @@ def gallery_detail_page(name: str) -> str:
         f'style="display:flex;flex-direction:column;gap:10px;">'
         f'<input type="hidden" name="chart_name" value="{_html.escape(name)}">'
         '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
-        '<input type="file" name="file" accept=".py,.R,.zip" '
+        '<input type="file" name="file" accept=".py,.R" '
         'style="padding:6px;border:1px solid var(--border-hover);border-radius:var(--r-sm);'
         'background:var(--bg);color:var(--ink);font-size:12px;flex:1;min-width:200px;">'
         '<input type="text" name="description" placeholder="描述（可选）" '
@@ -3281,12 +3249,9 @@ def gallery_detail_page(name: str) -> str:
         '</div>'
     )
 
-    live_editor_html = (
-        '<div style="background:var(--card);border:1px solid var(--border-hover);border-radius:var(--r-md);'
-        'overflow:hidden;margin-bottom:var(--sp-md);">'
-        + _editor_toolbar + _editor_body + _editor_preview +
-        '</div>'
-    )
+    # Remote code execution/rendering has no safe local API contract. Keep the
+    # reusable source record, but do not advertise an editor that cannot run.
+    live_editor_html = ""
 
     # Row 1: Actions (left) | Upload (right), Row 2: Feedback (full width)
     _bottom_grid = (
@@ -3407,10 +3372,9 @@ function toggleCodePreview(id, filename) {
   }
 }
 
-/* ── Live Editor (CodeMirror + HF Space API) ── */
+/* ── Legacy editor helpers (rendering intentionally disabled) ── */
 var EDITOR_CM = null;
 var EDITOR_ORIG_CODE = EDITOR_INITIAL_CODE;
-var RENDER_API = (window.BRAIN_CONFIG && window.BRAIN_CONFIG.renderApi) || '/api/render';
 
 function _loadCSS(href) {
   return new Promise(function(resolve) {
@@ -3456,50 +3420,7 @@ function initLiveEditor() {
 }
 
 function runEditorCode() {
-  if (!EDITOR_CM) return;
-  var code = EDITOR_CM.getValue();
-  var fmt = (document.getElementById('editor-format') || {}).value || 'png';
-  var btn = document.getElementById('editor-run-btn');
-  var img = document.getElementById('editor-preview-img');
-  var ph = document.getElementById('editor-preview-placeholder');
-  var err = document.getElementById('editor-preview-error');
-  var status = document.getElementById('editor-preview-status');
-
-  // UI: loading
-  if (btn) { btn.textContent = '⏳ Running...'; btn.style.opacity = '0.6'; btn.disabled = true; }
-  if (ph) ph.style.display = 'none';
-  if (img) img.style.display = 'none';
-  if (err) err.style.display = 'none';
-  if (status) { status.style.display = 'none'; status.textContent = ''; }
-
-  var start = Date.now();
-  fetch(RENDER_API, {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({script: code, format: fmt})
-  }).then(function(r) {
-    var elapsed = ((Date.now() - start) / 1000).toFixed(1);
-    if (!r.ok) {
-      return r.json().then(function(e) { throw new Error(e.detail || e.error || 'HTTP ' + r.status); });
-    }
-    if (fmt === 'pdf') {
-      return r.blob().then(function(blob) {
-        var url = URL.createObjectURL(blob);
-        var a = document.createElement('a');
-        a.href = url; a.download = CHART_NAME + '_output.pdf'; a.click();
-        if (status) { status.textContent = 'PDF downloaded (' + elapsed + 's)'; status.style.display = 'block'; status.style.color = 'var(--success)'; }
-      });
-    }
-    return r.blob().then(function(blob) {
-      var url = URL.createObjectURL(blob);
-      if (img) { img.src = url; img.style.display = 'block'; }
-      if (status) { status.textContent = 'Generated in ' + elapsed + 's'; status.style.display = 'block'; status.style.color = 'var(--success)'; }
-    });
-  }).catch(function(e) {
-    if (err) { err.textContent = 'Error: ' + e.message; err.style.display = 'block'; }
-  }).finally(function() {
-    if (btn) { btn.textContent = '▶ Run'; btn.style.opacity = '1'; btn.disabled = false; }
-  });
+  return false;
 }
 
 function resetEditorCode() {
@@ -5587,7 +5508,13 @@ def proposal_lifecycle_page(overview: dict, tab="flow", review_html="", knowledg
 }})();
 </script>
 """
-    return _page("Knowledge Graph", body, nav_active="knowledge")
+    return _page(
+        "Knowledge Graph",
+        body,
+        nav_active="knowledge",
+        nav_scope="product",
+        show_welcome=False,
+    )
 
 def brain_map_page() -> str:
     """Compatibility wrapper for the former proposal map page."""

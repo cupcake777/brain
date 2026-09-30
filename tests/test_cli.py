@@ -11,7 +11,7 @@ def test_build_runtime_uses_paths_under_sync_root(tmp_path) -> None:
 def test_build_app_exposes_health_endpoint(tmp_path) -> None:
     app = build_app(sync_root=tmp_path / "shared")
 
-    routes = {route.path for route in app.routes}
+    routes = {path for route in app.routes if (path := getattr(route, "path", None))}
     assert "/health" in routes
 
 
