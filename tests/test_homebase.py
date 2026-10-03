@@ -175,7 +175,11 @@ def test_home_renders_empty_unicode_long_and_malicious_inputs_safely() -> None:
     assert "No decisions waiting" in empty
     assert "No knowledge entries yet" in empty
     assert "<strong>0</strong> records" in empty
-    assert "<script" not in empty
+    # Home now includes one fixed theme controller; user data must never alter it.
+    assert empty.count("<script>") == 1
+    theme_script = empty.split("<script>", 1)[1].split("</script>", 1)[0]
+    assert "localStorage.getItem('hermes_theme')" in theme_script
+    assert "document.getElementById('home-theme-toggle')" in theme_script
 
     malicious = '</style><script>alert(1)</script><img src=x onerror=alert(2)>'
     rendered = home_page(
@@ -206,7 +210,9 @@ def test_home_renders_empty_unicode_long_and_malicious_inputs_safely() -> None:
     assert "/review/..%2F%E6%8F%90%E6%A1%88%2F%CE%B2%22%20onclick%3D%22alert%286%29" in rendered
     assert "A" * 141 not in rendered
     assert "B" * 181 not in rendered
-    assert all(marker not in rendered for marker in ("javascript:", "fetch(", "innerHTML", "<script"))
+    assert rendered.count("<script>") == 1
+    assert rendered.split("<script>", 1)[1].split("</script>", 1)[0] == theme_script
+    assert all(marker not in rendered for marker in ("javascript:", "fetch(", "innerHTML"))
 
     class _EventAttributeParser(HTMLParser):
         event_attributes: list[tuple[str, str | None]]
