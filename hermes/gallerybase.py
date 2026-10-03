@@ -120,7 +120,7 @@ def gallery_page(*, charts: Iterable[dict[str, Any]] | None = None) -> str:
 
     body = f"""
 <style>
-.gallery-shell{{--paper:#fbf8f1;--paper-deep:#f0e8d9;--gallery-ink:#25231f;--gallery-muted:#746e63;--gallery-line:#d9cebb;--gallery-accent:#a36c28;max-width:1240px;margin:0 auto;padding:30px 24px 64px;color:var(--gallery-ink)}}
+.gallery-shell{{--paper:var(--card);--paper-deep:var(--surface-strong);--gallery-ink:var(--ink);--gallery-muted:var(--ink-muted);--gallery-line:var(--border);--gallery-accent:var(--primary);max-width:1240px;margin:0 auto;padding:30px 24px 64px;color:var(--gallery-ink)}}
 .gallery-masthead{{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:28px;align-items:end;padding:8px 0 22px;border-bottom:1px solid var(--gallery-line)}}
 .gallery-eyebrow,.gallery-kicker{{margin:0 0 6px;font:700 11px/1.2 var(--font-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--gallery-accent)}}
 .gallery-masthead h1{{margin:0;font:650 clamp(30px,5vw,54px)/.98 Georgia,serif;letter-spacing:-.035em;color:var(--gallery-ink)}}
@@ -130,10 +130,10 @@ def gallery_page(*, charts: Iterable[dict[str, Any]] | None = None) -> str:
 .gallery-ledger span{{color:var(--gallery-muted)}}
 .gallery-tools{{display:grid;grid-template-columns:minmax(220px,1fr) 180px 180px;gap:10px;padding:18px 0}}
 .gallery-tools label{{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}}
-.gallery-tools input,.gallery-tools select{{min-height:44px;width:100%;box-sizing:border-box;border:1px solid var(--gallery-line);border-radius:5px;background:#fffdf8;color:var(--gallery-ink);padding:0 12px;font:13px var(--font-sans);outline:none}}
+.gallery-tools input,.gallery-tools select{{min-height:44px;width:100%;box-sizing:border-box;border:1px solid var(--gallery-line);border-radius:var(--r-sm);background:var(--card);color:var(--gallery-ink);padding:0 12px;font:13px var(--font);outline:none}}
 .gallery-tools input:focus,.gallery-tools select:focus{{border-color:var(--gallery-accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--gallery-accent) 16%,transparent)}}
 .gallery-grid{{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}}
-.gallery-card{{min-width:0;background:#fffdf8;border:1px solid var(--gallery-line);border-radius:6px;overflow:hidden;transition:transform .16s ease,border-color .16s ease}}
+.gallery-card{{min-width:0;background:var(--card);border:1px solid var(--gallery-line);border-radius:var(--r-md);overflow:hidden;transition:transform .16s ease,border-color .16s ease}}
 .gallery-card:hover{{transform:translateY(-2px);border-color:#b99e74}}
 .gallery-card[hidden]{{display:none}}
 .gallery-card-link{{display:block;height:100%;color:inherit;text-decoration:none}}
@@ -197,7 +197,7 @@ def gallery_page(*, charts: Iterable[dict[str, Any]] | None = None) -> str:
   if(clear) clear.addEventListener('click',function(){if(search)search.value='';if(tier)tier.value='';if(category)category.value='';applyGalleryFilters();if(search)search.focus();});
 })();
 """
-    return _page("Scientific Figure Atlas", body, extra_js=script, nav_active="gallery", show_welcome=False)
+    return _page("Scientific Figure Atlas", body, extra_js=script, nav_active="gallery", nav_scope="product", show_welcome=False)
 
 
 def gallery_detail_page(*, chart: dict[str, Any] | None, chart_name: str = "") -> str:
@@ -210,7 +210,7 @@ def gallery_detail_page(*, chart: dict[str, Any] | None, chart_name: str = "") -
 </main>
 <style>.gallery-missing{max-width:640px;margin:70px auto;padding:40px 24px;border-top:1px solid var(--border);text-align:center}.gallery-missing h1{font:650 34px Georgia,serif}.gallery-missing p{color:var(--ink-muted)}.gallery-missing a{display:inline-flex;min-height:44px;align-items:center;color:var(--primary)}.gallery-detail-kicker{font:700 11px var(--font-mono);letter-spacing:.12em;text-transform:uppercase}</style>
 """
-        return _page("Figure not found", body, nav_active="gallery", show_welcome=False)
+        return _page("Figure not found", body, nav_active="gallery", nav_scope="product", show_welcome=False)
 
     name = _text(chart.get("name") or chart_name).strip()
     title = _text(chart.get("title"), name) or name
@@ -298,4 +298,4 @@ def gallery_detail_page(*, chart: dict[str, Any] | None, chart_name: str = "") -
   dialog.addEventListener('close',function(){opener.focus();});
 })();
 """
-    return _page(f"{title} — Figure Atlas", body, extra_js=script, nav_active="gallery", show_welcome=False)
+    return _page(f"{title} — Figure Atlas", body, extra_js=script, nav_active="gallery", nav_scope="product", show_welcome=False)
