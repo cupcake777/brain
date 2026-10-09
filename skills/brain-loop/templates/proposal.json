@@ -1,17 +1,18 @@
 {
-  "summary": "State one reusable lesson",
-  "observation": "Describe the concrete failure and verified fix",
-  "why_it_matters": "Explain the recurring cost if forgotten",
-  "suggested_memory": "Write the portable rule another agent should apply",
-  "project": "global",
+  "summary": "<one-sentence reusable lesson; do not repeat another field>",
+  "observation": "<verified facts: what happened, under which conditions, and what fixed or disproved it>",
+  "why_it_matters": "<recurring consequence for another agent if this is forgotten>",
+  "suggested_memory": "<standalone portable rule another agent can apply; not a narrative recap>",
+  "project": "<global or stable project key>",
   "category": "workflow_hint",
   "risk_level": "low",
-  "scope": "global",
+  "scope": "<global, project, host class, or another explicit boundary>",
+  "domain": "<stable knowledge domain, for example agent-infrastructure>",
   "evidence": [
     {
-      "source_type": "command",
-      "source_uri": "local-session",
-      "quoted_excerpt": "Exact non-secret evidence"
+      "source_type": "<file|command|url|test>",
+      "source_uri": "<literal non-secret source URI>",
+      "quoted_excerpt": "<exact sanitized excerpt proving the observation>"
     }
   ]
 }

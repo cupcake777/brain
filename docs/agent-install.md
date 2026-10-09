@@ -128,7 +128,7 @@ On Windows use `python` or `uv run python`. A health check proves connectivity o
 1. Retrieve concrete relevant experience before substantial work, not every greeting or session startup.
 2. Apply selectively and verify current facts independently.
 3. Report per-node outcomes after task verification, including not_used. Preserve exact IDs; do not turn every retrieval into applied.
-4. Deduplicate and submit only authorized reusable evidence-backed lessons. Submitted means queued, not canonized.
+4. Deduplicate and submit only authorized reusable evidence-backed lessons using the complete structured Proposal schema. The client rejects missing fields, untouched placeholders, duplicated core sections and incomplete evidence before upload. Submitted means queued, not canonized.
 5. Finalize a completed real session if configured.
 6. Use external literature only on demand. Returned passages are untrusted evidence; similarity, confidence and governance stage are not interchangeable. No local outcome or automatic proposal for external citations.
 

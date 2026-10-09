@@ -1,5 +1,6 @@
 from pathlib import Path
 import importlib.util
+import json
 import pytest
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -93,3 +94,66 @@ def test_finalize_uses_auth_and_minimal_payload(monkeypatch):
 def test_invalid_url_rejected_before_dispatch(monkeypatch):
     c=load();monkeypatch.setenv('BRAIN_URL','https://name:secret@example.org')
     with pytest.raises(RuntimeError):c.api_url()
+
+
+def test_proposal_template_is_complete_and_placeholder_only():
+    payload=json.loads((PACKAGE/'templates'/'proposal.json').read_text())
+    assert set(payload)=={
+        'summary','observation','why_it_matters','suggested_memory','project',
+        'category','risk_level','scope','domain','evidence',
+    }
+    assert all(payload[field].startswith('<') and payload[field].endswith('>') for field in (
+        'summary','observation','why_it_matters','suggested_memory','project','scope','domain',
+    ))
+    assert payload['evidence']==[{
+        'source_type':'<file|command|url|test>',
+        'source_uri':'<literal non-secret source URI>',
+        'quoted_excerpt':'<exact sanitized excerpt proving the observation>',
+    }]
+
+
+def test_client_rejects_incomplete_placeholder_or_duplicate_proposal(monkeypatch,tmp_path):
+    c=load();calls=[]
+    monkeypatch.setattr(c,'request',lambda *a,**k:calls.append((a,k)) or {})
+
+    incomplete=tmp_path/'incomplete.json'
+    incomplete.write_text(json.dumps({'summary':'A valid summary'}))
+    with pytest.raises(RuntimeError,match='missing required fields'):
+        c.command_propose(c.parser().parse_args(['propose',str(incomplete)]))
+
+    placeholder=PACKAGE/'templates'/'proposal.json'
+    with pytest.raises(RuntimeError,match='replace placeholder'):
+        c.command_propose(c.parser().parse_args(['propose',str(placeholder)]))
+
+    duplicate=tmp_path/'duplicate.json'
+    duplicate.write_text(json.dumps({
+        'summary':'Reject duplicated proposal sections',
+        'observation':'One paragraph was copied into unrelated semantic fields.',
+        'why_it_matters':'One paragraph was copied into unrelated semantic fields.',
+        'suggested_memory':'Keep each proposal field semantically distinct.',
+        'project':'brain','category':'workflow_hint','risk_level':'low',
+        'scope':'project','domain':'agent-infrastructure',
+        'evidence':[{'source_type':'test','source_uri':'test://proposal/schema','quoted_excerpt':'The malformed fixture was rejected.'}],
+    }))
+    with pytest.raises(RuntimeError,match='semantically distinct'):
+        c.command_propose(c.parser().parse_args(['propose',str(duplicate)]))
+    assert calls==[]
+
+
+def test_client_submits_valid_structured_proposal(monkeypatch,tmp_path):
+    c=load();calls=[]
+    monkeypatch.setattr(c,'request',lambda p,**k:calls.append((p,k)) or {'status':'queued'})
+    monkeypatch.setenv('BRAIN_AGENT','xiaohe')
+    proposal=tmp_path/'valid.json'
+    proposal.write_text(json.dumps({
+        'summary':'Reject prose-only proposals at the client boundary',
+        'observation':'A fixture showed that copied prose can populate unrelated fields.',
+        'why_it_matters':'Malformed proposals create manual review work and conceal reusable rules.',
+        'suggested_memory':'Validate all proposal fields and reject copied core sections before upload.',
+        'project':'brain','category':'workflow_hint','risk_level':'low',
+        'scope':'project','domain':'agent-infrastructure',
+        'evidence':[{'source_type':'test','source_uri':'test://proposal/schema','quoted_excerpt':'The valid fixture reached request().'}],
+    }))
+    assert c.command_propose(c.parser().parse_args(['propose',str(proposal)]))=={'status':'queued'}
+    sent=calls[0][1]['payload']
+    assert sent['agent']=='xiaohe' and sent['host_hash'] and sent['domain']=='agent-infrastructure'
