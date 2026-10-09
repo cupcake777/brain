@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#02080c">
+  <title>ORBIT RACE · 3D FREE DRIVE</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="styles.css?v=30">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "./vendor/three.module.js",
+      "three/addons/": "./vendor/jsm/"
+    }
+  }
+  </script>
+</head>
+<body class="is-selecting">
+  <div id="game" class="game">
+    <div id="viewport" class="viewport"></div>
+    <div class="scanlines" aria-hidden="true"></div>
+    <div class="vignette" aria-hidden="true"></div>
+
+    <div class="hud-frame" aria-hidden="true">
+      <span class="corner tl"></span><span class="corner tr"></span>
+      <span class="corner bl"></span><span class="corner br"></span>
+      <span class="hud-rail left"></span>
+      <span class="hud-rail right"></span>
+      <span class="hud-cross"></span>
+      <span class="hud-tick top"></span>
+      <span class="hud-tick bottom"></span>
+    </div>
+    <div class="instrument-strip mono" id="instrumentStrip" aria-hidden="true">
+      <span id="instA">CORR 09</span>
+      <span id="instB">VIS 28M</span>
+      <span id="instC">LIFT CELL 04</span>
+      <span id="instD">AUTH · K</span>
+    </div>
+
+    <div id="loader" class="boot-loader" role="status" aria-live="polite">
+      <p class="eyebrow">OPENING LOW CITY CORRIDOR</p>
+      <div class="boot-bar"><i id="bootFill"></i></div>
+      <p class="mono" id="bootText">0%</p>
+    </div>
+    <div id="openingError" class="opening-load-error" role="alert" hidden>
+      Opening unavailable. <a href="/">Continue to Brain Home</a>.
+    </div>
+
+    <div id="selectScreen" class="select-screen" aria-hidden="false">
+      <div class="select-atmosphere" aria-hidden="true">
+        <div class="city-far"></div>
+        <div class="city-stack"></div>
+        <div class="city-near"></div>
+        <div class="window-grid"></div>
+        <div class="city-glow"></div>
+        <div class="rain-veil"></div>
+        <div class="haze"></div>
+      </div>
+
+      <header class="select-topbar">
+        <div class="brand">
+          <span class="brand-mark">ORBIT</span>
+          <span class="brand-sub mono">RACE</span>
+        </div>
+        <a href="/" class="opening-exit">Skip · Brain Home</a>
+      </header>
+
+      <div class="select-hero">
+        <p class="eyebrow">CHOOSE A RUN</p>
+        <h1 class="select-title">Where do you drive?</h1>
+        <p class="select-sub mono" id="selectSub">pick a world · then launch</p>
+      </div>
+
+      <section class="catalog catalog-solo">
+        <div class="select-grid product-grid product-grid-duo" id="sceneGrid" role="radiogroup" aria-label="Choose an opening run">
+          <button type="button" class="product-card" data-scene="sunset" role="radio" aria-checked="false">
+            <div class="product-preview sunset-preview" aria-hidden="true"></div>
+            <div class="product-body">
+              <span class="card-kicker">HIGHWAY</span>
+              <span class="card-title">Sunset Strip</span>
+              <span class="card-desc mono">neon road · palm · ground racer</span>
+            </div>
+          </button>
+          <button type="button" class="product-card is-active" data-scene="blade" role="radio" aria-checked="true">
+            <div class="product-preview blade-preview" aria-hidden="true"></div>
+            <div class="product-body">
+              <span class="card-kicker">SKY LANE</span>
+              <span class="card-title">Low City</span>
+              <span class="card-desc mono">rain · towers · spinner flight</span>
+            </div>
+          </button>
+        </div>
+      </section>
+
+      <div class="select-cta">
+        <button type="button" id="startBtn" class="start-btn">▶ START</button>
+        <p class="select-hint mono" id="selectHint">WASD move · SPACE boost · ESC pause</p>
+      </div>
+    </div>
+
+    <div id="intro" class="intro">
+      <p class="eyebrow" id="introEyebrow">SUNSET RACE INSPIRED · THREE.JS</p>
+      <h1 class="word sunset" id="introWordA">ORBIT</h1>
+      <h1 class="word race" id="introWordB">RACE</h1>
+      <p class="tagline" id="introTag">NEON CITY · TRUE 3D · FREE DRIVE</p>
+      <p class="hint mono" id="introHint">WASD / ARROWS · SPACE NITRO · R RESET · ESC PAUSE</p>
+    </div>
+
+    <div class="top-actions" id="topActions">
+      <button type="button" id="pauseBtn" class="top-btn" aria-pressed="false" title="Pause (Esc / P)">❚❚ PAUSE</button>
+      <button type="button" id="menuBtn" class="top-btn top-btn-exit" title="Open menu">MENU</button>
+    </div>
+
+    <header class="top-meta">
+      <div class="chip" id="titleChip">ORBIT RACE 3D</div>
+      <div class="chip mono" id="clock">00:00:00</div>
+      <div class="chip" id="modeChip">FREE DRIVE</div>
+    </header>
+
+    <div class="speedo">
+      <div class="speed-num mono" id="speed">000</div>
+      <div class="speed-unit" id="speedUnit">KM/H</div>
+      <div class="nitro-row">
+        <span id="boostLabel">NITRO</span>
+        <div class="nitro-bar"><i id="nitroFill"></i></div>
+      </div>
+    </div>
+
+    <div class="stats mono">
+      <div><span>DIST</span><b id="dist">0.00</b> km</div>
+      <div><span>TIME</span><b id="etime">00:00</b></div>
+      <div><span id="laneLabel">LANE</span><b id="lane">C</b></div>
+    </div>
+
+    <div class="controls-help mono" id="help">
+      <span>← → steer</span>
+      <span id="helpUp">↑ accel</span>
+      <span id="helpDown">↓ brake</span>
+      <span>SPACE boost</span>
+      <span>ESC pause</span>
+    </div>
+
+    <div class="touch" id="touch">
+      <div class="touch-col">
+        <button type="button" data-k="left" aria-label="Steer left">◀</button>
+        <button type="button" data-k="right" aria-label="Steer right">▶</button>
+      </div>
+      <div class="touch-col">
+        <button type="button" data-k="nitro" class="nitro-btn" aria-label="Boost or thrust">BOOST</button>
+        <button type="button" data-k="up" aria-label="Accelerate or ascend">▲</button>
+        <button type="button" data-k="down" aria-label="Brake or descend">▼</button>
+      </div>
+    </div>
+
+    <div id="pauseOverlay" class="pause-overlay" role="dialog" aria-modal="true" aria-labelledby="pauseTitle" aria-hidden="true">
+      <div class="pause-card">
+        <p class="eyebrow">SYSTEM HOLD</p>
+        <h2 id="pauseTitle">PAUSED</h2>
+        <p class="pause-sub mono">ESC resume · change run anytime</p>
+        <div class="pause-actions">
+          <button type="button" id="resumeBtn" class="pause-btn primary">▶ RESUME</button>
+          <button type="button" id="reselectBtn" class="pause-btn">↻ CHANGE RUN</button>
+          <button type="button" id="exitBtn" class="pause-btn danger">EXIT · HOME</button>
+        </div>
+      </div>
+    </div>
+
+    <footer class="bottom-meta">
+      <span id="footerLeft">3D REMAKE · DRIVE FREELY</span>
+      <span class="mono" id="footerRight">REF: SUNSET RACE</span>
+    </footer>
+  </div>
+
+  <script type="module" src="app.js?v=30"></script>
+  <noscript><p class="opening-load-error">The interactive opening needs JavaScript. <a href="/">Continue to Brain Home</a>.</p></noscript>
+</body>
+</html>

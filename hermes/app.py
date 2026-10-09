@@ -9,11 +9,14 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict as _asdict
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urlparse
+from uuid import uuid4
 
 import httpx
 
 from fastapi import FastAPI, Form, HTTPException, Query, Request, Response
-from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 from hermes.auth import CSRFMiddleware, DBFailClosedMiddleware, TokenAuthMiddleware
 from hermes.brain_protocol import register_brain_protocol_routes
@@ -30,12 +33,11 @@ from hermes.homebase import home_page
 from hermes.cassette import cassette_page
 from hermes.orbit import orbit_page
 from hermes.lane import assign_lane as _assign_lane
+from hermes.knowledgebase import knowledge_tree_page as knowledge_page
+from hermes.knowledge_detail import knowledge_detail_page
+from hermes.gallerybase import gallery_detail_page, gallery_page
 from hermes.templates import (
     dashboard_page,
-    gallery_detail_page,
-    gallery_page,
-    knowledge_detail_page,
-    knowledge_tree_page as knowledge_page,
     linuxdo_board_page,
     login_page,
     profile_page,
@@ -75,9 +77,18 @@ def create_app(
             response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
             response.headers["Pragma"] = "no-cache"
             response.headers["Expires"] = "0"
+            if request.url.path.startswith("/opening"):
+                response.headers["Content-Security-Policy"] = (
+                    "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self'; "
+                    "style-src-attr 'unsafe-inline'; worker-src 'self' blob:; "
+                    "img-src 'self' data: blob:; connect-src 'self' blob:; object-src 'none'; "
+                    "base-uri 'none'; form-action 'self'; frame-ancestors 'self'"
+                )
         return response
 
     # -- auth helpers (must be defined before middleware) ----------------------
+    if bool(config.auth_username) != bool(config.auth_password):
+        raise ValueError("HERMES_USERNAME and HERMES_PASSWORD must be configured together")
     auth_enabled = bool(config.auth_token or config.auth_username)
     _AUTH_COOKIE = "hermes_auth"
     _session_secret: str = secrets.token_hex(16)  # random per startup for cookie signing
@@ -103,9 +114,17 @@ def create_app(
         cookie_val = request.cookies.get(_AUTH_COOKIE)
         return cookie_val == _make_cookie_value()
 
-    def _set_auth_cookie(response: Response) -> Response:
+    def _set_auth_cookie(response: Response, request: Request) -> Response:
         """Set the auth cookie on a response (login success)."""
-        response.set_cookie(_AUTH_COOKIE, _make_cookie_value(), httponly=True, samesite="lax", max_age=86400 * 30)
+        response.set_cookie(
+            _AUTH_COOKIE,
+            _make_cookie_value(),
+            httponly=True,
+            secure=request.url.scheme == "https",
+            samesite="lax",
+            max_age=86400 * 30,
+            path="/",
+        )
         return response
 
     # -- middleware stack (outermost first) ------------------------------------
@@ -179,14 +198,18 @@ def create_app(
             return RedirectResponse("/", status_code=303)
         if _valid_login(username, password):
             resp = RedirectResponse("/", status_code=303)
-            return _set_auth_cookie(resp)
+            return _set_auth_cookie(resp, request)
         return login_page(error="Invalid username or password")
 
-    @app.get("/logout")
+    @app.post("/logout")
     def logout():
         resp = RedirectResponse("/login", status_code=303)
         resp.delete_cookie(_AUTH_COOKIE)
         return resp
+
+    @app.get("/logout", include_in_schema=False)
+    def logout_get_not_allowed():
+        raise HTTPException(status_code=405, detail="use POST to log out")
 
     # ------------------------------------------------------------------
     # JSON API endpoints (unchanged – tests depend on these)
@@ -242,20 +265,9 @@ def create_app(
             ]
         except Exception:
             pass
-        dash_data = _collect_dashboard_data()
-        linuxdo_board = {}
-        board_path = Path.home() / "self/knowledge/daily-learnings/linuxdo-board.json"
-        if board_path.exists():
-            try:
-                import json as _json
-                linuxdo_board = _json.loads(board_path.read_text(encoding="utf-8"))
-            except Exception:
-                linuxdo_board = {"fetch_errors": ["failed to read board json"], "items": []}
         return home_page(
             node_counts=node_counts, chart_count=chart_count, health_summary=knowledge_health,
             recent_nodes=recent_nodes,
-            do_status=dash_data["do"], proxy_status=dash_data["proxy_status"],
-            proxy_traffic=dash_data["proxy_traffic"], sub2api=dash_data["sub2api"], linuxdo_board=linuxdo_board,
             proposal_counts=proposal_counts, knowledge_health=knowledge_health,
             lifecycle_overview=lifecycle_overview, pending_proposals=pending_proposals,
         )
@@ -265,6 +277,10 @@ def create_app(
         if auth_enabled and not _has_valid_cookie(request):
             return RedirectResponse("/login", status_code=303)
         return _render_workbench_page()
+
+    opening_dir = Path(__file__).with_name("opening")
+    if opening_dir.is_dir():
+        app.mount("/opening", StaticFiles(directory=opening_dir, html=True), name="opening")
 
     @app.get("/overview", response_class=HTMLResponse, response_model=None)
     def overview_page(request: Request):
@@ -413,6 +429,94 @@ def create_app(
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="proposal not found") from exc
 
+    @app.put("/api/review/{proposal_id}/edit")
+    async def edit_proposal(proposal_id: str, request: Request) -> dict[str, object]:
+        """Validate and save structured proposal fields before review."""
+        from hermes.brain_protocol import VALID_CATEGORIES, VALID_RISKS
+        from hermes.ingest import _compute_semantic_hash, _is_garbage_content
+        from hermes.sensitive import SensitiveContentError, default_gate
+        from hermes.weight import compute_weight
+
+        try:
+            current = repo.get_proposal(proposal_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="proposal not found") from exc
+        if str(current.get("state")) not in {"pending", "approved_db_only"}:
+            raise HTTPException(status_code=409, detail="only reviewable proposals can be edited")
+        try:
+            body = await request.json()
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail="invalid JSON body") from exc
+        if not isinstance(body, dict):
+            raise HTTPException(status_code=400, detail="JSON body must be an object")
+
+        text_fields = (
+            "project_key", "category", "risk_level", "domain", "summary",
+            "observation", "why_it_matters", "suggested_memory", "scope",
+        )
+        values: dict[str, str | int | float | None] = {
+            name: str(body.get(name, "")).strip() for name in text_fields
+        }
+        for name in text_fields:
+            if not values[name]:
+                raise HTTPException(status_code=422, detail=f"{name} is required")
+        if values["category"] not in VALID_CATEGORIES:
+            raise HTTPException(status_code=422, detail=f"category must be one of {sorted(VALID_CATEGORIES)}")
+        if values["risk_level"] not in VALID_RISKS:
+            raise HTTPException(status_code=422, detail=f"risk_level must be one of {sorted(VALID_RISKS)}")
+        for name in ("summary", "observation", "why_it_matters", "suggested_memory"):
+            if _is_garbage_content(str(values[name])):
+                raise HTTPException(status_code=422, detail=f"{name} is too short or invalid")
+        core = [str(values[name]).strip().lower() for name in ("observation", "why_it_matters", "suggested_memory")]
+        if len(set(core)) != len(core):
+            raise HTTPException(status_code=422, detail="core proposal fields must be distinct")
+
+        evidence = body.get("evidence")
+        if evidence in (None, "", []):
+            raise HTTPException(status_code=422, detail="evidence is required")
+        if not isinstance(evidence, list) or not evidence:
+            raise HTTPException(status_code=422, detail="evidence must be a non-empty list")
+        normalized_evidence: list[dict[str, str]] = []
+        for index, entry in enumerate(evidence):
+            if not isinstance(entry, dict):
+                raise HTTPException(status_code=422, detail=f"evidence[{index}] must be an object")
+            normalized: dict[str, str] = {}
+            for field in ("source_type", "source_uri", "quoted_excerpt"):
+                value = entry.get(field)
+                if not isinstance(value, str) or not value.strip():
+                    raise HTTPException(status_code=422, detail=f"evidence[{index}] requires {field}")
+                normalized[field] = value.strip()
+            normalized_evidence.append(normalized)
+        values["evidence"] = json.dumps(normalized_evidence, ensure_ascii=False)
+        try:
+            default_gate().check(values, field="proposal_edit")
+        except SensitiveContentError as exc:
+            raise HTTPException(status_code=422, detail="sensitive_content_detected") from exc
+
+        canonical = "\n\n".join(
+            f"## {heading}\n{values[key]}"
+            for heading, key in (
+                ("Summary", "summary"),
+                ("Observation", "observation"),
+                ("Why it matters", "why_it_matters"),
+                ("Suggested durable memory", "suggested_memory"),
+                ("Scope", "scope"),
+                ("Evidence", "evidence"),
+            )
+        )
+        semantic_hash = _compute_semantic_hash(canonical)
+        values.update({
+            "semantic_hash": semantic_hash,
+            "semantic_duplicate_of": repo.find_by_semantic_hash(semantic_hash, excluding=proposal_id),
+            "weight": compute_weight(
+                category=str(values["category"]),
+                risk_level=str(values["risk_level"]),
+            ),
+        })
+        updated = repo.update_proposal_content(proposal_id, values)
+        status_publisher.publish()
+        return {"proposal_id": proposal_id, "state": str(updated["state"]), "saved": True}
+
     @app.post("/api/review/{proposal_id}/approve-db-only")
     def approve_db_only(proposal_id: str, state: str = Query(default="pending")) -> dict[str, str]:
         repo.transition_state(proposal_id, "approved_db_only")
@@ -465,7 +569,7 @@ def create_app(
     # ------------------------------------------------------------------
 
     @app.post("/api/proposals/submit")
-    async def submit_proposal(request: Request) -> dict[str, object]:
+    async def submit_proposal(request: Request) -> JSONResponse:
         """Accept a proposal .md file from a remote agent.
 
         Body can be either:
@@ -534,7 +638,8 @@ def create_app(
                     f"Proposal {proposal_id} already exists (state: {stored['state']}). "
                     f"Review at /api/review/{proposal_id}"
                 )
-                return result
+                filepath.unlink(missing_ok=True)
+                return JSONResponse(status_code=409, content=result)
 
             # Parse and validate sections
             sections = _parse_sections(body_text)
@@ -552,7 +657,8 @@ def create_app(
                     f"Proposal is a semantic duplicate of {duplicate_of} "
                     f"(state: {existing['state']}). Review at /api/review/{duplicate_of}"
                 )
-                return result
+                filepath.unlink(missing_ok=True)
+                return JSONResponse(status_code=409, content=result)
 
             # All validations passed
             result["status"] = "validated"
@@ -560,13 +666,17 @@ def create_app(
             result["risk_level"] = front_matter.get("risk_level", "unknown")
             result["summary"] = sections.get("Summary", "")
             result["message"] = "Proposal is valid and will be ingested on next watch cycle."
+            return JSONResponse(status_code=202, content=result)
 
         except ValueError as exc:
-            # Validation failure — proposal file still written to inbox,
-            # but the agent should fix and resubmit.
+            # Validation failure is not a queued proposal. Remove the inbox
+            # file so the watcher cannot retry a payload already known invalid.
+            filepath.unlink(missing_ok=True)
             result["status"] = "rejected"
+            result["file_written"] = False
             result["reason"] = str(exc)
             result["message"] = f"Proposal rejected by validation: {exc}"
+            return JSONResponse(status_code=422, content=result)
         except Exception as exc:
             # Unexpected parse error — file written but couldn't pre-validate.
             # The watch cycle will retry, so this isn't fatal.
@@ -575,8 +685,7 @@ def create_app(
                 f"Proposal written to inbox but pre-validation failed "
                 f"(will retry on watch cycle): {exc}"
             )
-
-        return result
+            return JSONResponse(status_code=202, content=result)
 
     # ------------------------------------------------------------------
     # Export file endpoints
@@ -637,19 +746,22 @@ def create_app(
             agent = str(body.get("agent", "unknown"))
             host = str(body.get("host", "unknown"))
             session_id = str(body.get("session_id", ""))
-            limit = int(body.get("limit", 10))
+            try:
+                limit = int(body.get("limit", 10))
+            except (TypeError, ValueError) as exc:
+                raise HTTPException(status_code=400, detail="limit must be an integer") from exc
+            if not 1 <= limit <= 100:
+                raise HTTPException(status_code=400, detail="limit must be between 1 and 100")
         else:
             form = await request.form()
             query = str(form.get("query", ""))
             agent = str(form.get("agent", "unknown"))
             host = str(form.get("host", "unknown"))
             session_id = str(form.get("session_id", ""))
-            limit = 10
         """Record a knowledge query for retrieval tracking.
 
-        Called by brain-query-hpc.sh (HPC) and brain-query CLI (VPS).
+        Called by authenticated Brain clients and scoped agents.
         Increments retrieval_count for knowledge nodes matching the query.
-        PUBLIC endpoint — no auth required (only increments counters).
         Rate-limited to 1 request per 2s per agent+host key.
         """
         # Rate limit check
@@ -741,7 +853,7 @@ def create_app(
         }
 
     @app.get("/api/knowledge/graph")
-    def knowledge_graph(limit: int = 200) -> dict:
+    def knowledge_graph(limit: int = Query(default=200, ge=1, le=500)) -> dict:
         """Return nodes and edges for the knowledge graph visualization (v3)."""
         return repo.get_knowledge_graph(limit=limit)
 
@@ -791,7 +903,7 @@ def create_app(
         stage: str | None = None,
         category: str | None = None,
         domain: str | None = None,
-        limit: int = Query(default=50, le=500),
+        limit: int = Query(default=50, ge=1, le=500),
         offset: int = Query(default=0, ge=0),
     ) -> list[dict]:
         """List knowledge nodes with optional filters."""
@@ -1072,7 +1184,9 @@ def create_app(
         category: str = Query(default=""),
         domain: str = Query(default=""),
         q: str = Query(default=""),
+        view: str = Query(default="list"),
     ) -> str:
+        requested_view = view if view in {"list", "graph"} else "list"
         if stage not in _VALID_KN_STAGES:
             stage = "all"
         node_stage = None if stage == "all" else stage
@@ -1095,6 +1209,8 @@ def create_app(
             active_category=category,
             active_domain=domain,
             domains=domains,
+            query=q,
+            view=requested_view,
         )
 
     @app.get("/knowledge/{node_id}", response_class=HTMLResponse)
@@ -1118,6 +1234,18 @@ def create_app(
                 supersedes_node = {"id": sn.id, "summary": sn.summary, "stage": sn.stage}
         # Resolve superseded_by (nodes that supersede this one)
         superseded_by_nodes = repo.find_superseded_nodes(node_id)
+        contradicts_nodes = []
+        try:
+            contradiction_ids = json.loads(node.contradicts or "[]")
+        except (TypeError, ValueError, json.JSONDecodeError):
+            contradiction_ids = []
+        if isinstance(contradiction_ids, list):
+            for contradiction_id in contradiction_ids:
+                related = repo.get_knowledge_node(str(contradiction_id))
+                if related:
+                    contradicts_nodes.append(
+                        {"id": related.id, "summary": related.summary, "stage": related.stage}
+                    )
         return knowledge_detail_page(
             node={
                 "id": node.id,
@@ -1161,6 +1289,7 @@ def create_app(
             child_nodes=[{"id": c.id, "summary": c.summary, "stage": c.stage} for c in children],
             supersedes_node=supersedes_node,
             superseded_by=[{"id": s.id, "summary": s.summary, "stage": s.stage} for s in superseded_by_nodes],
+            contradicts_nodes=contradicts_nodes,
         )
 
     @app.post("/knowledge/{node_id}/stage")
@@ -1347,7 +1476,7 @@ def create_app(
 
     @app.get("/brain-map", response_class=HTMLResponse, response_model=None)
     def brain_map_route():
-        return RedirectResponse("/proposals", status_code=301)
+        return RedirectResponse("/knowledge?view=graph", status_code=301)
 
     @app.get("/proposals", response_class=HTMLResponse, response_model=None)
     def proposal_lifecycle_route(
@@ -1783,20 +1912,9 @@ def create_app(
     # ------------------------------------------------------------------
     # Plotting Gallery – renders sci-fig template gallery
     # ------------------------------------------------------------------
-    from fastapi.staticfiles import StaticFiles
-
-    @app.get("/gallery", response_class=HTMLResponse)
-    def gallery_route() -> str:
-        return gallery_page()
-
-    @app.get("/gallery/{chart_name}", response_class=HTMLResponse)
-    def gallery_detail_route(chart_name: str) -> str:
-        return gallery_detail_page(chart_name)
-
-    # Serve demo images for the gallery
+    # Gallery storage is private by default. Individual catalog-declared assets
+    # are served by an allowlisted route below; never mount this root wholesale.
     _PLOTTING_STATIC = Path(os.environ.get("BRAIN_PLOTTING_DIR", ""))
-    if _PLOTTING_STATIC.is_dir():
-        app.mount("/gallery/static", StaticFiles(directory=str(_PLOTTING_STATIC)), name="gallery-static")
 
     # ------------------------------------------------------------------
     # Gallery REST API – catalog, templates, submit
@@ -1891,13 +2009,24 @@ def create_app(
         except Exception:
             raw = {}
 
-        # Already v2 format?
+        if not isinstance(raw, dict):
+            return {"charts": []}
+
+        # Already v2 format? Keep only records that can be rendered safely.
         if "charts" in raw:
-            return raw
+            raw_charts = raw.get("charts")
+            if not isinstance(raw_charts, list):
+                return {"charts": []}
+            return {"charts": [chart for chart in raw_charts if isinstance(chart, dict)]}
 
         # ---- v3 normalization ----
         charts = []
-        for tpl in raw.get("templates", []):
+        templates = raw.get("templates")
+        if not isinstance(templates, list):
+            templates = []
+        for tpl in templates:
+            if not isinstance(tpl, dict):
+                continue
             _id = tpl.get("id", "")
             _shape = tpl.get("input_shape", "")
             entry = {
@@ -1914,21 +2043,126 @@ def create_app(
                 "tags": tpl.get("tags", _SHAPE_TAGS.get(_shape, [])),
                 "template": tpl.get("template", ""),
                 "demo": tpl.get("demo_png", tpl.get("demo", "")),
+                "interactive": tpl.get("interactive_html", tpl.get("interactive", "")),
                 "visual_grammar": tpl.get("visual_grammar", ""),
             }
             charts.append(entry)
 
         return {"charts": charts}
 
+    @app.get("/gallery", response_class=HTMLResponse)
+    def gallery_route() -> str:
+        charts = [_catalog_chart_for_render(chart) for chart in _load_catalog().get("charts", [])]
+        return gallery_page(charts=charts)
+
+
+    def _safe_gallery_relative_path(value: object) -> str | None:
+        """Normalize a catalog path without allowing absolute/traversal paths."""
+        raw = str(value or "")
+        if not raw or "\\" in raw or "\x00" in raw:
+            return None
+        candidate = Path(raw)
+        if candidate.is_absolute() or any(part in ("", ".", "..") for part in candidate.parts):
+            return None
+        return candidate.as_posix()
+
+    def _gallery_asset_allowlist() -> set[str]:
+        allowed: set[str] = set()
+        catalog = _load_catalog()
+        chart_names: set[str] = set()
+        for chart in catalog.get("charts", []):
+            chart_name = str(chart.get("name", ""))
+            if chart_name:
+                chart_names.add(chart_name)
+            suffixes_by_key = {
+                "demo": {".png", ".jpg", ".jpeg", ".webp"},
+                "interactive": {".html", ".htm"},
+                "template": {".py", ".r"},
+            }
+            for key, suffixes in suffixes_by_key.items():
+                relative = _safe_gallery_relative_path(chart.get(key))
+                if relative and Path(relative).suffix.lower() in suffixes:
+                    allowed.add(relative)
+            for ext in (".py", ".R"):
+                relative = _safe_gallery_relative_path(f"templates/{chart_name}{ext}")
+                if chart_name and relative:
+                    allowed.add(relative)
+
+        try:
+            with _GALLERY_FEEDBACK.open(encoding="utf-8") as feedback:
+                for line in feedback:
+                    try:
+                        entry = _json.loads(line)
+                    except (TypeError, ValueError):
+                        continue
+                    if entry.get("action") != "upload_script" or str(entry.get("chart", "")) not in chart_names:
+                        continue
+                    filename = Path(str(entry.get("filename", ""))).name
+                    relative = _safe_gallery_relative_path(f"templates/{filename}")
+                    if relative and Path(filename).suffix.lower() in (".py", ".r"):
+                        allowed.add(relative)
+        except OSError:
+            pass
+        return allowed
+
+    def _safe_gallery_file(relative: str | None) -> Path | None:
+        """Resolve an allowlisted gallery file beneath the private gallery root."""
+        if relative is None or relative not in _gallery_asset_allowlist():
+            return None
+        root = _PLOTTING_STATIC.resolve()
+        target = (root / relative).resolve()
+        if not target.is_relative_to(root) or not target.is_file():
+            return None
+        return target
+
+    @app.get("/gallery/static/{asset_path:path}", response_class=FileResponse)
+    def gallery_static_asset(asset_path: str):
+        """Serve only files explicitly referenced by the local gallery catalog."""
+        relative = _safe_gallery_relative_path(asset_path)
+        target = _safe_gallery_file(relative)
+        if target is None:
+            raise HTTPException(status_code=404, detail="gallery asset not found")
+        response = FileResponse(target)
+        if target.suffix.lower() in (".html", ".htm"):
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "
+                "img-src 'self' data:; connect-src 'none'; frame-ancestors 'self'; base-uri 'none'"
+            )
+        return response
+
+    @app.get("/gallery/static", include_in_schema=False)
+    def gallery_static_root():
+        raise HTTPException(status_code=404, detail="gallery asset not found")
+
+    def _catalog_chart_for_render(chart: dict) -> dict:
+        """Remove catalog asset references that are absent or unsafe to display."""
+        rendered = dict(chart)
+        for key in ("demo", "interactive"):
+            relative = _safe_gallery_relative_path(rendered.get(key))
+            if _safe_gallery_file(relative) is None:
+                rendered[key] = ""
+        return rendered
+
+    @app.get("/gallery/{chart_name}", response_class=HTMLResponse)
+    def gallery_detail_route(chart_name: str) -> str:
+        chart = next(
+            (entry for entry in _load_catalog().get("charts", []) if entry.get("name") == chart_name),
+            None,
+        )
+        return gallery_detail_page(
+            chart=_catalog_chart_for_render(chart) if chart else None,
+            chart_name=chart_name,
+        )
+
     def _chart_status(name: str, chart: dict) -> dict:
         """Build per-chart status: has_template, has_demo, template_lang, template_size."""
-        _tpl_dir = _PLOTTING_STATIC / "templates"
         tpl_path = chart.get("template", "")
         files_found = []
         for ext in (".py", ".R"):
             fname = f"{name}{ext}"
-            fpath = _tpl_dir / fname
-            if fpath.is_file():
+            relative = _safe_gallery_relative_path(f"templates/{fname}")
+            fpath = _safe_gallery_file(relative)
+            if fpath is not None:
                 files_found.append({
                     "filename": fname,
                     "lang": "Python" if ext == ".py" else "R",
@@ -1936,9 +2170,10 @@ def create_app(
                 })
         # Also check explicit template path
         if tpl_path:
-            full_tpl = _PLOTTING_STATIC / tpl_path
+            relative = _safe_gallery_relative_path(tpl_path)
+            full_tpl = _safe_gallery_file(relative)
             tpl_fname = Path(tpl_path).name
-            if full_tpl.is_file() and not any(t["filename"] == tpl_fname for t in files_found):
+            if full_tpl is not None and not any(t["filename"] == tpl_fname for t in files_found):
                 ext = Path(tpl_fname).suffix.lower()
                 files_found.append({
                     "filename": tpl_fname,
@@ -1946,7 +2181,7 @@ def create_app(
                     "size": full_tpl.stat().st_size,
                 })
         demo_file = chart.get("demo", "")
-        has_demo = bool(demo_file) and (_PLOTTING_STATIC / demo_file).is_file()
+        has_demo = _safe_gallery_file(_safe_gallery_relative_path(demo_file)) is not None
         return {
             "has_template": len(files_found) > 0,
             "has_demo": has_demo,
@@ -1997,21 +2232,23 @@ def create_app(
             return {"ok": False, "error": f"Chart '{chart_name}' not found"}
         info = _chart_status(chart_name, chart)
         # Read template source code
-        tpl_dir = _PLOTTING_STATIC / "templates"
         sources = {}
         for ext in (".py", ".R"):
-            fpath = tpl_dir / f"{chart_name}{ext}"
-            if fpath.is_file():
+            filename = f"{chart_name}{ext}"
+            relative = _safe_gallery_relative_path(f"templates/{filename}")
+            fpath = _safe_gallery_file(relative)
+            if fpath is not None:
                 try:
-                    sources[f"{chart_name}{ext}"] = fpath.read_text(encoding="utf-8", errors="replace")
+                    sources[filename] = fpath.read_text(encoding="utf-8", errors="replace")
                 except Exception:
-                    sources[f"{chart_name}{ext}"] = f"[Error reading file]"
+                    sources[filename] = "[Error reading file]"
         # Check explicit template path
         tpl_path = chart.get("template", "")
         if tpl_path:
-            full_tpl = _PLOTTING_STATIC / tpl_path
+            relative = _safe_gallery_relative_path(tpl_path)
+            full_tpl = _safe_gallery_file(relative)
             tpl_fname = Path(tpl_path).name
-            if full_tpl.is_file() and tpl_fname not in sources:
+            if full_tpl is not None and tpl_fname not in sources:
                 try:
                     sources[tpl_fname] = full_tpl.read_text(encoding="utf-8", errors="replace")
                 except Exception:
@@ -2021,9 +2258,10 @@ def create_app(
         demo_file = chart.get("demo", "")
         demo_info = None
         if demo_file:
-            demo_path = _PLOTTING_STATIC / demo_file
-            if demo_path.is_file():
-                demo_info = {"filename": demo_file, "size": demo_path.stat().st_size, "url": f"/gallery/static/{demo_file}"}
+            relative = _safe_gallery_relative_path(demo_file)
+            demo_path = _safe_gallery_file(relative)
+            if demo_path is not None:
+                demo_info = {"filename": relative, "size": demo_path.stat().st_size, "url": f"/gallery/static/{relative}"}
 
         return {
             "ok": True,
@@ -2037,23 +2275,16 @@ def create_app(
             },
         }
 
-    @app.get("/api/gallery/template/{filename}")
+    @app.get("/api/gallery/template/{filename:path}")
     def gallery_template_source_api(filename: str) -> dict:
         """Read a single template file source code."""
-        # Security: validate filename BEFORE any filesystem access
-        if ".." in filename or "/" in filename or "\\" in filename:
+        if "\\" in filename or "\x00" in filename:
             return {"ok": False, "error": "Invalid filename"}
-        _tpl_dir = _PLOTTING_STATIC / "templates"
-        fpath = _tpl_dir / filename
-        # Resolve and verify the path stays within the templates directory
-        try:
-            fpath = fpath.resolve()
-            _tpl_dir_resolved = _tpl_dir.resolve()
-            if not str(fpath).startswith(str(_tpl_dir_resolved)):
-                return {"ok": False, "error": "Invalid filename"}
-        except Exception:
-            return {"ok": False, "error": "Invalid filename"}
-        if not fpath.is_file():
+        relative = _safe_gallery_relative_path(filename)
+        if relative is None or not relative.startswith("templates/"):
+            relative = _safe_gallery_relative_path(f"templates/{filename}")
+        fpath = _safe_gallery_file(relative)
+        if fpath is None:
             return {"ok": False, "error": f"Template file '{filename}' not found"}
         ext = fpath.suffix.lower()
         if ext not in (".py", ".r"):
@@ -2062,72 +2293,15 @@ def create_app(
             content = fpath.read_text(encoding="utf-8", errors="replace")
         except Exception as e:
             return {"ok": False, "error": str(e)}
-        return {"ok": True, "filename": filename, "lang": "Python" if ext == ".py" else "R", "content": content, "size": fpath.stat().st_size}
+        return {"ok": True, "filename": relative, "lang": "Python" if ext == ".py" else "R", "content": content, "size": fpath.stat().st_size}
 
     @app.post("/api/gallery/submit")
     async def gallery_submit_api(request: Request) -> dict:
-        """Submit a script (.py/.R) or demo image file. Also updates catalog.yaml if chart_name provided."""
-        content_type = request.headers.get("content-type", "")
-        chart_name = ""
-        filename = ""
-        file_data = b""
-        description = ""
-
-        if "multipart/form-data" in content_type:
-            form = await request.form()
-            chart_name = form.get("chart_name", "")
-            description = form.get("description", "")
-            upload = form.get("file")
-            if upload and hasattr(upload, "filename"):
-                filename = upload.filename or ""
-                file_data = await upload.read()
-        else:
-            body = await request.json()
-            chart_name = body.get("chart_name", "")
-            filename = body.get("filename", "")
-            # For JSON, content must be provided as base64 or text
-            import base64
-            raw = body.get("content", "")
-            description = body.get("description", "")
-            if body.get("encoding") == "base64":
-                file_data = base64.b64decode(raw)
-            else:
-                file_data = raw.encode("utf-8")
-
-        if not chart_name or not filename or not file_data:
-            return {"ok": False, "error": "chart_name, filename, and file content required"}
-
-        ext = Path(filename).suffix.lower()
-        if ext not in (".py", ".r", ".png", ".jpg", ".jpeg", ".svg"):
-            return {"ok": False, "error": f"Unsupported file type: {ext}"}
-
-        # Security: prevent path traversal
-        safe_name = Path(filename).name
-        if ".." in safe_name or "/" in safe_name:
-            return {"ok": False, "error": "Invalid filename"}
-
-        # Determine destination
-        if ext in (".py", ".r"):
-            dest = _PLOTTING_STATIC / "templates" / safe_name
-        else:
-            dest = _PLOTTING_STATIC / safe_name
-
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_bytes(file_data)
-
-        # Log to feedback
-        entry = {
-            "chart": chart_name,
-            "action": "submit_file",
-            "filename": safe_name,
-            "size_bytes": len(file_data),
-            "description": description,
-            "timestamp": _dt.now(_tz.utc).isoformat(),
-        }
-        with open(_GALLERY_FEEDBACK, "a") as f:
-            f.write(_json.dumps(entry) + "\n")
-
-        return {"ok": True, "filename": safe_name, "size": len(file_data), "destination": str(dest)}
+        """Retired unsafe generic uploader; use the typed script upload route."""
+        raise HTTPException(
+            status_code=410,
+            detail="generic gallery upload retired; use /api/gallery/upload_script",
+        )
 
     # ------------------------------------------------------------------
     # Gallery feedback API – approve/suggest/reject for chart templates
@@ -2156,76 +2330,10 @@ def create_app(
         return {"ok": True, "action": action, "chart": chart}
 
     # ------------------------------------------------------------------
-    # Gallery figure submission – submit an external figure for analysis
-    # ------------------------------------------------------------------
-    _FIGURE_SUBMIT_DIR = Path(os.environ.get("BRAIN_PLOTTING_DIR", "")) / "submitted_figures"
-    _FIGURE_SUBMIT_DIR.mkdir(parents=True, exist_ok=True)
-
-    @app.post("/api/gallery/submit_figure")
-    async def gallery_submit_figure(request: Request) -> dict:
-        """Submit a figure image URL or upload for reverse-engineering analysis."""
-        import urllib.request as _urlreq
-        import hashlib as _hashlib
-        content_type = request.headers.get("content-type", "")
-
-        image_url = ""
-        image_b64 = ""
-        notes = ""
-
-        if "multipart/form-data" in content_type:
-            # Handle file upload
-            form = await request.form()
-            image_url = form.get("image_url", "")
-            notes = form.get("notes", "")
-            upload = form.get("file")
-            if upload and hasattr(upload, "filename"):
-                data = await upload.read()
-                ext = Path(upload.filename or "img.png").suffix or ".png"
-                fname = _hashlib.md5(data).hexdigest()[:12] + ext
-                fpath = _FIGURE_SUBMIT_DIR / fname
-                fpath.write_bytes(data)
-                image_url = image_url or f"/gallery/submitted/{fname}"
-        else:
-            body = await request.json()
-            image_url = body.get("image_url", "")
-            notes = body.get("notes", "")
-
-        if not image_url:
-            return {"ok": False, "error": "image_url or file required"}
-
-        # Download remote URLs locally
-        if image_url.startswith("http"):
-            try:
-                resp = _urlreq.urlopen(image_url, timeout=15)
-                data = resp.read()
-                ext = Path(image_url.split("?")[0]).suffix or ".png"
-                if len(ext) > 5:
-                    ext = ".png"
-                fname = _hashlib.md5(data).hexdigest()[:12] + ext
-                fpath = _FIGURE_SUBMIT_DIR / fname
-                fpath.write_bytes(data)
-                image_url = f"/gallery/submitted/{fname}"
-            except Exception as e:
-                # Keep original URL if download fails
-                pass
-
-        entry = {
-            "action": "analyze_figure",
-            "image_url": image_url,
-            "notes": notes,
-            "timestamp": _dt.now(_tz.utc).isoformat(),
-        }
-        with open(_GALLERY_FEEDBACK, "a") as f:
-            f.write(_json.dumps(entry) + "\n")
-        return {"ok": True, "image_url": image_url, "notes": notes}
-
-    # Serve submitted figures
-    app.mount("/gallery/submitted", StaticFiles(directory=str(_FIGURE_SUBMIT_DIR)), name="gallery-submitted")
-
-    # ------------------------------------------------------------------
-    # Gallery script upload – accept .py/.R/.zip template files
+    # Gallery script upload – accept source templates only
     # ------------------------------------------------------------------
     _TEMPLATE_DIR = Path(os.environ.get("BRAIN_PLOTTING_DIR", "")) / "templates"
+    _MAX_SCRIPT_UPLOAD_BYTES = 2 * 1024 * 1024
 
     @app.post("/api/gallery/upload_script")
     async def gallery_upload_script(request: Request) -> dict:
@@ -2239,16 +2347,30 @@ def create_app(
         if not chart_name or not upload or not hasattr(upload, "filename"):
             return {"ok": False, "error": "chart_name and file required"}
 
-        fname = upload.filename or "script.py"
-        # Security: only allow specific extensions
-        ext = Path(fname).suffix.lower()
-        if ext not in (".py", ".r", ".zip"):
-            return {"ok": False, "error": "Only .py, .R, .zip files allowed"}
+        raw_name = upload.filename or ""
+        normalized_name = raw_name.replace("\\", "/")
+        if not raw_name or normalized_name != Path(normalized_name).name:
+            raise HTTPException(status_code=422, detail="filename must not contain directories")
 
-        # Save to templates directory
-        dest = _TEMPLATE_DIR / fname
-        data = await upload.read()
-        dest.write_bytes(data)
+        # Security: only allow specific extensions. The client filename is never
+        # used as the destination filename.
+        ext = Path(normalized_name).suffix.lower()
+        if ext not in (".py", ".r"):
+            raise HTTPException(status_code=422, detail="Only .py and .R files allowed")
+
+        data = await upload.read(_MAX_SCRIPT_UPLOAD_BYTES + 1)
+        if len(data) > _MAX_SCRIPT_UPLOAD_BYTES:
+            raise HTTPException(status_code=413, detail="script upload exceeds 2 MiB")
+        if not data:
+            raise HTTPException(status_code=422, detail="script upload is empty")
+
+        template_root = _TEMPLATE_DIR.resolve()
+        fname = f"{uuid4().hex}{ext}"
+        dest = (template_root / fname).resolve()
+        if not dest.is_relative_to(template_root) or dest.parent != template_root:
+            raise HTTPException(status_code=422, detail="invalid upload destination")
+        with dest.open("xb") as output:
+            output.write(data)
 
         # Log to feedback
         entry = {
@@ -2541,8 +2663,22 @@ def create_app(
             cleaned["lang"] = _PROFILE_DEFAULTS["lang"]
         if len(cleaned["display_name"]) > 40:
             cleaned["display_name"] = cleaned["display_name"][:40]
-        if len(cleaned["avatar_url"]) > 300000:
-            raise HTTPException(status_code=413, detail="avatar too large")
+        avatar_url = cleaned["avatar_url"]
+        if len(avatar_url) > 2048:
+            raise HTTPException(status_code=413, detail="avatar URL too large")
+        if avatar_url:
+            parsed_avatar = urlparse(avatar_url)
+            is_https = parsed_avatar.scheme == "https" and bool(parsed_avatar.netloc)
+            is_local_path = (
+                not parsed_avatar.scheme
+                and not parsed_avatar.netloc
+                and avatar_url.startswith("/")
+                and not avatar_url.startswith("//")
+                and "\\" not in avatar_url
+                and all(ord(char) >= 32 and ord(char) != 127 for char in avatar_url)
+            )
+            if not (is_https or is_local_path):
+                raise HTTPException(status_code=422, detail="avatar URL must use HTTPS or a local absolute path")
         _PROFILE_PATH.parent.mkdir(parents=True, exist_ok=True)
         tmp_path = _PROFILE_PATH.with_suffix(".tmp")
         tmp_path.write_text(json.dumps(cleaned, ensure_ascii=False, indent=2), encoding="utf-8")

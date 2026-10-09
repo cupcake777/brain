@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from hermes.lane import assign_lane, lane_text
 from hermes.proposals import ProposalWriter
@@ -44,14 +44,7 @@ def register_brain_protocol_routes(
 
     @app.get("/api/v1/brain/health")
     def brain_protocol_health() -> dict[str, object]:
-        stats = repo.knowledge_stats_full()
-        return {
-            "status": "ok",
-            "schema": 1,
-            "nodes": stats["total"],
-            "retrievals": stats["total_retrievals"],
-            "outcomes": stats["total_outcomes"],
-        }
+        return repo.brain_protocol_health_report()
 
     @app.post("/api/v1/brain/retrieve")
     async def brain_protocol_retrieve(body: dict[str, Any]) -> dict[str, object]:
@@ -149,7 +142,7 @@ def register_brain_protocol_routes(
         }
 
     @app.post("/api/v1/brain/propose")
-    async def brain_protocol_propose(body: dict[str, Any]) -> dict[str, object]:
+    async def brain_protocol_propose(body: dict[str, Any]) -> JSONResponse:
         summary = _text(body.get("summary"), field="summary", maximum=300, required=True)
         observation = _text(body.get("observation"), field="observation", maximum=4000, required=True)
         why = _text(body.get("why_it_matters"), field="why_it_matters", maximum=2000, required=True)
@@ -169,6 +162,14 @@ def register_brain_protocol_routes(
         evidence = body.get("evidence", [])
         if not isinstance(evidence, list) or not evidence:
             raise HTTPException(status_code=400, detail="evidence must be a non-empty list")
+        for index, entry in enumerate(evidence):
+            if not isinstance(entry, dict):
+                raise HTTPException(status_code=422, detail=f"evidence[{index}] must be an object")
+            if not str(entry.get("source_type", "")).strip() or not str(entry.get("source_uri", "")).strip():
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"evidence[{index}] requires source_type and source_uri",
+                )
         evidence_json = json.dumps(evidence, ensure_ascii=False)
         if len(evidence_json) > 8000:
             raise HTTPException(status_code=400, detail="evidence exceeds 8000 characters")
@@ -188,11 +189,44 @@ def register_brain_protocol_routes(
             evidence=evidence_json,
             domain=assign_lane(hinted=domain, project_key=project, text=lane_text(summary, observation, memory)),
         )
-        return {
+        return JSONResponse(status_code=202, content={
             "schema": 1,
-            "status": "submitted",
+            "status": "queued",
             "proposal_id": path.stem,
             "message": "Proposal queued for validation, deduplication, and integration.",
+        })
+
+    @app.get("/api/v1/brain/proposals/{proposal_id}")
+    def brain_protocol_proposal_status(proposal_id: str) -> dict[str, object]:
+        queued = sync_root / "inbox" / "proposals" / f"{proposal_id}.md"
+        if queued.is_file():
+            return {"schema": 1, "proposal_id": proposal_id, "status": "queued"}
+        try:
+            proposal = repo.get_proposal(proposal_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="proposal not found") from exc
+        link = repo.get_proposal_knowledge_link(proposal_id)
+        if link is not None:
+            return {
+                "schema": 1,
+                "proposal_id": proposal_id,
+                "status": "linked",
+                "proposal_state": proposal["state"],
+                "knowledge_id": link["knowledge_id"],
+            }
+        state = str(proposal["state"])
+        status = {
+            "pending": "ingested_pending",
+            "approved_db_only": "approved",
+            "approved_for_export": "approved",
+            "rejected": "rejected",
+            "superseded": "duplicate",
+        }.get(state, state)
+        return {
+            "schema": 1,
+            "proposal_id": proposal_id,
+            "status": status,
+            "proposal_state": state,
         }
 
     @app.get("/skills/brain-loop/{asset_path:path}", response_class=FileResponse)

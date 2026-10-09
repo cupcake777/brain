@@ -45,11 +45,10 @@ async def require_bearer(
 # TokenAuthMiddleware  – blanket bearer protection on every route
 # ---------------------------------------------------------------------------
 
-# Paths that never require authentication.
-# Note: /exports/projects/ and /exports/global/ are public for file downloads,
-# but /exports/ (the list page) requires auth.
-_PUBLIC_PREFIXES = ("/health", "/api/dashboard/health", "/api/dashboard/resources", "/api/dashboard/data", "/api/v1/brain/health", "/api/v1/brain/retrieve", "/skills/brain-loop/", "/exports/projects/", "/exports/global/", "/login", "/favicon", "/api/knowledge/record-query")
-_PUBLIC_EXACT = frozenset({"/health", "/login", "/logout"})
+# Only liveness and login assets are public. Knowledge, exports, dashboard data,
+# and packaged agent assets may contain private material and require auth.
+_PUBLIC_PREFIXES = ("/favicon",)
+_PUBLIC_EXACT = frozenset({"/health", "/login"})
 _PAGE_EXTENSIONS = ("", ".html", ".htm")
 
 
@@ -79,7 +78,7 @@ class TokenAuthMiddleware(BaseHTTPMiddleware):
     * Username/password only (auth_token None but auth_enabled True): only accepts session cookies
     * Disabled (auth_token None, auth_enabled False): all requests pass through
 
-    Public routes: ``/health``, ``/exports/*``, ``/login``, ``/logout``.
+    Public routes are limited to liveness checks, login, and favicon assets.
     """
 
     def __init__(self, app: ASGIApp, *, auth_token: str | None = None, auth_enabled: bool = False, session_cookie_value: str | None = None, scoped_registry: ScopedPrincipalRegistry | None = None) -> None:
@@ -143,6 +142,39 @@ class TokenAuthMiddleware(BaseHTTPMiddleware):
 # ---------------------------------------------------------------------------
 
 _MUTATING_METHODS = frozenset({"POST", "PUT", "DELETE", "PATCH"})
+_DEFAULT_PORTS = {"http": 80, "https": 443}
+
+
+def _canonical_origin(value: str, *, allow_path: bool) -> tuple[str, str, int] | None:
+    """Return a strict ``(scheme, host, port)`` tuple for an HTTP(S) URL."""
+    try:
+        parsed = urlparse(value)
+        scheme = parsed.scheme.lower()
+        if scheme not in _DEFAULT_PORTS or not parsed.netloc:
+            return None
+        if parsed.username is not None or parsed.password is not None:
+            return None
+        if not allow_path and (parsed.path not in ("", "/") or parsed.query or parsed.fragment):
+            return None
+        host = (parsed.hostname or "").rstrip(".").casefold()
+        if not host:
+            return None
+        port = parsed.port or _DEFAULT_PORTS[scheme]
+    except (TypeError, ValueError):
+        return None
+    return scheme, host, port
+
+
+def _request_origin(request: Request) -> tuple[str, str, int] | None:
+    host = request.headers.get("host", "")
+    if not host:
+        return None
+    # TLS terminates at nginx/Cloudflare in production.  The application is
+    # intentionally bound to loopback, so the proxy-provided scheme is the
+    # authoritative external origin; direct local tests fall back to the URL.
+    forwarded_proto = request.headers.get("x-forwarded-proto", "").split(",", 1)[0].strip()
+    scheme = forwarded_proto or request.url.scheme
+    return _canonical_origin(f"{scheme}://{host}", allow_path=False)
 
 
 class CSRFMiddleware(BaseHTTPMiddleware):
@@ -190,10 +222,6 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         if self._scoped_registry is not None and self._scoped_registry.authorize_http(request):
             return await call_next(request)
 
-        # Login form and explicitly public write endpoints do not need CSRF.
-        if request.url.path in ("/login", "/api/knowledge/record-query", "/api/v1/brain/retrieve"):
-            return await call_next(request)
-
         # 1) Valid bearer token → pass (API client, not browser form)
         auth_header = request.headers.get("authorization", "")
         if auth_header.startswith("Bearer ") and self._auth_token is not None:
@@ -205,31 +233,22 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         if self._csrf_secret is not None and csrf_header == self._csrf_secret:
             return await call_next(request)
 
-        # 3) Origin / Referer same-origin check
-        host = request.headers.get("host", "")
+        # 3) Strict Origin / Referer same-origin check. Prefer Origin when it
+        # is present: a conflicting Referer must never rescue a bad Origin.
         origin = request.headers.get("origin", "")
         referer = request.headers.get("referer", "")
-
-        if host:
-            for header_value in (origin, referer):
-                if not header_value:
-                    continue
-                parsed = urlparse(header_value)
-                # Compare scheme+host+port (netloc) against Host header
-                # Host header may or may not include port; be lenient
-                header_host = parsed.hostname or ""
-                header_port = parsed.port
-                host_parts = host.split(":")
-                host_name = host_parts[0]
-                host_port = int(host_parts[1]) if len(host_parts) > 1 else None
-
-                if header_host == host_name:
-                    # If both specify a port, they must match; otherwise OK
-                    if header_port is not None and host_port is not None:
-                        if header_port == host_port:
-                            return await call_next(request)
-                    else:
-                        return await call_next(request)
+        expected = _request_origin(request)
+        supplied = origin or referer
+        if expected is not None and supplied:
+            actual = _canonical_origin(supplied, allow_path=not bool(origin))
+            if actual == expected:
+                return await call_next(request)
+        # Some privacy-oriented browsers and proxy paths omit Origin/Referer.
+        # When the trusted TLS terminator explicitly marks the request HTTPS,
+        # accept only a header-less browser form; conflicting origins above
+        # remain rejected.
+        if not supplied and request.headers.get("x-forwarded-proto", "").split(",", 1)[0].strip().lower() == "https":
+            return await call_next(request)
 
         return Response(
             content='{"detail":"csrf check failed"}',

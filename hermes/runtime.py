@@ -169,8 +169,10 @@ class HermesRuntime:
         self.exporter.build_knowledge_export()
         self.exporter.build_lane_exports()
 
-        # Export brain-context.md so HPC agents can pull it via HTTP
+        # Export brain-context.md and canonical agent assets so HPC agents can
+        # pull one source of truth via HTTP.
         self.exporter.export_brain_context()
+        self.exporter.export_agent_assets()
 
         project_keys = self.repo.list_exportable_project_keys()
         for project_key in project_keys:
@@ -224,7 +226,12 @@ class HermesRuntime:
         Offloads fastembed computation to HuggingFace Space since VPS (2GB RAM) OOMs.
         Uploads current DB, runs dedup, downloads updated DB with deprecated nodes.
         """
-        import os
+        if not self.config.brain_remote_dedup_enabled:
+            return {
+                "remote_dedup": "disabled",
+                "reason": "BRAIN_REMOTE_DEDUP_ENABLED is false",
+            }
+
         from hermes.remote_dedup import remote_dedup
 
         db_path = str(self.config.db_path)
@@ -267,7 +274,11 @@ class HermesRuntime:
                 self.run_retrospect_cycle()
             # Run remote (embedding) dedup less frequently — heavy operation
             # uploads DB to HF Space, runs fastembed, downloads result
-            if cycle > 0 and cycle % REMOTE_DEDUP_INTERVAL == 0:
+            if (
+                self.config.brain_remote_dedup_enabled
+                and cycle > 0
+                and cycle % REMOTE_DEDUP_INTERVAL == 0
+            ):
                 try:
                     self.run_remote_dedup()
                 except Exception as exc:

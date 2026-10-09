@@ -396,6 +396,37 @@ class HermesRepository:
             raise KeyError(proposal_id)
         return dict(row)
 
+    def update_proposal_content(
+        self,
+        proposal_id: str,
+        fields: dict[str, str | int | float | None],
+    ) -> dict[str, str | int | float | None]:
+        """Update reviewer-editable proposal fields and refresh its embedding."""
+        editable = {
+            "project_key", "category", "risk_level", "domain", "summary",
+            "observation", "why_it_matters", "suggested_memory", "scope",
+            "evidence", "semantic_hash", "semantic_duplicate_of", "weight",
+        }
+        payload = {key: value for key, value in fields.items() if key in editable}
+        if not payload:
+            raise ValueError("No editable proposal fields supplied")
+        assignments = ", ".join(f"{key} = ?" for key in payload)
+        with self._connect() as connection:
+            cursor = connection.execute(
+                f"UPDATE proposals SET {assignments} WHERE proposal_id = ?",
+                (*payload.values(), proposal_id),
+            )
+            if cursor.rowcount != 1:
+                raise KeyError(proposal_id)
+        updated = self.get_proposal(proposal_id)
+        self.refresh_entity_embedding(
+            "proposal",
+            proposal_id,
+            self._proposal_embedding_text(dict(updated)),
+            raise_errors=False,
+        )
+        return updated
+
     def relabel_lanes(self, *, dry_run: bool = False) -> dict[str, object]:
         """Rewrite proposal/knowledge domain to scene slugs.  Custom labels are kept."""
         from hermes.lane import assign_lane, lane_text
@@ -1628,6 +1659,72 @@ class HermesRepository:
                 (now, retrieval_log_id),
             )
         return {"recorded": True, "status": "recorded", "conflict_status": None}
+
+    def brain_protocol_health_report(self) -> dict[str, object]:
+        """Separate process/database liveness, event telemetry, and learning-loop use."""
+        with self._connect() as connection:
+            quick_check = str(connection.execute("PRAGMA quick_check").fetchone()[0])
+
+            def _count(table: str) -> int:
+                exists = connection.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name = ?",
+                    (table,),
+                ).fetchone()
+                if not exists:
+                    return 0
+                return int(connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
+
+            source_events = _count("source_events")
+            retrievals = _count("knowledge_retrieval_events")
+            outcomes = _count("outcome_log")
+            proposal_links = _count("proposal_knowledge_links")
+            finalized_sessions = _count("brain_session_audits")
+            complete_sessions = 0
+            incomplete_sessions = 0
+            if finalized_sessions:
+                for row in connection.execute("SELECT payload FROM brain_session_audits"):
+                    try:
+                        result = str(json.loads(row["payload"]).get("final_result") or "")
+                    except (json.JSONDecodeError, TypeError, AttributeError):
+                        result = ""
+                    if result == "complete":
+                        complete_sessions += 1
+                    elif result == "incomplete":
+                        incomplete_sessions += 1
+
+        database_ok = quick_check == "ok"
+        telemetry_active = source_events > 0
+        learning_active = any(
+            (retrievals, outcomes, proposal_links, finalized_sessions)
+        )
+        learning_status = "active" if learning_active else "idle"
+        if incomplete_sessions:
+            learning_status = "degraded"
+        overall = "ok" if database_ok and learning_status == "active" else "degraded"
+        if not database_ok:
+            overall = "down"
+        return {
+            "status": overall,
+            "schema": 1,
+            "liveness": {
+                "status": "ok" if database_ok else "down",
+                "process": "ok",
+                "database": "ok" if database_ok else quick_check,
+            },
+            "telemetry": {
+                "status": "active" if telemetry_active else "idle",
+                "source_events": source_events,
+            },
+            "learning_loop": {
+                "status": learning_status,
+                "retrievals": retrievals,
+                "outcomes": outcomes,
+                "proposal_links": proposal_links,
+                "finalized_sessions": finalized_sessions,
+                "complete_sessions": complete_sessions,
+                "incomplete_sessions": incomplete_sessions,
+            },
+        }
 
     def finalize_session(self, agent: str, host_id: str, session_id: str) -> dict[str, object]:
         """Audit exact session scope; missing outcomes stay pending, never fabricated."""

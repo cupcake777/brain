@@ -35,6 +35,8 @@ Every client submission must carry summary, observation, why_it_matters, suggest
 Categories: rule/fact/preference/workflow_hint/correction/resource. Risks: low/medium/high/critical.
 Response submitted + proposal_id means queued. Lifecycle and export depend on the server policy; no guaranteed timing, stage promotion or automatic approval. Do not submit user facts to shared Brain without permission.
 
+`proposal-status <id>` is an authenticated read and may return queued, ingested_pending, approved, linked, duplicate or rejected. The response preserves `proposal_state` after ingestion, so approved_db_only and approved_for_export remain distinguishable. `propose --wait` waits for durable receipt: ingested_pending is success because the proposal is stored in SQLite, not because it was approved or exported. Only linked includes a knowledge_id.
+
 ## Finalize
 
 Request exactly agent/host_hash/session_id. Auth required by protected deployments. Close only real completed sessions after reporting outcomes. Server may finalize missing feedback separately; not a substitute for fabricated outcomes.
