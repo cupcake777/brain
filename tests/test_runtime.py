@@ -6,7 +6,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from hermes.app import create_app
-from hermes.config import HermesConfig
+from hermes.config import HermesConfig, build_config
 from hermes.exporter import ExportCompiler
 from hermes.ingest import IngestionService
 from hermes.integrate import retrospect
@@ -112,6 +112,23 @@ def test_runtime_rebuilds_global_and_project_exports_from_approved_records(tmp_p
     assert (config.project_exports_dir / "brain.md").exists()
 
 
+def test_runtime_projects_canonical_codex_workflow_and_hpc_wrapper(tmp_path: Path) -> None:
+    config = HermesConfig(sync_root=tmp_path / "sync", db_path=tmp_path / "hermes.sqlite3")
+    runtime = HermesRuntime(config=config, repo=HermesRepository(config.db_path))
+
+    runtime.rebuild_exports()
+
+    instructions = (config.global_exports_dir / "codex-instructions.md").read_text()
+    wrapper = (config.global_exports_dir / "brain-sync-hpc.sh").read_text()
+    client = (config.global_exports_dir / "brain.py").read_text()
+    assert "ingested_pending" in instructions
+    assert "proposal-status" in instructions
+    assert "All proposals auto-approve" not in instructions
+    assert '"$CLIENT" propose "$proposal" --wait' in wrapper
+    assert "/api/proposals/submit" not in wrapper
+    assert "/api/v1/brain/propose" in client
+
+
 def test_knowledge_export_filters_global_and_project_scopes(tmp_path: Path) -> None:
     repo = HermesRepository(tmp_path / "hermes.sqlite3")
     compiler = ExportCompiler(repo=repo, sync_root=tmp_path / "sync")
@@ -153,6 +170,65 @@ def test_runtime_watch_runs_multiple_cycles_with_injected_sleep(tmp_path: Path) 
     runtime.watch(max_cycles=3, sleep_fn=lambda seconds: calls.append(seconds))
 
     assert calls == [1, 1]
+
+
+def test_remote_dedup_is_disabled_by_default(tmp_path: Path) -> None:
+    config = HermesConfig(sync_root=tmp_path / "sync", db_path=tmp_path / "hermes.sqlite3")
+    repo = HermesRepository(config.db_path)
+    runtime = HermesRuntime(config=config, repo=repo)
+
+    assert config.brain_remote_dedup_enabled is False
+    assert runtime.run_remote_dedup() == {
+        "remote_dedup": "disabled",
+        "reason": "BRAIN_REMOTE_DEDUP_ENABLED is false",
+    }
+
+
+def test_build_config_enables_remote_dedup_only_explicitly(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("BRAIN_REMOTE_DEDUP_ENABLED", "true")
+
+    config = build_config(tmp_path / "sync")
+
+    assert config.brain_remote_dedup_enabled is True
+
+
+def test_watch_does_not_schedule_remote_dedup_when_disabled(tmp_path: Path, monkeypatch) -> None:
+    config = HermesConfig(
+        sync_root=tmp_path / "sync",
+        db_path=tmp_path / "hermes.sqlite3",
+        poll_interval_seconds=0,
+    )
+    runtime = HermesRuntime(config=config, repo=HermesRepository(config.db_path))
+    calls: list[str] = []
+    monkeypatch.setattr(runtime, "run_scan_cycle", lambda: None)
+    monkeypatch.setattr(runtime, "run_knowledge_pipeline", lambda: {})
+    monkeypatch.setattr(runtime, "rebuild_exports", lambda: None)
+    monkeypatch.setattr(runtime, "run_retrospect_cycle", lambda: {})
+    monkeypatch.setattr(runtime, "run_remote_dedup", lambda: calls.append("remote"))
+
+    runtime.watch(max_cycles=102, sleep_fn=lambda _seconds: None)
+
+    assert calls == []
+
+
+def test_watch_schedules_remote_dedup_when_explicitly_enabled(tmp_path: Path, monkeypatch) -> None:
+    config = HermesConfig(
+        sync_root=tmp_path / "sync",
+        db_path=tmp_path / "hermes.sqlite3",
+        poll_interval_seconds=0,
+        brain_remote_dedup_enabled=True,
+    )
+    runtime = HermesRuntime(config=config, repo=HermesRepository(config.db_path))
+    calls: list[str] = []
+    monkeypatch.setattr(runtime, "run_scan_cycle", lambda: None)
+    monkeypatch.setattr(runtime, "run_knowledge_pipeline", lambda: {})
+    monkeypatch.setattr(runtime, "rebuild_exports", lambda: None)
+    monkeypatch.setattr(runtime, "run_retrospect_cycle", lambda: {})
+    monkeypatch.setattr(runtime, "run_remote_dedup", lambda: calls.append("remote"))
+
+    runtime.watch(max_cycles=102, sleep_fn=lambda _seconds: None)
+
+    assert calls == ["remote"]
 
 
 def test_retrospect_does_not_call_embedding_provider_when_disabled(tmp_path: Path, monkeypatch) -> None:

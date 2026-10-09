@@ -97,26 +97,76 @@ def _outbox_path() -> Path:
     )).expanduser()
 
 
-def _event_action(source: str, payload: dict[str, Any]) -> str:
-    event = str(payload.get("hook_event_name") or payload.get("event") or source)
-    tool = str(payload.get("tool_name") or payload.get("toolName") or "")
-    state = "failed" if (
+def _response(payload: dict[str, Any]) -> Mapping[str, Any]:
+    value = payload.get("tool_response", payload.get("result"))
+    return value if isinstance(value, Mapping) else {}
+
+
+def _exit_code(payload: dict[str, Any]) -> int | None:
+    value = _response(payload).get("exit_code")
+    if type(value) is int:
+        return value
+    return None
+
+
+def _execution_status(payload: dict[str, Any]) -> str:
+    response = _response(payload)
+    response_status = str(response.get("status") or "").strip().lower()
+    if response_status in {"timeout", "timed_out", "timed-out"}:
+        return "timeout"
+    exit_code = _exit_code(payload)
+    if (
         payload.get("isError") is True
         or payload.get("hook_event_name") in {"PostToolUseFailure", "StopFailure"}
         or payload.get("error")
-    ) else "completed"
-    return _trim(f"{source} {event} {tool} {state}", 500)
+        or response.get("error")
+        or response_status in {"failed", "failure", "error"}
+        or (exit_code is not None and exit_code != 0)
+    ):
+        return "failed"
+    return "completed"
+
+
+def _error_text(payload: dict[str, Any]) -> str:
+    response = _response(payload)
+    for value in (
+        payload.get("error"), response.get("error"), response.get("stderr"),
+        response.get("output"), response.get("message"),
+    ):
+        if value:
+            return _redact_text(str(value))
+    return ""
+
+
+def _error_type(text: str) -> str | None:
+    matches = re.findall(r"\b([A-Za-z_][A-Za-z0-9_]*(?:Error|Exception))\b", text)
+    return matches[-1] if matches else None
+
+
+def _event_action(source: str, payload: dict[str, Any]) -> str:
+    event = str(payload.get("hook_event_name") or payload.get("event") or source)
+    tool = str(payload.get("tool_name") or payload.get("toolName") or "")
+    return _trim(f"{source} {event} {tool} {_execution_status(payload)}", 500)
 
 
 def _event_result(payload: dict[str, Any]) -> str:
-    error = payload.get("error")
+    status = _execution_status(payload)
+    response = _response(payload)
+    exit_code = _exit_code(payload)
+    error = _error_text(payload)
+    kind = _error_type(error)
+    parts = [status]
+    if exit_code is not None:
+        parts.append(f"exit_code={exit_code}")
+    if kind:
+        parts.append(f"error_type={kind}")
     if error:
-        return _trim(f"failed: {_redact_text(str(error))}", 2000)
-    response = payload.get("tool_response", payload.get("result"))
-    if isinstance(response, Mapping):
+        parts.append(error)
+    elif isinstance(response, Mapping):
         keys = ",".join(sorted(str(k) for k in response)[:20])
-        return f"completed; response fields: {keys}" if keys else "completed"
-    return "completed"
+        if keys:
+            parts.append(f"response fields: {keys}")
+    return _trim("; ".join(parts), 2000)
 
 
 def _stable_id(source: str, payload: dict[str, Any], action: str) -> str:
@@ -150,6 +200,8 @@ def capture(source: str, payload: dict[str, Any]) -> dict[str, Any]:
             ).hexdigest()[:24],
             "session_id": str(payload.get("session_id") or payload.get("sessionId") or "")[:128],
             "tool_name": str(payload.get("tool_name") or payload.get("toolName") or "")[:128],
+            "status": _execution_status(payload),
+            "exit_code": _exit_code(payload),
             "input": _sanitize(payload.get("tool_input", payload.get("input", {}))),
         },
     }

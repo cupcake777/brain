@@ -93,7 +93,7 @@ def test_hook_captures_into_outbox(monkeypatch, tmp_path):
 
 def test_codex_manifest_uses_own_source_and_bounded_session_end():
     manifest = json.loads((ROOT / ".codex-plugin" / "plugin.json").read_text())
-    assert manifest["version"] == "1.2.1"
+    assert manifest["version"] == "1.3.0"
     hooks = json.loads((ROOT / manifest["hooks"]).read_text())["hooks"]
     for event in ("PostToolUse", "PostToolUseFailure"):
         handler = hooks[event][0]["hooks"][0]

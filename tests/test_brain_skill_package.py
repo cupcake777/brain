@@ -157,3 +157,76 @@ def test_client_submits_valid_structured_proposal(monkeypatch,tmp_path):
     assert c.command_propose(c.parser().parse_args(['propose',str(proposal)]))=={'status':'queued'}
     sent=calls[0][1]['payload']
     assert sent['agent']=='xiaohe' and sent['host_hash'] and sent['domain']=='agent-infrastructure'
+
+
+def _write_valid_proposal(path):
+    path.write_text(json.dumps({
+        'summary':'Wait for durable proposal receipt',
+        'observation':'The server queues a proposal before persisting its review record.',
+        'why_it_matters':'Returning after queueing alone can lose track of ingestion failures.',
+        'suggested_memory':'Use the authenticated status endpoint when durable receipt is required.',
+        'project':'brain','category':'workflow_hint','risk_level':'low',
+        'scope':'project','domain':'agent-infrastructure',
+        'evidence':[{
+            'source_type':'test','source_uri':'test://proposal/status',
+            'quoted_excerpt':'The status sequence reached ingested_pending.',
+        }],
+    }))
+    return path
+
+
+def test_propose_waits_until_durable_status(monkeypatch,tmp_path):
+    c=load();calls=[]
+    responses=iter([
+        {'schema':1,'status':'queued','proposal_id':'proposal-1'},
+        {'schema':1,'status':'queued','proposal_id':'proposal-1'},
+        {'schema':1,'status':'ingested_pending','proposal_id':'proposal-1'},
+    ])
+    monkeypatch.setattr(c,'request',lambda p,**k:calls.append((p,k)) or next(responses))
+    monkeypatch.setattr(c.time,'sleep',lambda _seconds:None)
+    proposal=_write_valid_proposal(tmp_path/'lesson.json')
+
+    args=c.parser().parse_args(['propose',str(proposal),'--wait','--timeout','5'])
+    result=args.handler(args)
+
+    assert result['status']=='ingested_pending'
+    assert [p for p,_ in calls]==[
+        '/api/v1/brain/propose',
+        '/api/v1/brain/proposals/proposal-1',
+        '/api/v1/brain/proposals/proposal-1',
+    ]
+
+
+def test_proposal_status_uses_authenticated_get(monkeypatch):
+    c=load();calls=[]
+    monkeypatch.setattr(c,'request',lambda p,**k:calls.append((p,k)) or {'status':'linked'})
+    args=c.parser().parse_args(['proposal-status','literal-id'])
+
+    result=args.handler(args)
+
+    assert result['status']=='linked'
+    assert calls==[('/api/v1/brain/proposals/literal-id',{'write':True})]
+
+
+def test_propose_wait_raises_on_rejected_status(monkeypatch,tmp_path):
+    c=load()
+    responses=iter([
+        {'schema':1,'status':'queued','proposal_id':'proposal-1'},
+        {'schema':1,'status':'rejected','proposal_id':'proposal-1','proposal_state':'rejected'},
+    ])
+    monkeypatch.setattr(c,'request',lambda _path,**_kwargs:next(responses))
+    proposal=_write_valid_proposal(tmp_path/'lesson.json')
+    args=c.parser().parse_args(['propose',str(proposal),'--wait'])
+
+    with pytest.raises(RuntimeError,match='proposal rejected'):
+        args.handler(args)
+
+
+def test_propose_wait_rejects_nonpositive_polling_arguments(tmp_path):
+    c=load()
+    proposal=_write_valid_proposal(tmp_path/'lesson.json')
+
+    with pytest.raises(SystemExit):
+        c.parser().parse_args(['propose',str(proposal),'--wait','--timeout','0'])
+    with pytest.raises(SystemExit):
+        c.parser().parse_args(['propose',str(proposal),'--wait','--poll-interval','0'])

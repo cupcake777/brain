@@ -25,6 +25,9 @@ def build_config(sync_root: str | Path) -> HermesConfig:
         brain_v2_workspace=os.environ.get("BRAIN_V2_WORKSPACE") or None,
         brain_v2_project=os.environ.get("BRAIN_V2_PROJECT") or None,
         brain_scoped_tokens_file=os.environ.get("BRAIN_SCOPED_TOKENS_FILE") or None,
+        brain_remote_dedup_enabled=os.environ.get(
+            "BRAIN_REMOTE_DEDUP_ENABLED", ""
+        ).strip().lower() in {"1", "true", "yes", "on"},
     )
 
 
@@ -51,6 +54,10 @@ class HermesConfig:
     brain_v2_workspace: str | None = None
     brain_v2_project: str | None = None
     brain_scoped_tokens_file: str | None = None
+    # Remote dedup uploads knowledge data and historically replaced the local
+    # SQLite file with a downloaded copy. Keep it opt-in until that protocol is
+    # redesigned around candidate-only results and local transactional apply.
+    brain_remote_dedup_enabled: bool = False
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "sync_root", Path(self.sync_root))

@@ -72,6 +72,52 @@ def test_capture_environment_operation_sets_target(tmp_path, monkeypatch):
         outbox.close()
 
 
+def test_capture_marks_nonzero_exit_as_failed_and_keeps_sanitized_traceback(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_OUTBOX", str(tmp_path / "outbox.sqlite3"))
+    result = adapter.capture("codex", {
+        "session_id": "s",
+        "tool_use_id": "failed-call",
+        "hook_event_name": "PostToolUse",
+        "tool_name": "Bash",
+        "tool_response": {
+            "exit_code": 1,
+            "stderr": "Traceback: token=super-secret ValueError: bad input",
+        },
+        "cwd": str(tmp_path),
+    })
+    outbox = Outbox(tmp_path / "outbox.sqlite3")
+    try:
+        event = outbox.get(result["id"]).payload
+        assert event["action"].endswith("failed")
+        assert event["result"].startswith("failed; exit_code=1; error_type=ValueError")
+        assert "Traceback" in event["result"]
+        assert "super-secret" not in event["result"]
+        assert event["capture"]["status"] == "failed"
+        assert event["capture"]["exit_code"] == 1
+    finally:
+        outbox.close()
+
+
+def test_capture_marks_timeout_status_without_traceback(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_OUTBOX", str(tmp_path / "outbox.sqlite3"))
+    result = adapter.capture("codex", {
+        "session_id": "s",
+        "tool_use_id": "timeout-call",
+        "hook_event_name": "PostToolUse",
+        "tool_name": "Bash",
+        "tool_response": {"status": "timeout", "exit_code": 124},
+        "cwd": str(tmp_path),
+    })
+    outbox = Outbox(tmp_path / "outbox.sqlite3")
+    try:
+        event = outbox.get(result["id"]).payload
+        assert event["action"].endswith("timeout")
+        assert event["capture"]["status"] == "timeout"
+        assert event["capture"]["exit_code"] == 124
+    finally:
+        outbox.close()
+
+
 def test_drain_uses_exact_ack(tmp_path, monkeypatch):
     monkeypatch.setenv("BRAIN_OUTBOX", str(tmp_path / "outbox.sqlite3"))
     captured = adapter.capture("hermes", {
