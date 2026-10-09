@@ -15,6 +15,12 @@ from pathlib import Path
 from typing import Any
 
 DEFAULT_URL = "http://127.0.0.1:8083"
+PROPOSAL_TEXT_FIELDS = (
+    "summary", "observation", "why_it_matters", "suggested_memory",
+    "project", "scope", "domain",
+)
+PROPOSAL_CATEGORIES = {"rule", "fact", "preference", "workflow_hint", "correction", "resource"}
+PROPOSAL_RISKS = {"low", "medium", "high", "critical"}
 
 
 def api_url() -> str:
@@ -98,6 +104,40 @@ def command_propose(args: argparse.Namespace) -> dict[str, Any]:
     payload = json.loads(Path(args.file).read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise RuntimeError("proposal file must contain a JSON object")
+    required = {*PROPOSAL_TEXT_FIELDS, "category", "risk_level", "evidence"}
+    missing = sorted(required.difference(payload))
+    if missing:
+        raise RuntimeError(f"proposal missing required fields: {', '.join(missing)}")
+    for field in PROPOSAL_TEXT_FIELDS:
+        value = payload.get(field)
+        if not isinstance(value, str) or not value.strip():
+            raise RuntimeError(f"proposal {field} must be a non-empty string")
+        if value.strip().startswith("<") and value.strip().endswith(">"):
+            raise RuntimeError(f"replace placeholder in proposal {field}")
+    if payload.get("category") not in PROPOSAL_CATEGORIES:
+        raise RuntimeError(f"proposal category must be one of {sorted(PROPOSAL_CATEGORIES)}")
+    if payload.get("risk_level") not in PROPOSAL_RISKS:
+        raise RuntimeError(f"proposal risk_level must be one of {sorted(PROPOSAL_RISKS)}")
+    normalized_core = [
+        " ".join(str(payload[field]).casefold().split())
+        for field in ("observation", "why_it_matters", "suggested_memory")
+    ]
+    if len(set(normalized_core)) != len(normalized_core):
+        raise RuntimeError(
+            "proposal observation, why_it_matters, and suggested_memory must be semantically distinct"
+        )
+    evidence = payload.get("evidence")
+    if not isinstance(evidence, list) or not evidence:
+        raise RuntimeError("proposal evidence must be a non-empty list")
+    for index, entry in enumerate(evidence):
+        if not isinstance(entry, dict):
+            raise RuntimeError(f"evidence[{index}] must be an object")
+        for field in ("source_type", "source_uri", "quoted_excerpt"):
+            value = entry.get(field)
+            if not isinstance(value, str) or not value.strip():
+                raise RuntimeError(f"evidence[{index}] requires {field}")
+            if value.strip().startswith("<") and value.strip().endswith(">"):
+                raise RuntimeError(f"replace placeholder in evidence[{index}].{field}")
     payload.setdefault("agent", os.environ.get("BRAIN_AGENT", "brain-loop-skill"))
     payload.setdefault("host_hash", host_hash())
     return request("/api/v1/brain/propose", write=True, payload=payload)

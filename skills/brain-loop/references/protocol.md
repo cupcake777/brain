@@ -31,7 +31,7 @@ The client retains compatibility switches task_success/user_validated, but the c
 ## Proposal
 
 Required summary <=300, observation <=4000, why_it_matters <=2000, suggested_memory <=4000, nonempty evidence[] total <=8000 characters.
-Evidence should carry source_type/source_uri/quoted_excerpt, all accurate and sanitized. Optional project/category/risk_level/scope/domain/agent/host_hash.
+Every client submission must carry summary, observation, why_it_matters, suggested_memory, project, category, risk_level, scope, domain and evidence. The first four fields have distinct semantics and must not contain copied prose. Evidence must be a non-empty list of source_type/source_uri/quoted_excerpt objects; values must be accurate, literal, non-secret and sanitized. Placeholder values are invalid. Use `brain.py propose`; never bypass its validation with prose-only inbox files. Agent and host_hash are added by the client.
 Categories: rule/fact/preference/workflow_hint/correction/resource. Risks: low/medium/high/critical.
 Response submitted + proposal_id means queued. Lifecycle and export depend on the server policy; no guaranteed timing, stage promotion or automatic approval. Do not submit user facts to shared Brain without permission.
 

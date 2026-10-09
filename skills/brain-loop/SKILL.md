@@ -1,7 +1,7 @@
 ---
 name: brain-loop
 description: "Use when working with Brain shared experience or evidence. Retrieve relevant lessons, report actual outcomes, submit evidence-backed proposals, and keep external literature separate."
-version: 1.2.0
+version: 1.3.0
 author: Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]
@@ -82,6 +82,17 @@ Only report candidates actually returned by that retrieval. Do not retry a 409 s
 ## 3. Propose only a reusable, evidenced lesson
 
 Only propose when authorized by the user/project workflow and all are true: new/corrective, portable across tasks, likely to recur, verified, and backed by exact non-secret evidence. Search first for duplicates. Project progress, temporary service state, private user facts, credentials and full transcripts stay out.
+
+Every proposal must use all ten structured fields from the template: `summary`, `observation`, `why_it_matters`, `suggested_memory`, `project`, `category`, `risk_level`, `scope`, `domain`, and non-empty `evidence`. Do not submit prose-only Markdown, put an entire narrative into one field, or copy the same paragraph into `observation`, `why_it_matters`, and `suggested_memory`:
+
+- `summary`: one sentence naming the reusable lesson;
+- `observation`: verified facts, conditions, and result;
+- `why_it_matters`: the distinct recurring consequence;
+- `suggested_memory`: a standalone rule another agent can apply;
+- `scope` and `domain`: explicit applicability boundaries;
+- `evidence`: exact sanitized records with `source_type`, literal `source_uri`, and `quoted_excerpt`.
+
+The bundled client rejects missing fields, untouched placeholders, duplicated core sections, invalid enums, and incomplete evidence before any network request. Do not bypass validation by writing directly to an inbox.
 
 Copy [the proposal template](templates/proposal.json), replace placeholders with a concrete observation, portable rule and exact evidence, then:
 

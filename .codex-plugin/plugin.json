@@ -1,6 +1,6 @@
 {
   "name": "brain",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "description": "Brain shared experience for agents: retrieve lessons, verify, report outcomes, and auto-capture sanitized tool events.",
   "author": {
     "name": "Hermes Agent",
