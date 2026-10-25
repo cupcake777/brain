@@ -31,6 +31,7 @@ def positive_float(value: str) -> float:
     return number
 
 
+
 def api_url() -> str:
     from urllib.parse import urlparse
     value = os.environ.get("BRAIN_URL", DEFAULT_URL).rstrip("/")

@@ -94,6 +94,17 @@ Every proposal must be a structured JSON object with all ten fields from the tem
 
 The bundled client rejects missing fields, untouched placeholders, duplicated core sections, invalid enums, and incomplete evidence before any network request. Do not bypass that validation by writing directly to an inbox.
 
+Every proposal must use all ten structured fields from the template: `summary`, `observation`, `why_it_matters`, `suggested_memory`, `project`, `category`, `risk_level`, `scope`, `domain`, and non-empty `evidence`. Do not submit prose-only Markdown, put an entire narrative into one field, or copy the same paragraph into `observation`, `why_it_matters`, and `suggested_memory`:
+
+- `summary`: one sentence naming the reusable lesson;
+- `observation`: verified facts, conditions, and result;
+- `why_it_matters`: the distinct recurring consequence;
+- `suggested_memory`: a standalone rule another agent can apply;
+- `scope` and `domain`: explicit applicability boundaries;
+- `evidence`: exact sanitized records with `source_type`, literal `source_uri`, and `quoted_excerpt`.
+
+The bundled client rejects missing fields, untouched placeholders, duplicated core sections, invalid enums, and incomplete evidence before any network request. Do not bypass validation by writing directly to an inbox.
+
 Copy [the proposal template](templates/proposal.json), replace placeholders with a concrete observation, portable rule and exact evidence, then:
 
 ```bash
