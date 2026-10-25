@@ -243,6 +243,13 @@ class HermesRepository:
                 );
                 CREATE INDEX IF NOT EXISTS idx_pkl_knowledge
                     ON proposal_knowledge_links(knowledge_id);
+
+                CREATE TABLE IF NOT EXISTS proposal_knowledge_retirements (
+                    proposal_id TEXT PRIMARY KEY,
+                    reason TEXT NOT NULL,
+                    retired_at TEXT NOT NULL,
+                    FOREIGN KEY (proposal_id) REFERENCES proposals(proposal_id)
+                );
                 """
 
             )
@@ -396,6 +403,37 @@ class HermesRepository:
             raise KeyError(proposal_id)
         return dict(row)
 
+    def update_proposal_content(
+        self,
+        proposal_id: str,
+        fields: dict[str, str | int | float | None],
+    ) -> dict[str, str | int | float | None]:
+        """Update the reviewer-editable proposal fields as one transaction."""
+        editable = {
+            "project_key", "category", "risk_level", "domain", "summary",
+            "observation", "why_it_matters", "suggested_memory", "scope",
+            "evidence", "semantic_hash", "semantic_duplicate_of", "weight",
+        }
+        payload = {key: value for key, value in fields.items() if key in editable}
+        if not payload:
+            raise ValueError("No editable proposal fields supplied")
+        assignments = ", ".join(f"{key} = ?" for key in payload)
+        with self._connect() as connection:
+            cursor = connection.execute(
+                f"UPDATE proposals SET {assignments} WHERE proposal_id = ?",
+                (*payload.values(), proposal_id),
+            )
+            if cursor.rowcount != 1:
+                raise KeyError(proposal_id)
+        updated = self.get_proposal(proposal_id)
+        self.refresh_entity_embedding(
+            "proposal",
+            proposal_id,
+            self._proposal_embedding_text(dict(updated)),
+            raise_errors=False,
+        )
+        return updated
+
     def relabel_lanes(self, *, dry_run: bool = False) -> dict[str, object]:
         """Rewrite proposal/knowledge domain to scene slugs.  Custom labels are kept."""
         from hermes.lane import assign_lane, lane_text
@@ -455,6 +493,26 @@ class HermesRepository:
                 observations,
             )
 
+    def list_memory_edges(self, edge_types: tuple[str, ...] | None = None) -> list[dict[str, str]]:
+        """Return stored lineage and topic edges."""
+        query = "SELECT from_id, to_id, edge_type, evidence_id, created_at FROM memory_edges"
+        params: list[str] = []
+        if edge_types:
+            query += " WHERE edge_type IN (" + ",".join("?" for _ in edge_types) + ")"
+            params.extend(edge_types)
+        with self._connect() as connection:
+            rows = connection.execute(query, tuple(params)).fetchall()
+        return [
+            {
+                "from_id": str(row["from_id"]),
+                "to_id": str(row["to_id"]),
+                "edge_type": str(row["edge_type"]),
+                "evidence_id": str(row["evidence_id"] or ""),
+                "created_at": str(row["created_at"] or ""),
+            }
+            for row in rows
+        ]
+
     def insert_memory_edge(
         self, from_id: str, to_id: str, edge_type: str,
         evidence_id: str | None = None,
@@ -511,6 +569,27 @@ class HermesRepository:
                 (proposal_id, knowledge_id, action, now),
             )
 
+    def retire_proposal_knowledge(self, proposal_id: str, reason: str) -> None:
+        """Remember that an approved proposal must not be materialized again."""
+        now = datetime.now(timezone.utc).isoformat()
+        with self._connect() as connection:
+            connection.execute(
+                """INSERT INTO proposal_knowledge_retirements (proposal_id, reason, retired_at)
+                   VALUES (?, ?, ?)
+                   ON CONFLICT(proposal_id) DO UPDATE SET
+                     reason=excluded.reason,
+                     retired_at=excluded.retired_at""",
+                (proposal_id, reason, now),
+            )
+
+    def is_proposal_knowledge_retired(self, proposal_id: str) -> bool:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT 1 FROM proposal_knowledge_retirements WHERE proposal_id = ?",
+                (proposal_id,),
+            ).fetchone()
+        return row is not None
+
     def find_legacy_proposal_knowledge(self, proposal_id: str) -> str | None:
         """Resolve V2 nodes created before explicit Proposal↔Knowledge links."""
         with self._connect() as connection:
@@ -538,15 +617,27 @@ class HermesRepository:
                    JOIN knowledge_nodes kn ON kn.id = pkl.knowledge_id
                    WHERE p.state IN ('approved_db_only','approved_for_export')"""
             ).fetchone()[0])
+            retired = int(connection.execute(
+                """SELECT COUNT(*) FROM proposal_knowledge_retirements r
+                   JOIN proposals p ON p.proposal_id = r.proposal_id
+                   WHERE p.state IN ('approved_db_only','approved_for_export')
+                     AND NOT EXISTS (
+                       SELECT 1 FROM proposal_knowledge_links pkl
+                       JOIN knowledge_nodes kn ON kn.id = pkl.knowledge_id
+                       WHERE pkl.proposal_id = r.proposal_id
+                     )"""
+            ).fetchone()[0])
             latest = connection.execute(
                 "SELECT MAX(synced_at) FROM proposal_knowledge_links"
             ).fetchone()[0]
-        missing = max(0, approved - linked)
+        missing = max(0, approved - linked - retired)
+        settled = linked + retired
         return {
             "approved": approved,
             "linked": linked,
+            "retired": retired,
             "missing": missing,
-            "coverage": round((linked / approved * 100.0) if approved else 100.0, 1),
+            "coverage": round((settled / approved * 100.0) if approved else 100.0, 1),
             "last_synced_at": str(latest or ""),
             "state": "healthy" if missing == 0 else "syncing",
         }
@@ -767,13 +858,7 @@ class HermesRepository:
                 f"INSERT INTO knowledge_nodes ({columns}) VALUES ({placeholders})",
                 tuple(payload.values()),
             )
-            try:
-                connection.execute(
-                    "INSERT OR REPLACE INTO knowledge_nodes_fts (id, summary, content, category, domain) VALUES (?, ?, ?, ?, ?)",
-                    (node.id, node.summary, node.content, node.category, node.domain),
-                )
-            except sqlite3.OperationalError:
-                pass
+            self._replace_knowledge_fts(connection, node.id, node.summary, node.content, node.category, node.domain)
         self.refresh_entity_embedding(
             "knowledge",
             node.id,
@@ -815,13 +900,7 @@ class HermesRepository:
                 )
             if "category" in valid_fields or "domain" in valid_fields or "summary" in valid_fields or "content" in valid_fields:
                 with self._connect() as connection:
-                    try:
-                        connection.execute(
-                            "INSERT OR REPLACE INTO knowledge_nodes_fts (id, summary, content, category, domain) VALUES (?, ?, ?, ?, ?)",
-                            (node.id, node.summary, node.content, node.category, node.domain),
-                        )
-                    except sqlite3.OperationalError:
-                        pass
+                    self._replace_knowledge_fts(connection, node.id, node.summary, node.content, node.category, node.domain)
 
     def delete_knowledge_node(self, node_id: str) -> bool:
         """Delete a knowledge node. Returns True if deleted."""
@@ -842,6 +921,22 @@ class HermesRepository:
     # -----------------------------------------------------------------------
     # Persistent embeddings (proposals + knowledge nodes)
     # -----------------------------------------------------------------------
+
+    @staticmethod
+    def _replace_knowledge_fts(connection, node_id: str, summary: object, content: object, category: object, domain: object) -> None:
+        """Replace one knowledge FTS row.
+
+        ``id`` is an UNINDEXED column, so INSERT OR REPLACE matches the
+        internal rowid and would insert another copy of the same node.
+        """
+        try:
+            connection.execute("DELETE FROM knowledge_nodes_fts WHERE id = ?", (node_id,))
+            connection.execute(
+                "INSERT INTO knowledge_nodes_fts (id, summary, content, category, domain) VALUES (?, ?, ?, ?, ?)",
+                (node_id, summary, content, category, domain),
+            )
+        except sqlite3.OperationalError:
+            pass
 
     @staticmethod
     def _knowledge_embedding_text(summary: object, content: object) -> str:

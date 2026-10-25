@@ -57,7 +57,7 @@ MAX_BODY_BYTES = 65_536
 
 
 #: Current schema version produced by :meth:`EventStore.schema_version`.
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 # ---------------------------------------------------------------------------
@@ -404,7 +404,10 @@ class EventStore:
             """
         )
         cur.execute(
-            "INSERT OR IGNORE INTO schema_meta(key, value) VALUES (?, ?)",
+            """
+            INSERT INTO schema_meta(key, value) VALUES (?, ?)
+            ON CONFLICT(key) DO UPDATE SET value=excluded.value
+            """,
             ("schema_version", str(SCHEMA_VERSION)),
         )
 
@@ -485,6 +488,24 @@ class EventStore:
                 digest TEXT NOT NULL,
                 workflow_state TEXT NOT NULL,
                 updated_at TEXT NOT NULL
+            )
+            """
+        )
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS proposal_transitions (
+                id TEXT PRIMARY KEY,
+                proposal_id TEXT NOT NULL,
+                from_version INTEGER NOT NULL,
+                to_version INTEGER NOT NULL,
+                from_state TEXT NOT NULL,
+                to_state TEXT NOT NULL,
+                note TEXT NOT NULL,
+                recorded_at TEXT NOT NULL,
+                principal_actor TEXT NOT NULL,
+                principal_workspace TEXT NOT NULL,
+                principal_project TEXT NOT NULL,
+                UNIQUE(proposal_id, to_version)
             )
             """
         )
@@ -1089,6 +1110,8 @@ class EventStore:
                 "digest": new_digest,
                 "workflow_state": row["workflow_state"],
             }
+        if row["workflow_state"] != "draft":
+            raise ConflictError("only draft proposals can be edited")
 
         new_version = row["version"] + 1
         received_at = _now_utc().isoformat()
@@ -1177,6 +1200,242 @@ class EventStore:
             "draft": bool(row["draft"]),
             "source_refs": _deserialise(row["source_refs"]) or [],
         }
+
+    def list_current_proposals(self) -> list[dict[str, Any]]:
+        """List current V2 proposals in the authenticated principal scope."""
+        principal = self._resolve_principal()
+        rows = self._conn.execute(
+            """
+            SELECT pc.id, pc.version, pc.digest, pc.workflow_state,
+                   pc.updated_at, pr.project_id, pr.agent_id, pr.occurred_at,
+                   pr.action, pr.result, pr.lesson, pr.draft, pr.source_refs
+            FROM proposal_current pc
+            JOIN proposal_revisions pr
+              ON pr.id = pc.id AND pr.version = pc.version
+            WHERE pr.principal_workspace = ? AND pr.principal_project = ?
+            ORDER BY pc.updated_at DESC, pc.id ASC
+            """,
+            (principal.workspace, principal.project),
+        ).fetchall()
+        return [
+            {
+                "id": row["id"],
+                "version": row["version"],
+                "digest": row["digest"],
+                "workflow_state": row["workflow_state"],
+                "updated_at": row["updated_at"],
+                "project_id": row["project_id"],
+                "agent_id": row["agent_id"],
+                "occurred_at": row["occurred_at"],
+                "action": row["action"],
+                "result": row["result"],
+                "lesson": row["lesson"],
+                "draft": bool(row["draft"]),
+                "source_refs": _deserialise(row["source_refs"]) or [],
+            }
+            for row in rows
+        ]
+
+    def transition_proposal(
+        self,
+        *,
+        proposal_id: str,
+        expected_version: int,
+        to_state: str,
+        note: str = "",
+    ) -> dict[str, Any]:
+        """Advance a proposal through its audited server-owned lifecycle."""
+
+        principal = self._resolve_principal()
+        if to_state not in {"ready", "accepted", "rejected"}:
+            raise ConflictError(f"unsupported proposal state: {to_state}")
+        audit_body = {"to_state": to_state, "note": note}
+        self._enforce_body_limit(audit_body)
+        self._enforce_privacy(audit_body)
+
+        with self._conn:
+            self._conn.execute("BEGIN IMMEDIATE")
+            row = self._conn.execute(
+                """
+                SELECT pc.version, pc.workflow_state,
+                       pr.id, pr.project_id, pr.agent_id, pr.occurred_at,
+                       pr.action, pr.result, pr.lesson, pr.draft,
+                       pr.source_refs, pr.payload_digest
+                FROM proposal_current pc
+                JOIN proposal_revisions pr
+                  ON pr.id = pc.id AND pr.version = pc.version
+                WHERE pc.id = ?
+                  AND pr.principal_workspace = ?
+                  AND pr.principal_project = ?
+                """,
+                (proposal_id, principal.workspace, principal.project),
+            ).fetchone()
+            if row is None:
+                raise NotFoundError(f"proposal {proposal_id} not found")
+            if row["version"] != expected_version:
+                raise ConflictError(
+                    f"expected_version={expected_version} does not match current revision"
+                )
+
+            from_state = str(row["workflow_state"])
+            allowed = {
+                "draft": {"ready"},
+                "ready": {"accepted", "rejected"},
+                "accepted": set(),
+                "rejected": set(),
+            }
+            if to_state not in allowed.get(from_state, set()):
+                raise ConflictError(f"illegal proposal transition: {from_state} -> {to_state}")
+
+            refs = _deserialise(row["source_refs"]) or []
+            new_draft = from_state == "draft" and to_state != "ready"
+            if from_state == "draft" and to_state == "ready":
+                from hermes.contracts import ProposalRevision
+
+                try:
+                    ProposalRevision(
+                        id=_coerce_uuid(proposal_id),
+                        version=expected_version + 1,
+                        project_id=row["project_id"],
+                        agent_id=row["agent_id"],
+                        occurred_at=(
+                            _coerce_dt(row["occurred_at"])
+                            if row["occurred_at"] is not None
+                            else None
+                        ),
+                        action=row["action"],
+                        result=row["result"],
+                        lesson=row["lesson"],
+                        draft=False,
+                        source_refs=refs,
+                    )
+                except ValueError as exc:
+                    raise ConflictError("proposal does not satisfy ready contract") from exc
+
+            new_version = expected_version + 1
+            recorded_at = _now_utc().isoformat()
+            new_body = {
+                "project_id": row["project_id"],
+                "agent_id": row["agent_id"],
+                "occurred_at": (
+                    _coerce_dt(row["occurred_at"])
+                    if row["occurred_at"] is not None
+                    else None
+                ),
+                "action": row["action"],
+                "result": row["result"],
+                "lesson": row["lesson"],
+                "draft": new_draft,
+                "source_refs": refs,
+            }
+            new_digest = canonical_proposal_digest(new_body)
+            changed = self._conn.execute(
+                """
+                UPDATE proposal_current
+                SET version=?, digest=?, workflow_state=?, updated_at=?
+                WHERE id=? AND version=?
+                """,
+                (
+                    new_version, new_digest, to_state, recorded_at,
+                    proposal_id, expected_version,
+                ),
+            )
+            if changed.rowcount != 1:
+                raise ConflictError("expected version changed concurrently")
+            self._conn.execute(
+                """
+                INSERT INTO proposal_revisions(
+                    id, version, project_id, agent_id, occurred_at,
+                    action, result, lesson, draft, source_refs,
+                    workflow_state, payload_digest, principal_actor,
+                    principal_workspace, principal_project, received_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    row["id"], new_version, row["project_id"], row["agent_id"],
+                    row["occurred_at"], row["action"], row["result"], row["lesson"],
+                    1 if new_draft else 0, row["source_refs"], to_state, new_digest,
+                    principal.actor, principal.workspace, principal.project, recorded_at,
+                ),
+            )
+            self._conn.execute(
+                """
+                INSERT INTO proposal_transitions(
+                    id, proposal_id, from_version, to_version, from_state,
+                    to_state, note, recorded_at, principal_actor,
+                    principal_workspace, principal_project
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    str(uuid.uuid4()), proposal_id, expected_version, new_version,
+                    from_state, to_state, note, recorded_at, principal.actor,
+                    principal.workspace, principal.project,
+                ),
+            )
+            self._conn.execute(
+                """
+                INSERT INTO outbox_events(
+                    id, kind, reference_id, payload, recorded_at,
+                    principal_actor, principal_workspace, principal_project
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    str(uuid.uuid4()), "proposal.workflow", proposal_id,
+                    _serialise({
+                        "proposal_id": proposal_id,
+                        "from_state": from_state,
+                        "to_state": to_state,
+                        "version": new_version,
+                    }),
+                    recorded_at, principal.actor, principal.workspace, principal.project,
+                ),
+            )
+            if to_state == "accepted":
+                # Queued only. KnowledgeIntake writes the draft later.
+                self._conn.execute(
+                    """
+                    INSERT INTO durable_jobs(
+                        id, kind, payload, state, enqueued_at,
+                        principal_actor, principal_workspace, principal_project
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        str(uuid.uuid4()),
+                        "knowledge_intake",
+                        _serialise({
+                            "proposal_id": proposal_id,
+                            "proposal_version": new_version,
+                        }),
+                        "queued",
+                        recorded_at,
+                        principal.actor,
+                        principal.workspace,
+                        principal.project,
+                    ),
+                )
+
+        return {
+            "status": "transitioned",
+            "version": new_version,
+            "digest": new_digest,
+            "workflow_state": to_state,
+        }
+
+    def list_proposal_transitions(self, *, proposal_id: str) -> list[dict[str, Any]]:
+        principal = self._resolve_principal()
+        rows = self._conn.execute(
+            """
+            SELECT id, proposal_id, from_version, to_version, from_state,
+                   to_state, note, recorded_at, principal_actor,
+                   principal_workspace, principal_project
+            FROM proposal_transitions
+            WHERE proposal_id = ?
+              AND principal_workspace = ? AND principal_project = ?
+            ORDER BY to_version ASC
+            """,
+            (proposal_id, principal.workspace, principal.project),
+        ).fetchall()
+        return [dict(row) for row in rows]
 
     # -- check runs ----------------------------------------------------------
 

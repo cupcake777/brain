@@ -140,7 +140,10 @@ class ScopedPrincipalRegistry:
         if path.startswith("/api/v2/brain/events"):
             permission = "events:write" if method in {"POST", "PUT", "PATCH", "DELETE"} else "events:read"
         elif path.startswith("/api/v2/brain/proposals"):
-            permission = "proposals:write" if method in {"POST", "PUT", "PATCH", "DELETE"} else "proposals:read"
+            if path.endswith("/transition") and method == "POST":
+                permission = "proposals:review"
+            else:
+                permission = "proposals:write" if method in {"POST", "PUT", "PATCH", "DELETE"} else "proposals:read"
         elif path == "/api/v1/brain/outcome":
             permission = "outcomes:write"
         elif path == "/api/v1/brain/propose":
@@ -149,4 +152,6 @@ class ScopedPrincipalRegistry:
             permission = "outcomes:write"
         elif path == "/api/v1/brain/sources/retrieve":
             permission = "sources:read"
+        elif path == "/api/v1/brain/retrieve" and method == "POST":
+            permission = "knowledge:read"
         return permission is not None and permission in row["permissions"]

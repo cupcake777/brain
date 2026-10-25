@@ -7,7 +7,7 @@ Set BRAIN_URL to the user's service origin. Bundled client defaults to local loo
 | Method/path | Authorization in protected v1 deployment | Purpose |
 |---|---|---|
 | GET /api/v1/brain/health | Public | schema/status/counters |
-| POST /api/v1/brain/retrieve | Public | Local curated experience + recorded retrieval event |
+| POST /api/v1/brain/retrieve | Operator bearer, session, or scoped `knowledge:read` | Local curated experience + recorded retrieval event |
 | POST /api/v1/brain/outcome | Bearer/session | Feedback bound to returned local candidates |
 | POST /api/v1/brain/propose | Bearer/session | Queue a proposal, not approval |
 | POST /api/v1/brain/finalize | Bearer/session | Close session and pending feedback |
@@ -31,9 +31,11 @@ The client retains compatibility switches task_success/user_validated, but the c
 ## Proposal
 
 Required summary <=300, observation <=4000, why_it_matters <=2000, suggested_memory <=4000, nonempty evidence[] total <=8000 characters.
-Evidence should carry source_type/source_uri/quoted_excerpt, all accurate and sanitized. Optional project/category/risk_level/scope/domain/agent/host_hash.
+Every submission must carry the complete structured object: summary, observation, why_it_matters, suggested_memory, project, category, risk_level, scope, domain and evidence. The first four fields have distinct semantics and must not be populated with the same prose. Evidence must be a non-empty list of source_type/source_uri/quoted_excerpt objects; every value must be accurate, literal, non-secret and sanitized. Placeholder values are invalid. Use the bundled `brain.py propose` client so malformed payloads are rejected before upload; never bypass validation by writing prose-only Markdown directly to an inbox. Optional project/category/risk_level/scope/domain/agent/host_hash.
 Categories: rule/fact/preference/workflow_hint/correction/resource. Risks: low/medium/high/critical.
 Response submitted + proposal_id means queued. Lifecycle and export depend on the server policy; no guaranteed timing, stage promotion or automatic approval. Do not submit user facts to shared Brain without permission.
+
+Compatibility/schema-1 ingestion and lifecycle/schema-2 review are separate storage contracts but may share one operator UI. In the reference policy, low-risk `preference` compatibility proposals may be auto-approved database-only; other compatibility proposals remain pending. Lifecycle proposals follow `draft → ready → accepted | rejected`, require an explicit review transition, and enqueue knowledge intake only when accepted. The intake result is draft knowledge, not automatic canonization.
 
 `proposal-status <id>` is an authenticated read and may return queued, ingested_pending, approved, linked, duplicate or rejected. The response also preserves `proposal_state` after ingestion, so approved_db_only and approved_for_export remain distinguishable. `propose --wait` waits for durable receipt: ingested_pending is success because the proposal is stored in SQLite, not because it was approved or exported. Only linked includes a knowledge_id. Status reads use the caller's scoped token; the server authorizes them as proposals:read rather than proposals:write.
 

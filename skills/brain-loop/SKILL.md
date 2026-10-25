@@ -1,7 +1,7 @@
 ---
 name: brain-loop
 description: "Use when working with Brain shared experience or evidence. Retrieve relevant lessons, report actual outcomes, submit evidence-backed proposals, and keep external literature separate."
-version: 1.2.0
+version: 1.4.0
 author: Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]
@@ -83,6 +83,17 @@ Only report candidates actually returned by that retrieval. Do not retry a 409 s
 
 Only propose when authorized by the user/project workflow and all are true: new/corrective, portable across tasks, likely to recur, verified, and backed by exact non-secret evidence. Search first for duplicates. Project progress, temporary service state, private user facts, credentials and full transcripts stay out. Codex deployments should also follow [the Codex workflow](references/codex-workflow.md).
 
+Every proposal must be a structured JSON object with all ten fields from the template: `summary`, `observation`, `why_it_matters`, `suggested_memory`, `project`, `category`, `risk_level`, `scope`, `domain`, and non-empty `evidence`. Do not submit prose-only Markdown, place an entire narrative into one field, or copy the same paragraph into `observation`, `why_it_matters`, and `suggested_memory`:
+
+- `summary`: one sentence naming the reusable lesson;
+- `observation`: verified facts, conditions, and result;
+- `why_it_matters`: the distinct recurring consequence;
+- `suggested_memory`: a standalone imperative or declarative rule another agent can apply;
+- `scope` and `domain`: explicit applicability boundaries, not catch-all prose;
+- `evidence`: one or more exact sanitized records with `source_type`, literal `source_uri`, and `quoted_excerpt`.
+
+The bundled client rejects missing fields, untouched placeholders, duplicated core sections, invalid enums, and incomplete evidence before any network request. Do not bypass that validation by writing directly to an inbox.
+
 Copy [the proposal template](templates/proposal.json), replace placeholders with a concrete observation, portable rule and exact evidence, then:
 
 ```bash
@@ -90,6 +101,15 @@ python3 scripts/brain.py propose /path/to/lesson.json
 ```
 
 A `submitted` response means queued only. The server pipeline decides deduplication, contradictions, stage and export. Do not claim canonization/approval or automatically edit exported instructions. An error alone does not warrant a proposal.
+
+## Proposal review policy
+
+Submission and approval are separate. A proposal-producing agent never approves its own lesson.
+
+- Compatibility/schema-1 ingestion follows the server route policy. In the reference deployment only a low-risk `preference` may be auto-approved to database-only knowledge; other categories remain pending for review.
+- Lifecycle/schema-2 proposals use `draft → ready → accepted | rejected`. Creating or editing a proposal does not accept it. Only `accepted` enqueues knowledge intake, and the intake worker creates draft knowledge rather than canonized knowledge.
+- Operators review both compatibility and lifecycle proposals from the server's unified `/proposals` queue. A missing lifecycle proposal is not evidence that proposal capture failed; check the compatibility queue and proposal-status endpoint before diagnosing the pipeline.
+- Never claim that every proposal needs manual review: the compatibility route may auto-approve the narrowly allowed low-risk class. Never claim that any lifecycle proposal is auto-accepted.
 
 ## 4. Close the session if configured
 

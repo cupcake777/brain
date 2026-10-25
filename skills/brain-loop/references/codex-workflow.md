@@ -48,6 +48,7 @@ Copy `templates/proposal.json` and use structured evidence:
   "category": "workflow_hint",
   "risk_level": "low",
   "scope": "global",
+  "domain": "agent-infrastructure",
   "evidence": [
     {
       "source_type": "file",

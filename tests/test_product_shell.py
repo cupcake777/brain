@@ -42,3 +42,57 @@ def test_knowledge_proposal_pages_use_product_shell() -> None:
         assert 'href="/gallery"' in page
         assert all(marker not in page for marker in forbidden)
         assert 'href="/" class="sidebar-nav-item' in page
+
+
+def test_review_detail_exposes_structured_proposal_editor() -> None:
+    html = review_detail_page(
+        proposal={
+            "proposal_id": "proposal-editable",
+            "state": "pending",
+            "project_key": "global",
+            "category": "workflow_hint",
+            "risk_level": "low",
+            "domain": "infrastructure",
+            "source_agent": "xiaohe",
+            "source_host": "local",
+            "created_at": "2026-10-09T00:00:00+00:00",
+            "summary": "Structured summary",
+            "observation": "Observed fact",
+            "why_it_matters": "Operational impact",
+            "suggested_memory": "Durable rule",
+            "scope": "global",
+            "evidence": "source: https://example.com\nexcerpt: verified",
+        }
+    )
+
+    assert 'id="proposal-editor"' in html
+    assert 'name="observation"' in html
+    assert 'name="why_it_matters"' in html
+    assert 'name="suggested_memory"' in html
+    assert 'name="evidence"' in html
+    assert ">Observed fact</textarea>" in html
+    assert "/api/review/proposal-editable/edit" in html
+    assert "saveProposal" in html
+
+
+def test_review_editor_escapes_text_and_hides_after_terminal_state() -> None:
+    pending = review_detail_page(
+        proposal={
+            "proposal_id": "proposal-editable",
+            "state": "pending",
+            "observation": '<script>alert(1)</script>',
+            "evidence": "source: https://example.com",
+        }
+    )
+    assert 'id="proposal-editor"' in pending
+    assert "<script>alert" not in pending
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in pending
+
+    rejected = review_detail_page(
+        proposal={
+            "proposal_id": "proposal-editable",
+            "state": "rejected",
+            "observation": "Observed fact",
+        }
+    )
+    assert 'id="proposal-editor"' not in rejected

@@ -108,6 +108,24 @@ def test_sync_materializes_legacy_source_link_without_duplicate(tmp_path: Path) 
     assert repo.get_proposal_knowledge_link(proposal_id)["knowledge_id"] == "legacy-node"
 
 
+def test_sync_leaves_retired_proposals_unmaterialized(tmp_path: Path) -> None:
+    repo = HermesRepository(tmp_path / "brain.sqlite3")
+    repo.insert_proposal(_proposal("retired-one", state="approved_for_export"))
+    repo.retire_proposal_knowledge("retired-one", "never retrieved and not proposed twice")
+
+    result = sync_approved_proposals(repo)
+    status = repo.proposal_sync_status()
+
+    assert result["synced"] == 0
+    assert result["retired"] == 1
+    assert result["already_linked"] == 0
+    assert len(repo.list_knowledge_nodes(limit=20)) == 0
+    assert status["approved"] == 1
+    assert status["linked"] == 0
+    assert status["retired"] == 1
+    assert status["missing"] == 0
+
+
 def test_pipeline_api_and_frontend_expose_sync_and_vector_state(tmp_path: Path) -> None:
     repo = HermesRepository(tmp_path / "brain.sqlite3")
     repo.insert_proposal(_proposal("approved", state="approved_for_export"))

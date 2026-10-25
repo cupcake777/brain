@@ -7,8 +7,10 @@ from time import sleep
 
 from hermes.config import HermesConfig
 from hermes.eviction import EvictionService, EvictionResult
+from hermes.event_store import EventStore, StaticPrincipalAdapter
 from hermes.exporter import ExportCompiler
 from hermes.ingest import IngestionService
+from hermes.knowledge_intake import KnowledgeIntake
 from hermes.notifier import NotificationRouter, TelegramNotifier
 from hermes.repository import HermesRepository
 from hermes.status import StatusPublisher
@@ -220,6 +222,45 @@ class HermesRuntime:
         logging.info("knowledge pipeline: %s", result)
         return result
 
+    def run_knowledge_intake_cycle(self) -> dict[str, int | str]:
+        """Consume queued V2 ``knowledge_intake`` jobs for the configured scope."""
+        mapping = (
+            self.config.brain_v2_actor,
+            self.config.brain_v2_workspace,
+            self.config.brain_v2_project,
+        )
+        if not self.config.brain_v2_enabled or not all(mapping):
+            return {"status": "skipped", "processed": 0, "done": 0, "failed": 0}
+
+        actor, workspace, project = mapping
+        assert actor is not None and workspace is not None and project is not None
+        store = EventStore(
+            self.config.db_path,
+            principal=StaticPrincipalAdapter(
+                actor=actor, workspace=workspace, project=project
+            ),
+        )
+        try:
+            intake = KnowledgeIntake(store)
+            processed = done = failed = 0
+            while True:
+                result = intake.run_once()
+                if result is None:
+                    break
+                processed += 1
+                if result.get("state") == "done":
+                    done += 1
+                elif result.get("state") == "failed":
+                    failed += 1
+            return {
+                "status": "ok",
+                "processed": processed,
+                "done": done,
+                "failed": failed,
+            }
+        finally:
+            store.close()
+
     def run_remote_dedup(self) -> dict:
         """Run embedding-based dedup on HF Space (16GB RAM) and apply results.
 
@@ -266,6 +307,7 @@ class HermesRuntime:
         REMOTE_DEDUP_INTERVAL = 100  # every ~50 minutes at 30s intervals
         while True:
             self.run_scan_cycle()
+            self.run_knowledge_intake_cycle()
             self.run_knowledge_pipeline()
             self.rebuild_exports()
             # Run local retrospect every 10 cycles (~5 minutes)

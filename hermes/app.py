@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import html as _html
 import json
 import os
 import secrets
@@ -22,8 +23,20 @@ from hermes.auth import CSRFMiddleware, DBFailClosedMiddleware, TokenAuthMiddlew
 from hermes.brain_protocol import register_brain_protocol_routes
 from hermes.source_protocol import register_source_protocol_routes
 from hermes.label_gold import register_label_gold_routes
-from hermes.event_store import EventStore, Principal
-from hermes.proposal_protocol_v2 import DEFAULT_PRINCIPAL_ADAPTER, build_router as build_v2_router
+from hermes.event_store import (
+    BodyTooLargeError,
+    ConflictError,
+    EventStore,
+    NotFoundError,
+    Principal,
+    SensitiveRejectedError,
+)
+from hermes.proposal_protocol_v2 import (
+    DEFAULT_PRINCIPAL_ADAPTER,
+    ProposalTransition,
+    ProposalUpdate,
+    build_router as build_v2_router,
+)
 from hermes.scoped_auth import ScopedPrincipalRegistry
 from hermes.config import HermesConfig
 from hermes.exporter import ExportCompiler
@@ -143,12 +156,18 @@ def create_app(
             class _ScopedV2PrincipalAdapter:
                 def authenticate(self, request: Request) -> Principal | None:
                     method = request.method.upper()
-                    permission = (
-                        "events:write" if request.url.path.startswith("/api/v2/brain/events") and method in {"POST", "PUT", "PATCH", "DELETE"}
-                        else "events:read" if request.url.path.startswith("/api/v2/brain/events")
-                        else "proposals:write" if method in {"POST", "PUT", "PATCH", "DELETE"}
-                        else "proposals:read"
-                    )
+                    if request.url.path.startswith("/api/v2/brain/events"):
+                        permission = "events:write" if method in {"POST", "PUT", "PATCH", "DELETE"} else "events:read"
+                    elif request.url.path.startswith("/api/v2/brain/proposals"):
+                        permission = (
+                            "proposals:review"
+                            if request.url.path.endswith("/transition") and method == "POST"
+                            else "proposals:write"
+                            if method in {"POST", "PUT", "PATCH", "DELETE"}
+                            else "proposals:read"
+                        )
+                    else:
+                        return None
                     return scoped_registry.authenticate(request, permission=permission)
 
             principal_adapter = _ScopedV2PrincipalAdapter()
@@ -181,6 +200,171 @@ def create_app(
                 principal_adapter=principal_adapter,
             )
         )
+
+        def _v2_ui_principal(request: Request) -> Principal:  # noqa: ARG001
+            if not all(
+                (config.brain_v2_actor, config.brain_v2_workspace, config.brain_v2_project)
+            ):
+                raise HTTPException(status_code=503, detail="V2 review scope unavailable")
+            return Principal(
+                actor=config.brain_v2_actor or "",
+                workspace=config.brain_v2_workspace or "",
+                project=config.brain_v2_project or "",
+            )
+
+        def _v2_ui_store(request: Request) -> EventStore:
+            return EventStore(
+                config.db_path,
+                principal=_BoundPrincipalAdapter(_v2_ui_principal(request)),
+            )
+
+        async def _v2_review_payload(request: Request, model):
+            try:
+                payload = await request.json()
+                return model.model_validate(payload)
+            except Exception as exc:
+                raise HTTPException(status_code=422, detail="invalid review payload") from exc
+
+        @app.put("/api/review/v2/{proposal_id}")
+        async def v2_review_update(request: Request, proposal_id: str) -> dict:
+            dto = await _v2_review_payload(request, ProposalUpdate)
+            store = _v2_ui_store(request)
+            try:
+                return store.update_proposal(
+                    proposal_id=proposal_id,
+                    expected_version=dto.expected_version,
+                    lesson=dto.lesson,
+                )
+            except NotFoundError as exc:
+                raise HTTPException(status_code=404, detail=str(exc)) from exc
+            except ConflictError as exc:
+                raise HTTPException(status_code=409, detail=str(exc)) from exc
+            except BodyTooLargeError as exc:
+                raise HTTPException(status_code=413, detail=str(exc)) from exc
+            except SensitiveRejectedError as exc:
+                raise HTTPException(status_code=422, detail="payload rejected by privacy gate") from exc
+            finally:
+                store.close()
+
+        @app.post("/api/review/v2/{proposal_id}/transition")
+        async def v2_review_transition(request: Request, proposal_id: str) -> dict:
+            dto = await _v2_review_payload(request, ProposalTransition)
+            store = _v2_ui_store(request)
+            try:
+                return store.transition_proposal(
+                    proposal_id=proposal_id,
+                    expected_version=dto.expected_version,
+                    to_state=dto.to_state,
+                    note=dto.note,
+                )
+            except NotFoundError as exc:
+                raise HTTPException(status_code=404, detail=str(exc)) from exc
+            except ConflictError as exc:
+                raise HTTPException(status_code=409, detail=str(exc)) from exc
+            except BodyTooLargeError as exc:
+                raise HTTPException(status_code=413, detail=str(exc)) from exc
+            except SensitiveRejectedError as exc:
+                raise HTTPException(status_code=422, detail="payload rejected by privacy gate") from exc
+            finally:
+                store.close()
+
+        @app.get("/v2-proposals", response_class=HTMLResponse, response_model=None)
+        def v2_proposal_queue(request: Request) -> str:
+            store = _v2_ui_store(request)
+            try:
+                proposals = store.list_current_proposals()
+            finally:
+                store.close()
+            rows = "".join(
+                "<li><a href='/proposals/{id}'>"
+                "<strong>{state}</strong> · v{version} · {id}</a>"
+                "<p>{lesson}</p></li>".format(
+                    id=_html.escape(str(p["id"])),
+                    state=_html.escape(str(p["workflow_state"])),
+                    version=p["version"],
+                    lesson=_html.escape(str(p.get("lesson") or "")),
+                )
+                for p in proposals
+            )
+            legacy_pending = repo.list_proposals_by_state("pending")
+            rows += "".join(
+                "<li><a href='/review/{id}'>"
+                "<strong>pending</strong> · {id}</a>"
+                "<p>{summary}</p></li>".format(
+                    id=_html.escape(str(p.get("proposal_id") or "")),
+                    summary=_html.escape(
+                        str(
+                            p.get("summary")
+                            or p.get("suggested_memory")
+                            or p.get("observation")
+                            or ""
+                        )
+                    ),
+                )
+                for p in legacy_pending
+            )
+            if not rows:
+                rows = "<li>No proposals awaiting review.</li>"
+            return (
+                "<!doctype html><meta charset='utf-8'><title>Proposals</title>"
+                "<style>body{font:16px sans-serif;max-width:900px;margin:40px auto}"
+                "li{margin:16px 0;padding:12px;border:1px solid #ccc}"
+                "a{color:#245b8a}p{white-space:pre-wrap}</style>"
+                "<h1>Proposal review</h1><p>Review, edit, accept or reject proposals here.</p>"
+                f"<p><strong>{len(proposals) + len(legacy_pending)}</strong> proposals shown</p>"
+                f"<ul>{rows}</ul>"
+            )
+
+        @app.get("/v2-proposals/{proposal_id}", response_class=HTMLResponse, response_model=None)
+        def v2_proposal_detail(request: Request, proposal_id: str) -> str:
+            store = _v2_ui_store(request)
+            try:
+                from hermes.event_store import NotFoundError
+                try:
+                    proposal = store.get_current_proposal(proposal_id)
+                except NotFoundError as exc:
+                    raise HTTPException(status_code=404, detail="proposal not found") from exc
+            finally:
+                store.close()
+            pid = _html.escape(str(proposal["id"]))
+            state = str(proposal["workflow_state"])
+            version = int(proposal["version"])
+            lesson = _html.escape(str(proposal.get("lesson") or ""))
+            action = _html.escape(str(proposal.get("action") or ""))
+            result = _html.escape(str(proposal.get("result") or ""))
+            buttons = ""
+            if state == "draft":
+                buttons += "<button onclick=transition('ready')>Mark ready</button>"
+            elif state == "ready":
+                buttons += "<button onclick=transition('accepted')>Accept</button>"
+                buttons += "<button onclick=transition('rejected')>Reject</button>"
+            editor = ""
+            if state == "draft":
+                editor = (
+                    f"<h2>Edit draft</h2><textarea id='lesson'>{lesson}</textarea>"
+                    "<button onclick='saveLesson()'>Save draft</button>"
+                )
+            return (
+                "<!doctype html><meta charset='utf-8'><title>V2 Proposal</title>"
+                "<style>body{font:16px sans-serif;max-width:900px;margin:40px auto}"
+                "textarea{display:block;width:100%;min-height:140px;margin:12px 0}"
+                "button{margin:4px;padding:9px 14px}pre{white-space:pre-wrap}"
+                "</style><p><a href='/proposals'>← Queue</a></p>"
+                f"<h1>Proposal {pid}</h1><p>State: <strong>{_html.escape(state)}</strong> · v{version}</p>"
+                f"<h2>Action</h2><pre>{action}</pre><h2>Result</h2><pre>{result}</pre>"
+                f"<h2>Lesson</h2><pre id='lesson-preview'>{lesson}</pre>{editor}"
+                f"<p id='status'></p><div>{buttons}</div>"
+                "<script>"
+                f"const pid={str(proposal['id'])!r}, version={version};"
+                "function show(x){document.getElementById('status').textContent=x;}"
+                "function transition(to_state){fetch('/api/review/v2/'+pid+'/transition',"
+                "{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expected_version:version,to_state:to_state,note:'web review'})})"
+                ".then(async r=>{let d=await r.json();if(!r.ok)throw Error(d.detail||'transition failed');location.reload()}).catch(e=>show(e.message));}"
+                "function saveLesson(){let lesson=document.getElementById('lesson').value;fetch('/api/review/v2/'+pid,"
+                "{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({expected_version:version,lesson:lesson})})"
+                ".then(async r=>{let d=await r.json();if(!r.ok)throw Error(d.detail||'save failed');location.reload()}).catch(e=>show(e.message));}"
+                "</script>"
+            )
 
     # -- login routes ----------------------------------------------------------
 
@@ -428,6 +612,80 @@ def create_app(
             return repo.get_proposal(proposal_id)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="proposal not found") from exc
+
+    @app.put("/api/review/{proposal_id}/edit")
+    async def edit_proposal(proposal_id: str, request: Request) -> dict[str, object]:
+        """Validate and save the structured proposal fields before review."""
+        from hermes.brain_protocol import VALID_CATEGORIES, VALID_RISKS
+        from hermes.ingest import _compute_semantic_hash, _is_garbage_content
+        from hermes.sensitive import SensitiveContentError, default_gate
+        from hermes.weight import compute_weight
+
+        try:
+            current = repo.get_proposal(proposal_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="proposal not found") from exc
+        if str(current.get("state")) not in {"pending", "approved_db_only"}:
+            raise HTTPException(status_code=409, detail="only reviewable proposals can be edited")
+        try:
+            body = await request.json()
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail="invalid JSON body") from exc
+        if not isinstance(body, dict):
+            raise HTTPException(status_code=400, detail="JSON body must be an object")
+
+        field_names = (
+            "project_key", "category", "risk_level", "domain", "summary",
+            "observation", "why_it_matters", "suggested_memory", "scope", "evidence",
+        )
+        values: dict[str, str | int | float | None] = {
+            name: str(body.get(name, "")).strip() for name in field_names
+        }
+        for name in (
+            "project_key", "category", "risk_level", "summary", "observation",
+            "why_it_matters", "suggested_memory", "scope", "evidence",
+        ):
+            if not values[name]:
+                raise HTTPException(status_code=422, detail=f"{name} is required")
+        if values["category"] not in VALID_CATEGORIES:
+            raise HTTPException(status_code=422, detail=f"category must be one of {sorted(VALID_CATEGORIES)}")
+        if values["risk_level"] not in VALID_RISKS:
+            raise HTTPException(status_code=422, detail=f"risk_level must be one of {sorted(VALID_RISKS)}")
+        for name in ("summary", "observation", "why_it_matters", "suggested_memory"):
+            if _is_garbage_content(values[name]):
+                raise HTTPException(status_code=422, detail=f"{name} is too short or invalid")
+        try:
+            default_gate().check(values, field="proposal_edit")
+        except SensitiveContentError as exc:
+            raise HTTPException(status_code=422, detail="sensitive_content_detected") from exc
+
+        canonical = "\n\n".join(
+            f"## {heading}\n{values[key]}"
+            for heading, key in (
+                ("Summary", "summary"),
+                ("Observation", "observation"),
+                ("Why it matters", "why_it_matters"),
+                ("Suggested durable memory", "suggested_memory"),
+                ("Scope", "scope"),
+                ("Evidence", "evidence"),
+            )
+        )
+        semantic_hash = _compute_semantic_hash(canonical)
+        duplicate_of = repo.find_by_semantic_hash(semantic_hash)
+        if duplicate_of == proposal_id:
+            duplicate_of = None
+        values.update(
+            {
+                "semantic_hash": semantic_hash,
+                "semantic_duplicate_of": duplicate_of,
+                "weight": compute_weight(
+                    category=values["category"], risk_level=values["risk_level"]
+                ),
+            }
+        )
+        updated = repo.update_proposal_content(proposal_id, values)
+        status_publisher.publish()
+        return {"proposal_id": proposal_id, "state": str(updated["state"]), "saved": True}
 
     @app.post("/api/review/{proposal_id}/approve-db-only")
     def approve_db_only(proposal_id: str, state: str = Query(default="pending")) -> dict[str, str]:
@@ -1114,6 +1372,11 @@ def create_app(
         counts = repo.count_knowledge_nodes_by_stage()
         all_nodes = repo.list_knowledge_nodes(limit=5000)
         domains = sorted({n.domain for n in all_nodes if n.domain})
+        visible = {n.id for n in nodes}
+        graph_edges = [
+            edge for edge in repo.list_memory_edges()
+            if edge["from_id"] in visible and edge["to_id"] in visible
+        ] if requested_view == "graph" else []
         return knowledge_page(
             nodes=[_asdict(n) for n in nodes],
             counts=counts,
@@ -1123,6 +1386,7 @@ def create_app(
             domains=domains,
             query=q,
             view=requested_view,
+            edges=graph_edges,
         )
 
     @app.get("/knowledge/{node_id}", response_class=HTMLResponse)
@@ -1392,11 +1656,14 @@ def create_app(
 
     @app.get("/proposals", response_class=HTMLResponse, response_model=None)
     def proposal_lifecycle_route(
-        tab: str = Query(default="flow"),
+        request: Request,
+        tab: str = Query(default="v2" if config.brain_v2_enabled else "flow"),
         state: str = Query(default="pending"),
     ) -> str:
-        if tab not in {"flow", "review", "knowledge"}:
-            tab = "flow"
+        if tab not in {"v2", "flow", "review", "knowledge"}:
+            tab = "v2" if config.brain_v2_enabled else "flow"
+        if tab == "v2" and config.brain_v2_enabled:
+            return v2_proposal_queue(request)
         if tab == "review":
             counts = repo.counts_by_state()
             if state == "all":
@@ -1413,6 +1680,12 @@ def create_app(
         return proposal_lifecycle_page(
             overview=overview, tab=tab, graph_data=graph_data,
         )
+
+    @app.get("/proposals/{proposal_id}", response_class=HTMLResponse, response_model=None)
+    def proposal_v2_detail_route(request: Request, proposal_id: str) -> str:
+        if not config.brain_v2_enabled:
+            raise HTTPException(status_code=404, detail="proposal not found")
+        return v2_proposal_detail(request, proposal_id)
 
 
     @app.get("/fleet", response_class=HTMLResponse, response_model=None)

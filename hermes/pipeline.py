@@ -56,7 +56,7 @@ def sync_approved_proposals(repo: HermesRepository, *, limit: int | None = None)
     if limit is not None:
         proposals = proposals[: max(0, int(limit))]
 
-    synced = already_linked = failed = 0
+    synced = already_linked = retired = failed = 0
     errors: list[str] = []
     for proposal in proposals:
         proposal_id = str(proposal.get("proposal_id") or "")
@@ -66,6 +66,9 @@ def sync_approved_proposals(repo: HermesRepository, *, limit: int | None = None)
             continue
         if repo.get_proposal_knowledge_link(proposal_id):
             already_linked += 1
+            continue
+        if repo.is_proposal_knowledge_retired(proposal_id):
+            retired += 1
             continue
 
         legacy_id = repo.find_legacy_proposal_knowledge(proposal_id)
@@ -94,6 +97,7 @@ def sync_approved_proposals(repo: HermesRepository, *, limit: int | None = None)
         "eligible": len(proposals),
         "synced": synced,
         "already_linked": already_linked,
+        "retired": retired,
         "failed": failed,
         "errors": errors[:5],
         "status": repo.proposal_sync_status(),

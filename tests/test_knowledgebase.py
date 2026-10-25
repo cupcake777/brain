@@ -91,6 +91,22 @@ def test_knowledge_renderer_escapes_dynamic_fields_and_quotes_paths() -> None:
     assert _unsafe_event_attributes(module) == []
 
 
+def test_knowledge_graph_draws_topic_edges_and_skips_proposal_provenance() -> None:
+    rendered = knowledge_tree_page(
+        nodes=[_node(id="a"), _node(id="b", summary="A second lesson")],
+        counts=COUNTS,
+        view="graph",
+        edges=[
+            {"from_id": "a", "to_id": "b", "edge_type": "related_to"},
+            {"from_id": "a", "to_id": "missing", "edge_type": "related_to"},
+            {"from_id": "a", "to_id": "b", "edge_type": "derived_from"},
+        ],
+    )
+    assert 'class="graph-edge related_to"' in rendered
+    assert "derived_from" not in rendered
+    assert "1 connections" in rendered
+
+
 def test_knowledge_filter_links_preserve_values_with_query_encoding() -> None:
     rendered = knowledge_tree_page(
         nodes=[_node()],

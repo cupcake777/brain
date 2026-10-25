@@ -65,6 +65,7 @@ _I18N_DICT = {
         "rv_suggested": "建议持久记忆", "rv_scope": "范围",
         "rv_evidence": "证据", "rv_summary": "摘要",
         "rv_project": "项目", "rv_category": "场景", "rv_risk": "风险",
+        "rv_domain": "领域", "rv_edit_proposal": "编辑提案", "rv_save": "保存修改",
         "rv_source": "来源", "rv_created": "创建时间", "rv_weight": "权重",
         "rv_confirm": "确认", "rv_cancel": "取消",
         "rv_rejected": "此提案已被拒绝。",
@@ -212,6 +213,7 @@ _I18N_DICT = {
         "rv_suggested": "Suggested durable memory", "rv_scope": "Scope",
         "rv_evidence": "Evidence", "rv_summary": "Summary",
         "rv_project": "Project", "rv_category": "Scene", "rv_risk": "Risk",
+        "rv_domain": "Domain", "rv_edit_proposal": "Edit proposal", "rv_save": "Save changes",
         "rv_source": "Source", "rv_created": "Created", "rv_weight": "Weight",
         "rv_confirm": "Confirm", "rv_cancel": "Cancel",
         "rv_rejected": "This proposal was rejected.",
@@ -1751,6 +1753,64 @@ _PROPOSAL_SECTIONS_KEYS = [
     ("rv_summary", "summary"),
 ]
 
+_EDITABLE_REVIEW_STATES = {"pending", "approved_db_only"}
+_EDITOR_CATEGORIES = ("rule", "fact", "preference", "workflow_hint", "correction", "resource")
+_EDITOR_RISKS = ("low", "medium", "high", "critical")
+
+
+def _editor_options(current: str, options: tuple[str, ...]) -> str:
+    choices = list(options)
+    if current and current not in choices:
+        choices.append(current)
+    html = ""
+    for option in choices:
+        selected = " selected" if option == current else ""
+        html += f'<option value="{_html.escape(option)}"{selected}>{_html.escape(option)}</option>'
+    return html
+
+
+def _proposal_editor(proposal: dict) -> str:
+    """Structured editor for states the review API still accepts."""
+    state = str(proposal.get("state", "pending"))
+    if state not in _EDITABLE_REVIEW_STATES:
+        return ""
+    pid = str(proposal.get("proposal_id", ""))
+    url = f"/api/review/{pid}/edit"
+
+    def text(name: str) -> str:
+        return _html.escape(str(proposal.get(name, "") or ""))
+
+    def area(name: str, label_key: str) -> str:
+        return (
+            f'<label>{_html.escape(_pt(label_key))}'
+            f'<textarea name="{name}">{text(name)}</textarea></label>'
+        )
+
+    def field(name: str, label_key: str) -> str:
+        return (
+            f'<label>{_html.escape(_pt(label_key))}'
+            f'<input name="{name}" value="{text(name)}"></label>'
+        )
+
+    category = str(proposal.get("category", "") or "")
+    risk = str(proposal.get("risk_level", "") or "")
+    return f"""
+<form id="proposal-editor" action="#" data-url="{_html.escape(url)}" onsubmit="return saveProposal(event)">
+  <h3 data-i18n="rv_edit_proposal">{_html.escape(_pt("rv_edit_proposal"))}</h3>
+  {field("project_key", "rv_project")}
+  <label>{_html.escape(_pt("rv_category"))}<select name="category">{_editor_options(category, _EDITOR_CATEGORIES)}</select></label>
+  <label>{_html.escape(_pt("rv_risk"))}<select name="risk_level">{_editor_options(risk, _EDITOR_RISKS)}</select></label>
+  {field("domain", "rv_domain")}
+  {field("summary", "rv_summary")}
+  {area("observation", "rv_observation")}
+  {area("why_it_matters", "rv_why_matters")}
+  {area("suggested_memory", "rv_suggested")}
+  {field("scope", "rv_scope")}
+  {area("evidence", "rv_evidence")}
+  <button type="submit" data-i18n="rv_save">{_html.escape(_pt("rv_save"))}</button>
+  <p id="proposal-editor-status" role="status"></p>
+</form>"""
+
 # JavaScript for action buttons – uses fetch + confirm
 _ACTION_JS = """\
 function act(url, actionName) {
@@ -1782,6 +1842,43 @@ function act(url, actionName) {
 }
 function hideConfirm() {
   document.getElementById('confirm-overlay').style.display = 'none';
+}
+function saveProposal(event) {
+  if (event) event.preventDefault();
+  var form = document.getElementById('proposal-editor');
+  if (!form) return false;
+  var status = document.getElementById('proposal-editor-status');
+  var button = form.querySelector('button');
+  var names = ['project_key','category','risk_level','domain','summary','observation','why_it_matters','suggested_memory','scope','evidence'];
+  var body = {};
+  names.forEach(function(name) {
+    var field = form.elements[name];
+    body[name] = field ? field.value : '';
+  });
+  if (button) button.disabled = true;
+  if (status) status.textContent = '';
+  fetch(form.getAttribute('data-url'), {
+    method: 'PUT',
+    credentials: 'same-origin',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(body)
+  }).then(function(response) {
+    return response.json().catch(function() { return {}; }).then(function(data) {
+      return {ok: response.ok, data: data};
+    });
+  }).then(function(result) {
+    if (!result.ok) {
+      var detail = result.data && result.data.detail;
+      if (status) status.textContent = typeof detail === 'string' ? detail : 'save failed';
+      if (button) button.disabled = false;
+      return;
+    }
+    window.location.reload();
+  }).catch(function(error) {
+    if (status) status.textContent = error && error.message ? error.message : 'save failed';
+    if (button) button.disabled = false;
+  });
+  return false;
 }
 function showToast(msg, type) {
   var t = document.createElement('div');
@@ -1916,6 +2013,13 @@ def review_detail_page(*, proposal: dict) -> str:
 .section.checklist p,.section.checklist{{background:linear-gradient(180deg,rgba(196,163,90,.06),transparent)}}
 .detail-body .section p{{max-height:none}}
 .meta-grid a{{color:var(--primary)}}
+#proposal-editor{{display:grid;gap:12px;margin:0 var(--sp-md) var(--sp-md);padding:14px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface)}}
+#proposal-editor h3{{margin:0;font-size:.95rem}}
+#proposal-editor label{{display:grid;gap:4px;font-size:.78rem;color:var(--ink-muted)}}
+#proposal-editor input,#proposal-editor select,#proposal-editor textarea{{width:100%;box-sizing:border-box;font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);padding:8px}}
+#proposal-editor textarea{{min-height:88px;resize:vertical}}
+#proposal-editor button{{justify-self:start;padding:8px 14px;border:0;border-radius:var(--r-sm);background:var(--primary);color:#fff;font-weight:700;cursor:pointer}}
+#proposal-editor-status{{margin:0;min-height:1.2em;color:#a04d30;font-size:.82rem}}
 </style>
 <div class="detail-header">
   <a href="/proposals?tab=review" class="back-link" data-i18n="rv_review">{_pt("rv_review")}</a>
@@ -1932,6 +2036,7 @@ def review_detail_page(*, proposal: dict) -> str:
   {lineage_bits}
 </div>
 {completeness_html}
+{_proposal_editor(proposal)}
 <div class="detail-body">{sections_html}{checklist_html}</div>
 <div class="action-bar">{btns}</div>
 <div class="confirm-overlay" id="confirm-overlay" onclick="if(event.target===this)hideConfirm()">
@@ -5064,9 +5169,13 @@ def proposal_lifecycle_page(overview: dict, tab="flow", review_html="", knowledg
     _proposal_sync = overview.get("proposal_sync", {}) if isinstance(overview.get("proposal_sync"), dict) else {}
     _sync_approved = int(_proposal_sync.get("approved", 0) or 0)
     _sync_linked = int(_proposal_sync.get("linked", 0) or 0)
+    _sync_retired = int(_proposal_sync.get("retired", 0) or 0)
     _sync_missing = int(_proposal_sync.get("missing", 0) or 0)
     _sync_pct = float(_proposal_sync.get("coverage", 100.0) or 0.0)
     _sync_state = str(_proposal_sync.get("state") or ("healthy" if _sync_missing == 0 else "syncing"))
+    _sync_head = f"{_sync_linked} / {_sync_approved} linked"
+    if _sync_retired:
+        _sync_head = f"{_sync_linked} linked · {_sync_retired} retired / {_sync_approved}"
 
     # Stats now shown inline in Workbench pills — no separate stat bar
 
@@ -5152,7 +5261,7 @@ def proposal_lifecycle_page(overview: dict, tab="flow", review_html="", knowledg
   </div>
   <h3>Automation</h3>
   <div class="kg-vector-card" title="Approved proposals automatically materialized as maintained Knowledge">
-    <div class="kg-vector-head"><b>{_sync_linked} / {_sync_approved} linked</b><span class="kg-vector-state" data-state="{_sync_state}">{_sync_state}</span></div>
+    <div class="kg-vector-head"><b>{_sync_head}</b><span class="kg-vector-state" data-state="{_sync_state}">{_sync_state}</span></div>
     <div class="kg-vector-bar"><span style="width:{_sync_pct}%"></span></div>
     <div class="kg-vector-meta">Approved Proposal → Knowledge<br>{_sync_missing} waiting · {_sync_pct}% coverage</div>
   </div>

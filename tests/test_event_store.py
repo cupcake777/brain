@@ -395,6 +395,110 @@ def test_proposal_server_owns_workflow_state(tmp_path: Path) -> None:
     assert updated["workflow_state"] == "draft"
 
 
+def test_transition_proposal_draft_to_ready_creates_audited_revision(
+    store: EventStore,
+) -> None:
+    payload = _proposal_kwargs(draft=True)
+    src = {"type": "execution", "id": uuid4()}
+    store.record_event(**_event_kwargs(id=src["id"]))
+    payload["source_refs"] = [src]
+    store.create_proposal(**payload)
+
+    result = store.transition_proposal(
+        proposal_id=str(payload["id"]),
+        expected_version=1,
+        to_state="ready",
+        note="ready for review",
+    )
+
+    assert result["status"] == "transitioned"
+    assert result["version"] == 2
+    assert result["workflow_state"] == "ready"
+    current = store.get_current_proposal(str(payload["id"]))
+    assert current["version"] == 2
+    assert current["workflow_state"] == "ready"
+    transition = store.list_proposal_transitions(proposal_id=str(payload["id"]))[0]
+    assert transition["from_state"] == "draft"
+    assert transition["to_state"] == "ready"
+    assert transition["principal_actor"] == "alice"
+    assert transition["note"] == "ready for review"
+
+
+def test_transition_ready_to_accepted_enqueues_intake_without_knowledge_write(
+    store: EventStore,
+) -> None:
+    payload = _proposal_kwargs(draft=False)
+    src = {"type": "execution", "id": uuid4()}
+    store.record_event(**_event_kwargs(id=src["id"]))
+    payload["source_refs"] = [src]
+    store.create_proposal(**payload)
+
+    result = store.transition_proposal(
+        proposal_id=str(payload["id"]),
+        expected_version=1,
+        to_state="accepted",
+        note="human approval",
+    )
+
+    assert result["workflow_state"] == "accepted"
+    assert result["version"] == 2
+    jobs = store.list_durable_jobs(kind="knowledge_intake")
+    assert len(jobs) == 1
+    assert jobs[0]["payload"] == {
+        "proposal_id": str(payload["id"]),
+        "proposal_version": 2,
+    }
+    outbox = store.list_outbox_events(kind="proposal.workflow")
+    assert len(outbox) == 1
+    assert outbox[0]["payload"]["to_state"] == "accepted"
+    knowledge_tables = store._conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'brain_v2_knowledge%'"
+    ).fetchall()
+    for table in knowledge_tables:
+        count = store._conn.execute(f"SELECT count(*) FROM {table['name']}").fetchone()[0]
+        assert count == 0
+
+
+def test_update_proposal_blocked_after_ready_transition(store: EventStore) -> None:
+    payload = _proposal_kwargs(draft=True)
+    src = {"type": "execution", "id": uuid4()}
+    store.record_event(**_event_kwargs(id=src["id"]))
+    payload["source_refs"] = [src]
+    store.create_proposal(**payload)
+    store.transition_proposal(
+        proposal_id=str(payload["id"]),
+        expected_version=1,
+        to_state="ready",
+    )
+
+    with pytest.raises(ConflictError):
+        store.update_proposal(
+            proposal_id=str(payload["id"]),
+            expected_version=2,
+            lesson="must not edit a ready proposal",
+        )
+
+
+def test_proposal_terminal_state_cannot_transition_again(store: EventStore) -> None:
+    payload = _proposal_kwargs(draft=False)
+    src = {"type": "execution", "id": uuid4()}
+    store.record_event(**_event_kwargs(id=src["id"]))
+    payload["source_refs"] = [src]
+    store.create_proposal(**payload)
+    store.transition_proposal(
+        proposal_id=str(payload["id"]),
+        expected_version=1,
+        to_state="rejected",
+    )
+
+    with pytest.raises(ConflictError):
+        store.transition_proposal(
+            proposal_id=str(payload["id"]),
+            expected_version=2,
+            to_state="accepted",
+        )
+
+
 # ---------------------------------------------------------------------------
 # Cross-scope rejection
 # ---------------------------------------------------------------------------

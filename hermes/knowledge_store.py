@@ -6,9 +6,15 @@ from hermes.contracts import canonical_digest
 from hermes.event_store import ConflictError, UnauthorizedError, NotFoundError, _storage_privacy_scan, SensitiveRejectedError
 
 class KnowledgeStore:
-    def __init__(self, path):
-        self.conn = sqlite3.connect(str(path))
-        self.conn.row_factory = sqlite3.Row
+    def __init__(self, path, *, connection=None):
+        self._owns_connection = connection is None
+        if connection is None:
+            self.conn = sqlite3.connect(str(path))
+            self.conn.row_factory = sqlite3.Row
+        else:
+            # Caller keeps ownership. executescript commits any open
+            # transaction, so share a connection only before one starts.
+            self.conn = connection
         self.conn.executescript('''
         CREATE TABLE IF NOT EXISTS brain_v2_knowledge_revisions(
           id TEXT NOT NULL, version INTEGER NOT NULL, revision_id TEXT UNIQUE NOT NULL,
@@ -45,11 +51,17 @@ class KnowledgeStore:
     def create(self,p,content,source_refs,kind='experience',protected=False,parents=None):
         if kind!='experience' or parents:
             raise ValueError('directive and ancestry require dedicated checked workflow')
-        identity=str(uuid.uuid4())
-        with self.conn:
+        def write():
+            identity=str(uuid.uuid4())
             row=self._insert(p,identity,1,content,source_refs,kind,protected)
             self.conn.execute('INSERT INTO brain_v2_knowledge_current VALUES(?,1)',(identity,))
-        return row
+            return row
+        # Join a transaction the caller already opened. A nested ``with``
+        # would commit that transaction early.
+        if self.conn.in_transaction:
+            return write()
+        with self.conn:
+            return write()
     def get(self,p,identity,version=None):
         if version is None:
             current=self.conn.execute('SELECT version FROM brain_v2_knowledge_current WHERE id=?',(identity,)).fetchone()
@@ -86,4 +98,6 @@ class KnowledgeStore:
     def list_current(self,p):
         return [self.get(p,row['id'],row['version']) for row in self.conn.execute(
             'SELECT r.id,r.version FROM brain_v2_knowledge_current c JOIN brain_v2_knowledge_revisions r ON c.id=r.id AND c.version=r.version WHERE workspace=? AND project=?',(p.workspace,p.project))]
-    def close(self): self.conn.close()
+    def close(self):
+        if self._owns_connection:
+            self.conn.close()

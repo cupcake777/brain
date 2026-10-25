@@ -517,6 +517,31 @@ def test_update_proposal_rejects_draft_promotion(client: TestClient) -> None:
     assert resp.status_code == 422
 
 
+def test_transition_draft_to_ready_happy_path(client: TestClient) -> None:
+    event = _event_payload()
+    assert client.post("/api/v2/brain/events", json=event).status_code == 200
+    payload = _proposal_payload(
+        draft=True,
+        source_refs=[{"type": "execution", "id": event["id"]}],
+    )
+    created = client.post("/api/v2/brain/proposals", json=payload)
+    assert created.status_code == 200
+
+    transitioned = client.post(
+        f"/api/v2/brain/proposals/{payload['id']}/transition",
+        json={
+            "expected_version": 1,
+            "to_state": "ready",
+            "note": "ready for review",
+        },
+    )
+
+    assert transitioned.status_code == 200, transitioned.text
+    assert transitioned.json()["status"] == "transitioned"
+    assert transitioned.json()["version"] == 2
+    assert transitioned.json()["workflow_state"] == "ready"
+
+
 # ---------------------------------------------------------------------------
 # Body-size enforcement (before parse)
 # ---------------------------------------------------------------------------

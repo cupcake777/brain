@@ -102,6 +102,66 @@ def test_scoped_read_only_token_cannot_write(tmp_path):
     assert client.post("/api/v2/brain/events", json=_event(), headers=headers).status_code == 401
 
 
+def test_scoped_knowledge_read_can_retrieve_experience(tmp_path):
+    app = _app(
+        tmp_path,
+        _registry(tmp_path / "tokens.json", permissions=["knowledge:read"]),
+    )
+    client = TestClient(app)
+    headers = {"Authorization": "Bearer agent-token"}
+    denied = TestClient(
+        _app(tmp_path, _registry(tmp_path / "events.json", permissions=["events:read"]))
+    )
+    assert denied.post(
+        "/api/v1/brain/retrieve",
+        json={"query": "provider configuration"},
+        headers=headers,
+    ).status_code == 401
+
+    from hermes.repository import HermesRepository, KnowledgeNode
+
+    repo = HermesRepository(tmp_path / "brain.sqlite3")
+    repo.insert_knowledge_node(KnowledgeNode(
+        id="node-1",
+        parent_id=None,
+        content="Inspect the live provider configuration before changing it.",
+        summary="Inspect provider configuration before changing it.",
+        category="rule",
+        domain="tech",
+        stage="canonized",
+        operation="canonize",
+        confidence=0.9,
+        source="test",
+        evidence="[]",
+        supersedes=None,
+        merged_from="[]",
+        contradicts="[]",
+        verified_by="[]",
+        created_at="2026-10-18T00:00:00+00:00",
+        refined_at=None,
+        verified_at=None,
+        deprecated_at=None,
+        retrieval_count=0,
+        last_used_at=None,
+        correction_count=0,
+        outcome_count=0,
+        last_outcome_at=None,
+        kind="rule",
+        trigger_terms="[]",
+        use_when="",
+        avoid_when="",
+        success_signal="",
+        failure_signal="",
+    ))
+    response = client.post(
+        "/api/v1/brain/retrieve",
+        json={"query": "provider configuration"},
+        headers=headers,
+    )
+    assert response.status_code == 200, response.text
+    assert any(item["node_id"] == "node-1" for item in response.json()["results"])
+
+
 def test_registry_reloads_after_atomic_rotation(tmp_path):
     path = _registry(tmp_path / "tokens.json", token="old-token")
     registry = ScopedPrincipalRegistry(path)
@@ -127,3 +187,25 @@ def test_registry_reloads_after_atomic_rotation(tmp_path):
     assert client.get(
         "/api/v2/brain/events", headers={"Authorization": "Bearer old-token"}
     ).status_code == 401
+
+
+def test_transition_requires_review_permission(tmp_path):
+    path = _registry(
+        tmp_path / "tokens.json",
+        permissions=["proposals:write", "proposals:read"],
+    )
+    registry = ScopedPrincipalRegistry(path)
+
+    class TransitionRequest:
+        headers = {"authorization": "Bearer agent-token"}
+        class URL:
+            path = "/api/v2/brain/proposals/proposal-1/transition"
+        url = URL()
+        method = "POST"
+
+    assert registry.authorize_http(TransitionRequest()) is False
+
+    payload = json.loads(path.read_text())
+    payload["tokens"][0]["permissions"].append("proposals:review")
+    path.write_text(json.dumps(payload))
+    assert registry.authorize_http(TransitionRequest()) is True

@@ -189,6 +189,14 @@ class ProposalUpdate(_StrictModel):
     lesson: StrictStr | None = None
 
 
+class ProposalTransition(_StrictModel):
+    """CAS lifecycle transition requested by an authenticated principal."""
+
+    expected_version: StrictInt = Field(ge=1, le=1_000_000)
+    to_state: StrictStr = Field(pattern=r"^(ready|accepted|rejected)$")
+    note: StrictStr = Field(default="", max_length=4_000)
+
+
 class ProposalOut(_StrictModel):
     id: str
     version: int
@@ -574,6 +582,59 @@ def build_router(
             workflow_state=result["workflow_state"],
         )
 
+    @router.post("/proposals/{proposal_id}/transition", response_model=ProposalAck)
+    async def transition_proposal(proposal_id: str, request: Request) -> ProposalAck:
+        principal = _resolve_principal(request)
+        payload = await _bounded_json_async(request)
+        try:
+            dto = ProposalTransition.model_validate(payload)
+        except ValidationError as exc:
+            raise HTTPException(
+                status_code=HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=_validation_detail(exc),
+            ) from exc
+        store = store_factory(principal)
+        try:
+            result = store.transition_proposal(
+                proposal_id=proposal_id,
+                expected_version=dto.expected_version,
+                to_state=dto.to_state,
+                note=dto.note,
+            )
+        except UnauthorizedError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=str(exc),
+            ) from exc
+        except NotFoundError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=str(exc),
+            ) from exc
+        except ConflictError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=str(exc),
+            ) from exc
+        except BodyTooLargeError as exc:
+            raise HTTPException(
+                status_code=HTTP_413_CONTENT_TOO_LARGE,
+                detail=str(exc),
+            ) from exc
+        except SensitiveRejectedError as exc:
+            raise HTTPException(
+                status_code=HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="payload rejected by privacy gate",
+            ) from exc
+        finally:
+            store.close()
+        return ProposalAck(
+            status=result["status"],
+            version=result["version"],
+            digest=result["digest"],
+            workflow_state=result["workflow_state"],
+        )
+
     @router.get("/proposals/{proposal_id}", response_model=ProposalOut)
     def get_proposal(proposal_id: str, request: Request) -> ProposalOut:
         principal = _resolve_principal(request)
@@ -605,6 +666,7 @@ __all__ = [
     "EventOut",
     "ProposalCreate",
     "ProposalUpdate",
+    "ProposalTransition",
     "ProposalOut",
     "EventAck",
     "ProposalAck",

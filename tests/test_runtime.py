@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+import sqlite3
+from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
@@ -14,6 +16,7 @@ from hermes.proposals import ProposalWriter
 from hermes.repository import HermesRepository, KnowledgeNode
 from hermes.runtime import HermesRuntime
 from hermes.status import StatusPublisher
+from hermes.event_store import EventStore, StaticPrincipalAdapter
 
 
 def _write(writer: ProposalWriter, *, category: str, risk_level: str, project_key: str, scope: str = "project") -> Path:
@@ -170,6 +173,58 @@ def test_runtime_watch_runs_multiple_cycles_with_injected_sleep(tmp_path: Path) 
     runtime.watch(max_cycles=3, sleep_fn=lambda seconds: calls.append(seconds))
 
     assert calls == [1, 1]
+
+
+def test_runtime_consumes_accepted_v2_knowledge_intake_jobs(tmp_path: Path) -> None:
+    config = HermesConfig(
+        sync_root=tmp_path / "sync",
+        db_path=tmp_path / "hermes.sqlite3",
+        brain_v2_enabled=True,
+        brain_v2_actor="alice",
+        brain_v2_workspace="ws-1",
+        brain_v2_project="proj-1",
+    )
+    adapter = StaticPrincipalAdapter(actor="alice", workspace="ws-1", project="proj-1")
+    store = EventStore(config.db_path, principal=adapter)
+    event_id = uuid4()
+    proposal_id = uuid4()
+    store.record_event(
+        id=event_id,
+        project_id="proj-1",
+        agent_id="agent-1",
+        occurred_at=datetime(2026, 10, 21, 3, 0, tzinfo=timezone.utc),
+        action="verified workflow",
+        result="completed",
+    )
+    store.create_proposal(
+        id=proposal_id,
+        project_id="proj-1",
+        agent_id="agent-1",
+        occurred_at=datetime(2026, 10, 21, 3, 0, tzinfo=timezone.utc),
+        action="verified workflow",
+        result="completed",
+        lesson="Run the verified workflow before changing the service.",
+        draft=True,
+        source_refs=[{"type": "execution", "id": str(event_id)}],
+    )
+    store.transition_proposal(
+        proposal_id=str(proposal_id), expected_version=1, to_state="ready"
+    )
+    store.transition_proposal(
+        proposal_id=str(proposal_id), expected_version=2, to_state="accepted"
+    )
+    store.close()
+
+    runtime = HermesRuntime(config=config, repo=HermesRepository(config.db_path))
+    result = runtime.run_knowledge_intake_cycle()
+
+    assert result["processed"] == 1
+    assert result["done"] == 1
+    assert result["failed"] == 0
+    with sqlite3.connect(config.db_path) as conn:
+        assert conn.execute(
+            "SELECT count(*) FROM proposal_knowledge_intake"
+        ).fetchone()[0] == 1
 
 
 def test_remote_dedup_is_disabled_by_default(tmp_path: Path) -> None:

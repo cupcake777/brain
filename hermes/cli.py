@@ -129,6 +129,16 @@ def main(argv: list[str] | None = None) -> int:
     embed_parser.add_argument("--entity-type", choices=("all", "proposal", "knowledge"), default="all")
     embed_parser.add_argument("--batch-size", type=int, default=32)
 
+    compact_exp_parser = subparsers.add_parser(
+        "compact-experience",
+        help="Compact source_events into deterministic shadow-only blocks (additive; never touches Tier 0)",
+    )
+    compact_exp_parser.add_argument("--dry-run", action="store_true", help="Compute the compaction plan with zero database writes (no table creation)")
+    compact_exp_parser.add_argument("--json", action="store_true", help="Print a machine-readable JSON summary")
+    compact_exp_parser.add_argument("--full", action="store_true", help="Re-compact from the beginning, ignoring the stored cursor (idempotent)")
+    compact_exp_parser.add_argument("--workspace", default=os.environ.get("BRAIN_V2_WORKSPACE"), help="Principal workspace (default: BRAIN_V2_WORKSPACE)")
+    compact_exp_parser.add_argument("--project", default=os.environ.get("BRAIN_V2_PROJECT"), help="Principal project (default: BRAIN_V2_PROJECT)")
+
     serve_parser = subparsers.add_parser("serve", help="Run the Hermes FastAPI server")
     serve_parser.add_argument("--host", default="127.0.0.1")
     serve_parser.add_argument("--port", type=int, default=8080)
@@ -149,6 +159,21 @@ def main(argv: list[str] | None = None) -> int:
         object.__setattr__(config, "tls_cert", args.tls_cert)
     if getattr(args, "tls_key", None):
         object.__setattr__(config, "tls_key", args.tls_key)
+
+    if args.command == "compact-experience":
+        # Dispatched before HermesRuntime so that --dry-run performs zero
+        # database writes (runtime construction would run its own
+        # migrations).  See hermes/experience_compactor.py.
+        from hermes.experience_compactor import compact_experience_cli
+
+        return compact_experience_cli(
+            config.db_path,
+            workspace=getattr(args, "workspace", None),
+            project=getattr(args, "project", None),
+            dry_run=bool(getattr(args, "dry_run", False)),
+            full=bool(getattr(args, "full", False)),
+            json_output=bool(getattr(args, "json", False)),
+        )
 
     runtime = HermesRuntime(config=config)
 

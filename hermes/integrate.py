@@ -625,6 +625,13 @@ def integrate(
         failure_signal="",
     )
     repo.insert_knowledge_node(node)
+    if parent_id:
+        repo.insert_memory_edge(node_id, parent_id, "derived_from")
+    if superseded_id:
+        repo.insert_memory_edge(node_id, superseded_id, "supersedes")
+    for other_id in contradict_ids:
+        if other_id != node_id:
+            repo.insert_memory_edge(node_id, other_id, "contradicts")
 
     # If dedup result was "review", record the review thought
     if dedup.action == "review" and dedup.target:
@@ -640,6 +647,9 @@ def integrate(
             created_at=now,
         )
         repo.insert_thought_chain(tc)
+        repo.insert_memory_edge(
+            node_id, dedup.target.id, "related_to", evidence_id=f"text={dedup.similarity:.3f}",
+        )
 
     action = "created_with_contradiction" if contradict_ids else "created"
     return IntegrateResult(

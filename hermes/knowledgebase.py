@@ -32,6 +32,16 @@ def _node_url(node_id: object) -> str:
     return "/knowledge/" + quote(str(node_id if node_id is not None else ""), safe="")
 
 
+_GRAPH_EDGE_TYPES = frozenset({
+    "related_to",
+    "supersedes",
+    "contradicts",
+    "duplicates",
+    "merged_from",
+    "parent_id",
+})
+
+
 def knowledge_tree_page(
     *,
     nodes: list[dict],
@@ -42,6 +52,7 @@ def knowledge_tree_page(
     domains: list[str] | None = None,
     query: str = "",
     view: str = "list",
+    edges: list[dict] | None = None,
 ) -> str:
     """Render the human-facing Knowledge index without proposal/detail actions."""
     domains = domains or []
@@ -88,7 +99,7 @@ def knowledge_tree_page(
             "</div>"
         )
 
-    graph = _graph(nodes)
+    graph = _graph(nodes, edges or [])
     content = rows if view == "list" else graph
     active_label = "List" if view == "list" else "Graph"
 
@@ -136,7 +147,7 @@ def knowledge_tree_page(
 .knowledge-results-head{{display:flex;justify-content:space-between;align-items:center;padding:22px 0 10px}}.knowledge-results-head h2{{margin:0;font-size:1rem}}.knowledge-results-head span{{font:600 .75rem/1 ui-monospace,monospace;color:var(--muted)}}
 .knowledge-list{{display:grid;border-top:1px solid var(--line)}}.knowledge-row{{display:grid;grid-template-columns:110px minmax(0,1fr) 150px 90px;gap:16px;padding:16px 6px;border-bottom:1px solid var(--line);text-decoration:none;color:inherit;min-width:0}}.knowledge-row:hover{{background:rgba(158,68,45,.045)}}.knowledge-stage{{font:700 .7rem/1.3 ui-monospace,monospace;text-transform:uppercase;color:var(--oxide)}}.knowledge-copy{{min-width:0}}.knowledge-copy strong{{display:block;overflow-wrap:anywhere}}.knowledge-copy span{{display:block;color:var(--muted);font-size:.82rem;line-height:1.5;margin-top:5px;overflow-wrap:anywhere}}.knowledge-meta{{font-size:.76rem;color:var(--muted);overflow-wrap:anywhere}}.knowledge-confidence{{font:700 .78rem/1.3 ui-monospace,monospace;text-align:right}}
 .knowledge-empty{{display:grid;gap:7px;padding:52px 16px;text-align:center;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}}.knowledge-empty span{{color:var(--muted)}}
-.knowledge-graph{{overflow:auto;border:1px solid var(--line);background:var(--paper);min-height:420px}}.knowledge-graph svg{{display:block;width:100%;min-width:720px;height:auto}}.knowledge-graph text{{fill:var(--ink);font-family:ui-monospace,monospace}}.knowledge-graph .graph-edge{{stroke:#b9b0a0;stroke-width:1.5}}.knowledge-graph .graph-node{{fill:#fff;stroke:var(--oxide);stroke-width:2}}
+.knowledge-graph{{overflow:auto;border:1px solid var(--line);background:var(--paper);min-height:420px}}.knowledge-graph svg{{display:block;width:100%;min-width:720px;height:auto}}.knowledge-graph text{{fill:var(--ink);font-family:ui-monospace,monospace}}.knowledge-graph .graph-edge{{stroke:#b9b0a0;stroke-width:1.5}}.knowledge-graph .graph-edge.related_to{{stroke:#8d6a45}}.knowledge-graph .graph-edge.supersedes,.knowledge-graph .graph-edge.parent_id{{stroke:#8a8175}}.knowledge-graph .graph-edge.contradicts{{stroke:#a33b32}}.knowledge-graph .graph-edge.duplicates,.knowledge-graph .graph-edge.merged_from{{stroke:#3f6f62}}.knowledge-graph .graph-node{{fill:#fff;stroke:var(--oxide);stroke-width:2}}.knowledge-graph-legend{{padding:8px 12px;font:600 .72rem/1.4 ui-monospace,monospace;color:var(--muted)}}
 @media(max-width:900px){{.knowledge-filters{{grid-template-columns:repeat(2,minmax(0,1fr))}}.knowledge-query{{grid-column:1/-1}}.knowledge-row{{grid-template-columns:90px minmax(0,1fr) 120px}}.knowledge-confidence{{display:none}}}}
 @media(max-width:560px){{.engram-knowledge{{padding:20px 14px 48px}}.knowledge-head{{grid-template-columns:1fr}}.knowledge-total{{align-items:flex-start}}.knowledge-filters{{grid-template-columns:1fr}}.knowledge-query{{grid-column:auto}}.knowledge-row{{grid-template-columns:1fr;gap:6px;padding:16px 2px}}.knowledge-meta{{display:flex;gap:8px}}}}
 @media(prefers-reduced-motion:reduce){{.engram-knowledge *{{scroll-behavior:auto!important;transition:none!important}}}}
@@ -167,7 +178,7 @@ def _node_row(node: dict) -> str:
     )
 
 
-def _graph(nodes: list[dict]) -> str:
+def _graph(nodes: list[dict], edges: list[dict] | None = None) -> str:
     if not nodes:
         return '<div class="knowledge-empty" role="status"><strong>No graph to draw.</strong><span>Graph connections appear when filtered nodes are available.</span></div>'
     positions: dict[str, tuple[int, int]] = {}
@@ -176,18 +187,34 @@ def _graph(nodes: list[dict]) -> str:
     col_gap = 220
     for index, node in enumerate(nodes):
         positions[str(node.get("id") or "")] = (90 + (index % 4) * col_gap, 70 + (index // 4) * row_gap)
-    edges: list[tuple[str, str]] = []
+    drawn: list[tuple[str, str, str]] = []
+    seen: set[tuple[str, str, str]] = set()
+
+    def add(source: str, target: str, kind: str) -> None:
+        if kind not in _GRAPH_EDGE_TYPES or source not in positions or target not in positions or source == target:
+            return
+        key = (kind, *tuple(sorted((source, target))))
+        if key in seen:
+            return
+        seen.add(key)
+        drawn.append((source, target, kind))
+
+    for edge in edges or []:
+        add(str(edge.get("from_id") or ""), str(edge.get("to_id") or ""), str(edge.get("edge_type") or ""))
     for node in nodes:
         target = str(node.get("id") or "")
-        for key in ("parent_id", "supersedes"):
-            source = str(node.get(key) or "")
-            if source in positions and target in positions:
-                edges.append((source, target))
+        parent = str(node.get("parent_id") or "")
+        superseded = str(node.get("supersedes") or "")
+        add(parent, target, "parent_id")
+        add(superseded, target, "supersedes")
+    edges = drawn
     height = max(420, 140 + ((len(nodes) - 1) // 4) * row_gap)
     lines = "".join(
-        f'<line class="graph-edge" x1="{positions[a][0]}" y1="{positions[a][1]}" x2="{positions[b][0]}" y2="{positions[b][1]}" />'
-        for a, b in edges
+        f'<line class="graph-edge {_e(kind, attr=True)}" x1="{positions[a][0]}" y1="{positions[a][1]}" x2="{positions[b][0]}" y2="{positions[b][1]}"><title>{_e(kind)}</title></line>'
+        for a, b, kind in edges
     )
+    kind_counts = Counter(kind for _a, _b, kind in edges)
+    edge_legend = " · ".join(f"{_e(kind)} {count}" for kind, count in sorted(kind_counts.items()))
     marks = ""
     for node in nodes:
         node_id = str(node.get("id") or "")
@@ -201,8 +228,9 @@ def _graph(nodes: list[dict]) -> str:
             f'<text x="{x + 20}" y="{y + 4}" font-size="12">{_e(label)}</text></a>'
         )
     stages = Counter(str(node.get("stage") or "draft") for node in nodes)
-    legend = " · ".join(f"{_e(stage)} {count}" for stage, count in sorted(stages.items()))
+    stage_legend = " · ".join(f"{_e(stage)} {count}" for stage, count in sorted(stages.items()))
     return (
-        f'<div class="knowledge-graph" role="img" aria-label="Knowledge relationship graph. {len(nodes)} nodes, {len(edges)} connections. {legend}">'
+        f'<div class="knowledge-graph" role="img" aria-label="Knowledge relationship graph. {len(nodes)} nodes, {len(edges)} connections. {stage_legend}">'
+        f'<p class="knowledge-graph-legend">{edge_legend or "No connections in this view."}</p>'
         f'<svg viewBox="0 0 {width} {height}" aria-hidden="true">{lines}{marks}</svg></div>'
     )

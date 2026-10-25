@@ -1,5 +1,6 @@
 from pathlib import Path
 import importlib.util
+import json
 import pytest
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -113,6 +114,84 @@ def test_invalid_url_rejected_before_dispatch(monkeypatch):
     with pytest.raises(RuntimeError):c.api_url()
 
 
+def test_proposal_template_is_complete_and_not_a_submittable_placeholder():
+    payload = json.loads((PACKAGE/'templates'/'proposal.json').read_text())
+    assert set(payload) == {
+        'summary', 'observation', 'why_it_matters', 'suggested_memory',
+        'project', 'category', 'risk_level', 'scope', 'domain', 'evidence',
+    }
+    assert all(value.startswith('<') and value.endswith('>') for value in (
+        payload['summary'], payload['observation'], payload['why_it_matters'],
+        payload['suggested_memory'], payload['project'], payload['scope'], payload['domain'],
+    ))
+    assert payload['evidence'] == [{
+        'source_type': '<file|command|url|test>',
+        'source_uri': '<literal non-secret source URI>',
+        'quoted_excerpt': '<exact sanitized excerpt proving the observation>',
+    }]
+
+
+def test_client_rejects_incomplete_or_placeholder_proposal_before_network(monkeypatch, tmp_path):
+    c=load(); calls=[]
+    monkeypatch.setattr(c,'request',lambda *a,**k:calls.append((a,k)) or {})
+
+    incomplete = tmp_path/'incomplete.json'
+    incomplete.write_text(json.dumps({'summary':'A valid summary long enough'}))
+    with pytest.raises(RuntimeError, match='missing required fields'):
+        c.parser().parse_args(['propose',str(incomplete)]).handler(
+            c.parser().parse_args(['propose',str(incomplete)])
+        )
+
+    placeholder = tmp_path/'placeholder.json'
+    placeholder.write_text((PACKAGE/'templates'/'proposal.json').read_text())
+    with pytest.raises(RuntimeError, match='replace placeholder'):
+        c.parser().parse_args(['propose',str(placeholder)]).handler(
+            c.parser().parse_args(['propose',str(placeholder)])
+        )
+    assert calls == []
+
+
+def test_client_rejects_duplicated_core_fields_before_network(monkeypatch, tmp_path):
+    c=load(); calls=[]
+    monkeypatch.setattr(c,'request',lambda *a,**k:calls.append((a,k)) or {})
+    payload = {
+        'summary':'A reusable proposal summary',
+        'observation':'The exact same paragraph was copied into every semantic field.',
+        'why_it_matters':'The exact same paragraph was copied into every semantic field.',
+        'suggested_memory':'Use a distinct portable rule after recording a verified observation.',
+        'project':'global', 'category':'workflow_hint', 'risk_level':'low',
+        'scope':'global', 'domain':'operations',
+        'evidence':[{'source_type':'test','source_uri':'test://proposal/schema','quoted_excerpt':'Verified fixture'}],
+    }
+    path=tmp_path/'duplicate.json'; path.write_text(json.dumps(payload))
+    args=c.parser().parse_args(['propose',str(path)])
+    with pytest.raises(RuntimeError, match='must be semantically distinct'):
+        args.handler(args)
+    assert calls == []
+
+
+def test_client_submits_valid_proposal_with_explicit_identity(monkeypatch, tmp_path):
+    c=load(); calls=[]
+    monkeypatch.setattr(c,'request',lambda p,**k:calls.append((p,k)) or {'status':'queued'})
+    monkeypatch.setenv('BRAIN_AGENT','xiaohe')
+    payload = {
+        'summary':'Reject prose-only proposals at the client boundary',
+        'observation':'A fixture confirmed that copied prose can populate unrelated fields without client validation.',
+        'why_it_matters':'Malformed proposals create manual review work and conceal the actual reusable rule.',
+        'suggested_memory':'Validate every proposal field and reject placeholders or duplicated core sections before upload.',
+        'project':'brain', 'category':'workflow_hint', 'risk_level':'low',
+        'scope':'project', 'domain':'agent-infrastructure',
+        'evidence':[{'source_type':'test','source_uri':'test://proposal/schema','quoted_excerpt':'The malformed fixture was rejected before request().'}],
+    }
+    path=tmp_path/'valid.json'; path.write_text(json.dumps(payload))
+    args=c.parser().parse_args(['propose',str(path)])
+    assert args.handler(args)=={'status':'queued'}
+    sent=calls[0][1]['payload']
+    assert sent['agent']=='xiaohe'
+    assert sent['host_hash']
+    assert sent['domain']=='agent-infrastructure'
+
+
 def test_propose_waits_until_durable_status(monkeypatch, tmp_path):
     c=load();calls=[]
     responses=iter([
@@ -123,7 +202,15 @@ def test_propose_waits_until_durable_status(monkeypatch, tmp_path):
     monkeypatch.setattr(c,'request',lambda p,**k:calls.append((p,k)) or next(responses))
     monkeypatch.setattr(c.time,'sleep',lambda _seconds:None)
     proposal=tmp_path/'lesson.json'
-    proposal.write_text('{"summary":"Reusable rule","observation":"Observed verified behavior","why_it_matters":"It recurs","suggested_memory":"Apply the verified rule","evidence":[{"source_type":"test","source_uri":"test://client"}]}')
+    proposal.write_text(json.dumps({
+        'summary':'Reuse the verified rule',
+        'observation':'A complete structured fixture was accepted by the client.',
+        'why_it_matters':'Durable receipt must be distinguished from queue acceptance.',
+        'suggested_memory':'Wait until the server reports ingested_pending before claiming durable receipt.',
+        'project':'brain', 'category':'workflow_hint', 'risk_level':'low',
+        'scope':'project', 'domain':'agent-infrastructure',
+        'evidence':[{'source_type':'test','source_uri':'test://client/wait','quoted_excerpt':'The server returned ingested_pending.'}],
+    }))
 
     args=c.parser().parse_args(['propose',str(proposal),'--wait','--timeout','5'])
     result=args.handler(args)
@@ -140,7 +227,15 @@ def test_propose_rejects_malformed_evidence_before_request(monkeypatch, tmp_path
     c=load();calls=[]
     monkeypatch.setattr(c,'request',lambda *a,**k:calls.append((a,k)) or {})
     proposal=tmp_path/'bad.json'
-    proposal.write_text('{"summary":"Rule","observation":"Observed","why_it_matters":"Recurring","suggested_memory":"Remember","evidence":[{"note":"missing provenance"}]}')
+    proposal.write_text(json.dumps({
+        'summary':'Reject malformed evidence',
+        'observation':'The evidence fixture omits its provenance fields.',
+        'why_it_matters':'Untraceable claims cannot support durable shared knowledge.',
+        'suggested_memory':'Require source provenance and an exact sanitized excerpt for every evidence item.',
+        'project':'brain', 'category':'workflow_hint', 'risk_level':'low',
+        'scope':'project', 'domain':'agent-infrastructure',
+        'evidence':[{'note':'missing provenance'}],
+    }))
 
     args=c.parser().parse_args(['propose',str(proposal)])
     with pytest.raises(RuntimeError,match='source_type'):
@@ -167,7 +262,15 @@ def test_propose_wait_raises_on_rejected_status(monkeypatch, tmp_path):
     ])
     monkeypatch.setattr(c,'request',lambda _path,**_kwargs:next(responses))
     proposal=tmp_path/'lesson.json'
-    proposal.write_text('{"summary":"Reusable rule","observation":"Observed verified behavior","why_it_matters":"It recurs","suggested_memory":"Apply the verified rule","evidence":[{"source_type":"test","source_uri":"test://client"}]}')
+    proposal.write_text(json.dumps({
+        'summary':'Surface rejected proposal status',
+        'observation':'The server returned a rejected terminal lifecycle status.',
+        'why_it_matters':'A rejected proposal must never be reported as durable accepted knowledge.',
+        'suggested_memory':'Raise an explicit error whenever proposal polling returns rejected.',
+        'project':'brain', 'category':'workflow_hint', 'risk_level':'low',
+        'scope':'project', 'domain':'agent-infrastructure',
+        'evidence':[{'source_type':'test','source_uri':'test://client/rejected','quoted_excerpt':'The fixture returned status rejected.'}],
+    }))
     args=c.parser().parse_args(['propose',str(proposal),'--wait'])
 
     with pytest.raises(RuntimeError,match='proposal rejected'):

@@ -109,6 +109,7 @@ class ExecutionEventClassification(str, Enum):
 class ProposalWorkflow(str, Enum):
     DRAFT = "draft"
     READY = "ready"
+    ACCEPTED = "accepted"
     REJECTED = "rejected"
 
 

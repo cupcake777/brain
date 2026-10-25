@@ -477,7 +477,12 @@ def test_proposal_revision_status_enum() -> None:
         "rejected",
         "duplicate",
     }
-    assert {s.value for s in ProposalWorkflow} == {"draft", "ready", "rejected"}
+    assert {s.value for s in ProposalWorkflow} == {
+        "draft",
+        "ready",
+        "accepted",
+        "rejected",
+    }
 
 
 def test_proposal_revision_idempotency_helper() -> None:
