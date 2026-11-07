@@ -55,6 +55,7 @@ TERMINAL_PRECEDENCE: dict[str, int] = {
 # Legacy v3 mapping that brain_protocol / record_outcome_v3 use today.
 LEGACY_V3_HELPFULNESS_TO_STATUS: dict[str, str] = {
     "helpful": "applied",
+    "partially_helped": "applied",
     "neutral": "not_used",
     "harmful": "failed",
 }

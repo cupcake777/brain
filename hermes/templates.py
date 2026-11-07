@@ -5171,11 +5171,11 @@ def proposal_lifecycle_page(overview: dict, tab="flow", review_html="", knowledg
     _sync_linked = int(_proposal_sync.get("linked", 0) or 0)
     _sync_retired = int(_proposal_sync.get("retired", 0) or 0)
     _sync_missing = int(_proposal_sync.get("missing", 0) or 0)
-    _sync_pct = float(_proposal_sync.get("coverage", 100.0) or 0.0)
+    _sync_pct = float(_proposal_sync.get("processing_coverage", _proposal_sync.get("coverage", 100.0)) or 0.0)
+    _materialization_pct = float(_proposal_sync.get("materialization_rate", 100.0) or 0.0)
     _sync_state = str(_proposal_sync.get("state") or ("healthy" if _sync_missing == 0 else "syncing"))
-    _sync_head = f"{_sync_linked} / {_sync_approved} linked"
-    if _sync_retired:
-        _sync_head = f"{_sync_linked} linked · {_sync_retired} retired / {_sync_approved}"
+    _sync_head = f"{_sync_linked} / {_sync_approved} materialized"
+    _sync_processed = _sync_linked + _sync_retired
 
     # Stats now shown inline in Workbench pills — no separate stat bar
 
@@ -5263,7 +5263,7 @@ def proposal_lifecycle_page(overview: dict, tab="flow", review_html="", knowledg
   <div class="kg-vector-card" title="Approved proposals automatically materialized as maintained Knowledge">
     <div class="kg-vector-head"><b>{_sync_head}</b><span class="kg-vector-state" data-state="{_sync_state}">{_sync_state}</span></div>
     <div class="kg-vector-bar"><span style="width:{_sync_pct}%"></span></div>
-    <div class="kg-vector-meta">Approved Proposal → Knowledge<br>{_sync_missing} waiting · {_sync_pct}% coverage</div>
+    <div class="kg-vector-meta">Approved Proposal → Knowledge<br>{_sync_processed} / {_sync_approved} processed · {_sync_retired} retired · {_sync_missing} waiting<br>{_materialization_pct}% materialized · {_sync_pct}% processed</div>
   </div>
   <h3>Vector Index</h3>
   <div class="kg-vector-card" title="Persisted semantic vectors used by hybrid retrieval">

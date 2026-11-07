@@ -124,6 +124,24 @@ def test_sync_leaves_retired_proposals_unmaterialized(tmp_path: Path) -> None:
     assert status["linked"] == 0
     assert status["retired"] == 1
     assert status["missing"] == 0
+    assert status["processing_coverage"] == 100.0
+    assert status["materialization_rate"] == 0.0
+    assert repo.list_exportable("brain") == []
+
+
+def test_pipeline_frontend_distinguishes_processed_from_materialized(tmp_path: Path) -> None:
+    repo = HermesRepository(tmp_path / "brain.sqlite3")
+    repo.insert_proposal(_proposal("linked", state="approved_for_export"))
+    repo.insert_proposal(_proposal("retired", state="approved_for_export"))
+    repo.retire_proposal_knowledge("retired", "superseded durable knowledge")
+    sync_approved_proposals(repo)
+    app = create_app(repo=repo, sync_root=tmp_path / "sync")
+
+    page = TestClient(app).get("/proposals").text
+
+    assert "1 / 2 materialized" in page
+    assert "2 / 2 processed" in page
+    assert "1 retired" in page
 
 
 def test_pipeline_api_and_frontend_expose_sync_and_vector_state(tmp_path: Path) -> None:
@@ -140,7 +158,8 @@ def test_pipeline_api_and_frontend_expose_sync_and_vector_state(tmp_path: Path) 
     assert payload["proposals"]["missing"] == 0
     assert payload["proposals"]["state"] == "healthy"
     assert "Automation" in page
-    assert "1 / 1 linked" in page
+    assert "1 / 1 materialized" in page
+    assert "1 / 1 processed" in page
     assert "Vector Index" in page
     assert 'data-filter="all" class="kg-pill active"' in page
     assert "kgSetFilter('all', this)" in page

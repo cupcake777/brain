@@ -89,16 +89,19 @@ def recompute_confidence(node: KnowledgeNode, repo: HermesRepository) -> float:
     evidence_list = json.loads(node.evidence) if isinstance(node.evidence, str) and node.evidence.strip().startswith("[") else (node.evidence if isinstance(node.evidence, list) else [])
     verified_list = json.loads(node.verified_by) if isinstance(node.verified_by, str) and node.verified_by.strip().startswith("[") else (node.verified_by if isinstance(node.verified_by, list) else [])
 
-    outcome_bonus = min(node.outcome_count * 0.02, 0.12)
-    controversy_days = 0
-    if node.last_outcome_at:
-        try:
-            last_outcome = datetime.fromisoformat(node.last_outcome_at)
-            controversy_days = max(0, (now - last_outcome).days)
-        except ValueError:
-            controversy_days = days_since_creation
+    outcome_statuses = repo.outcome_status_counts(node.id)
+    if outcome_statuses:
+        outcome_bonus = min(outcome_statuses.get("applied", 0) * 0.02, 0.12)
+        outcome_penalty = min(
+            outcome_statuses.get("failed", 0) * 0.04
+            + outcome_statuses.get("contradicted", 0) * 0.08,
+            0.24,
+        )
     else:
-        controversy_days = days_since_creation
+        # Legacy nodes only stored an aggregate count. Preserve their prior
+        # positive signal until they accumulate canonical per-pair outcomes.
+        outcome_bonus = min(node.outcome_count * 0.02, 0.12)
+        outcome_penalty = 0.0
 
     confidence = compute_confidence(
         category=node.category,
@@ -107,9 +110,11 @@ def recompute_confidence(node: KnowledgeNode, repo: HermesRepository) -> float:
         retrieval_count=node.retrieval_count,
         correction_count=node.correction_count,
         days_since_creation=days_since_creation,
-        days_since_controversy=controversy_days,
+        # Outcomes are evidence of use, not controversies. Treating a recent
+        # successful outcome as controversy erased its outcome bonus.
+        days_since_controversy=days_since_creation,
     )
-    return max(0.0, min(1.0, round(confidence + outcome_bonus, 3)))
+    return max(0.0, min(1.0, round(confidence + outcome_bonus - outcome_penalty, 3)))
 
 
 # ---------------------------------------------------------------------------

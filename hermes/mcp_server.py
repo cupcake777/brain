@@ -31,6 +31,53 @@ logger = logging.getLogger("brain-proposal-mcp")
 
 TOOLS = [
     Tool(
+        name="retrieve_knowledge",
+        description="Retrieve relevant Brain knowledge for a concrete task and return literal retrieval/node IDs for later outcome reporting.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Concrete task terms (required)"},
+                "agent": {"type": "string", "default": "xiaohe"},
+                "host_id": {"type": "string", "default": "control-plane"},
+                "session_id": {"type": "string", "default": ""},
+                "limit": {"type": "integer", "default": 5, "minimum": 1, "maximum": 20},
+                "category": {"type": "string"},
+                "domain": {"type": "string"},
+            },
+            "required": ["query"],
+        },
+    ),
+    Tool(
+        name="report_knowledge_outcome",
+        description="Report whether one candidate returned by a Brain retrieval was applied, partially helpful, failed, contradicted, or not used.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "retrieval_id": {"type": "string"},
+                "node_id": {"type": "string"},
+                "status": {
+                    "type": "string",
+                    "enum": ["applied", "partially_helped", "failed", "contradicted", "not_used"],
+                },
+                "note": {"type": "string", "default": ""},
+            },
+            "required": ["retrieval_id", "node_id", "status"],
+        },
+    ),
+    Tool(
+        name="finalize_knowledge_session",
+        description="Audit one exact Brain session and report any retrieval candidates that still lack terminal outcomes.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "agent": {"type": "string"},
+                "host_id": {"type": "string"},
+                "session_id": {"type": "string"},
+            },
+            "required": ["agent", "host_id", "session_id"],
+        },
+    ),
+    Tool(
         name="list_proposals",
         description="List proposals, optionally filtered by state. Returns id, category, risk, summary, state, created_at.",
         inputSchema={
@@ -116,6 +163,145 @@ def _pick(d: dict, keys: list[str]) -> dict:
     return {k: d.get(k) for k in keys if k in d}
 
 
+async def _execute_tool(repo: HermesRepository, name: str, arguments: dict) -> list[TextContent]:
+    """Execute one MCP tool against ``repo`` (kept separate for real-code tests)."""
+    if name == "retrieve_knowledge":
+        query = str(arguments.get("query") or "").strip()
+        if not query:
+            raise ValueError("query is required")
+        limit = max(1, min(int(arguments.get("limit", 5)), 20))
+        event = repo.record_retrieval_for_query(
+            query,
+            agent=str(arguments.get("agent") or "xiaohe")[:120],
+            host=str(arguments.get("host_id") or "control-plane")[:128],
+            limit=limit,
+            category=str(arguments.get("category") or "").strip() or None,
+            domain=str(arguments.get("domain") or "").strip() or None,
+            session_id=str(arguments.get("session_id") or "")[:200],
+        )
+        results = [
+            {
+                "node_id": item["id"],
+                "summary": item["summary"],
+                "content": item["content"],
+                "category": item["category"],
+                "domain": item["domain"],
+                "stage": item["stage"],
+                "confidence": item["confidence"],
+                "score": item.get("score"),
+            }
+            for item in event.get("results", [])
+            if isinstance(item, dict)
+        ]
+        payload = {
+            "schema": 1,
+            "retrieval_id": event["event_id"],
+            "query": query,
+            "results": results,
+            "outcome_required": bool(results),
+        }
+        return [TextContent(type="text", text=json.dumps(payload, ensure_ascii=False, indent=2))]
+
+    if name == "report_knowledge_outcome":
+        retrieval_id = str(arguments.get("retrieval_id") or "").strip()
+        node_id = str(arguments.get("node_id") or "").strip()
+        status = str(arguments.get("status") or "").strip()
+        valid_statuses = {"applied", "partially_helped", "failed", "contradicted", "not_used"}
+        if not retrieval_id or not node_id:
+            raise ValueError("retrieval_id and node_id are required")
+        if status not in valid_statuses:
+            raise ValueError(f"status must be one of {sorted(valid_statuses)}")
+        event = repo.get_retrieval_event(retrieval_id)
+        if event is None:
+            raise ValueError("retrieval not found")
+        try:
+            candidate_ids = set(json.loads(event.node_ids or "[]"))
+        except (TypeError, json.JSONDecodeError):
+            candidate_ids = set()
+        if node_id not in candidate_ids:
+            raise ValueError("node_id was not returned by this retrieval")
+        pair = repo.record_outcome_pair(
+            retrieval_id,
+            node_id,
+            status,
+            notes=str(arguments.get("note") or "")[:1000],
+            used=status != "not_used",
+        )
+        if pair["status"] == "conflict_unresolved":
+            raise ValueError("outcome status conflict")
+        if pair["status"] not in {"recorded", "duplicate_same_status"}:
+            raise ValueError(str(pair["status"]))
+        payload = {
+            "schema": 1,
+            "recorded": int(pair["recorded"]),
+            "retrieval_id": retrieval_id,
+            "node_id": node_id,
+            "status": status,
+            "proposal_recommended": status in {"failed", "contradicted"},
+        }
+        return [TextContent(type="text", text=json.dumps(payload, ensure_ascii=False, indent=2))]
+
+    if name == "finalize_knowledge_session":
+        agent = str(arguments.get("agent") or "").strip()[:120]
+        host_id = str(arguments.get("host_id") or "").strip()[:128]
+        session_id = str(arguments.get("session_id") or "").strip()[:200]
+        if not agent or not host_id or not session_id:
+            raise ValueError("agent, host_id and session_id are required")
+        payload = {
+            "schema": 1,
+            **repo.finalize_session(agent, host_id, session_id),
+        }
+        return [TextContent(type="text", text=json.dumps(payload, ensure_ascii=False, indent=2))]
+
+    if name == "list_proposals":
+        state = arguments.get("state", "pending")
+        limit = min(int(arguments.get("limit", 20)), 100)
+        if state == "all":
+            proposals = repo.list_proposals_ordered()
+        else:
+            proposals = repo.list_proposals_by_state(state)
+        items = [_pick(p, DISPLAY_KEYS) for p in proposals[:limit]]
+        payload = {"count": len(items), "state": state, "items": items}
+    elif name == "get_proposal":
+        pid = arguments["proposal_id"]
+        try:
+            payload = _pick(repo.get_proposal(pid), FULL_KEYS)
+        except KeyError:
+            payload = {"error": f"proposal {pid} not found"}
+    elif name == "approve_db_only":
+        pid = arguments["proposal_id"]
+        repo.transition_state(pid, "approved_db_only")
+        payload = {"proposal_id": pid, "state": "approved_db_only", "status": "ok"}
+    elif name == "approve_for_export":
+        pid = arguments["proposal_id"]
+        proposal = repo.get_proposal(pid)
+        repo.transition_state(pid, "approved_for_export")
+        try:
+            from hermes.exporter import ExportCompiler
+            exporter = ExportCompiler(repo=repo, sync_root=Path(repo.db_path).parent)
+            if proposal.get("project_key") == "global" or proposal.get("scope") == "global":
+                exporter.build_global_export()
+                exporter.build_claude_md_export()
+            else:
+                exporter.build_project_export(str(proposal.get("project_key", "")))
+        except Exception as exc:
+            logger.warning("export failed for %s: %s", pid, exc)
+        payload = {"proposal_id": pid, "state": "approved_for_export", "status": "ok"}
+    elif name == "reject_proposal":
+        pid = arguments["proposal_id"]
+        repo.transition_state(pid, "rejected")
+        payload = {"proposal_id": pid, "state": "rejected", "status": "ok"}
+    elif name == "proposal_stats":
+        states = {
+            state: len(repo.list_proposals_by_state(state))
+            for state in ("pending", "approved_db_only", "approved_for_export", "rejected", "superseded")
+        }
+        payload = {"total": sum(states.values()), "by_state": states}
+    else:
+        payload = {"error": f"unknown tool: {name}"}
+    return [TextContent(type="text", text=json.dumps(payload, ensure_ascii=False, indent=2))]
+
+
 # ── server ────────────────────────────────────────────────────────────────
 
 def create_server(db_path: str) -> Server:
@@ -129,68 +315,7 @@ def create_server(db_path: str) -> Server:
     @server.call_tool()
     async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         try:
-            if name == "list_proposals":
-                state = arguments.get("state", "pending")
-                limit = min(int(arguments.get("limit", 20)), 100)
-                if state == "all":
-                    proposals = repo.list_proposals_ordered()
-                else:
-                    proposals = repo.list_proposals_by_state(state)
-                items = [_pick(p, DISPLAY_KEYS) for p in proposals[:limit]]
-                return [TextContent(type="text", text=json.dumps(
-                    {"count": len(items), "state": state, "items": items},
-                    ensure_ascii=False, indent=2))]
-
-            elif name == "get_proposal":
-                pid = arguments["proposal_id"]
-                try:
-                    p = repo.get_proposal(pid)
-                except KeyError:
-                    return [TextContent(type="text",
-                            text=json.dumps({"error": f"proposal {pid} not found"}))]
-                return [TextContent(type="text", text=json.dumps(
-                    _pick(p, FULL_KEYS), ensure_ascii=False, indent=2))]
-
-            elif name == "approve_db_only":
-                pid = arguments["proposal_id"]
-                repo.transition_state(pid, "approved_db_only")
-                return [TextContent(type="text", text=json.dumps(
-                    {"proposal_id": pid, "state": "approved_db_only", "status": "ok"}))]
-
-            elif name == "approve_for_export":
-                pid = arguments["proposal_id"]
-                p = repo.get_proposal(pid)
-                repo.transition_state(pid, "approved_for_export")
-                try:
-                    from hermes.exporter import ExportCompiler
-                    ex = ExportCompiler(repo=repo, sync_root=Path(db_path).parent)
-                    if p.get("project_key") == "global" or p.get("scope") == "global":
-                        ex.build_global_export()
-                        ex.build_claude_md_export()
-                    else:
-                        ex.build_project_export(str(p.get("project_key", "")))
-                except Exception as exc:
-                    logger.warning("export failed for %s: %s", pid, exc)
-                return [TextContent(type="text", text=json.dumps(
-                    {"proposal_id": pid, "state": "approved_for_export", "status": "ok"}))]
-
-            elif name == "reject_proposal":
-                pid = arguments["proposal_id"]
-                repo.transition_state(pid, "rejected")
-                return [TextContent(type="text", text=json.dumps(
-                    {"proposal_id": pid, "state": "rejected", "status": "ok"}))]
-
-            elif name == "proposal_stats":
-                states = {}
-                for s in ("pending", "approved_db_only", "approved_for_export", "rejected", "superseded"):
-                    states[s] = len(repo.list_proposals_by_state(s))
-                return [TextContent(type="text", text=json.dumps(
-                    {"total": sum(states.values()), "by_state": states},
-                    ensure_ascii=False, indent=2))]
-
-            else:
-                return [TextContent(type="text",
-                        text=json.dumps({"error": f"unknown tool: {name}"}))]
+            return await _execute_tool(repo, name, arguments)
 
         except Exception as exc:
             logger.exception("tool %s failed", name)

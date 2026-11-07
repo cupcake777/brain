@@ -637,13 +637,22 @@ class HermesRepository:
             "linked": linked,
             "retired": retired,
             "missing": missing,
+            # Keep the legacy key for API compatibility, but name both rates
+            # explicitly so retired proposals are never mistaken for nodes.
             "coverage": round((settled / approved * 100.0) if approved else 100.0, 1),
+            "processing_coverage": round((settled / approved * 100.0) if approved else 100.0, 1),
+            "materialization_rate": round((linked / approved * 100.0) if approved else 100.0, 1),
             "last_synced_at": str(latest or ""),
             "state": "healthy" if missing == 0 else "syncing",
         }
 
     def list_exportable(self, project_key: str | None = None) -> list[dict[str, str | int | float | None]]:
-        query = "SELECT * FROM proposals WHERE state = 'approved_for_export'"
+        query = """SELECT p.* FROM proposals p
+                   WHERE p.state = 'approved_for_export'
+                     AND NOT EXISTS (
+                       SELECT 1 FROM proposal_knowledge_retirements r
+                       WHERE r.proposal_id = p.proposal_id
+                     )"""
         params: list[str] = []
         if project_key is None:
             query += " AND scope = 'global'"
@@ -659,10 +668,14 @@ class HermesRepository:
         with self._connect() as connection:
             rows = connection.execute(
                 """
-                SELECT DISTINCT project_key
-                FROM proposals
-                WHERE state = 'approved_for_export' AND scope != 'global'
-                ORDER BY project_key ASC
+                SELECT DISTINCT p.project_key
+                FROM proposals p
+                WHERE p.state = 'approved_for_export' AND p.scope != 'global'
+                  AND NOT EXISTS (
+                    SELECT 1 FROM proposal_knowledge_retirements r
+                    WHERE r.proposal_id = p.proposal_id
+                  )
+                ORDER BY p.project_key ASC
                 """
             ).fetchall()
         return [str(row["project_key"]) for row in rows]
@@ -1433,6 +1446,21 @@ class HermesRepository:
                 "SELECT * FROM knowledge_retrieval_events WHERE id = ?", (event_id,)
             ).fetchone()
         return KnowledgeRetrievalEvent(**dict(row)) if row else None
+
+    def outcome_status_counts(self, node_id: str) -> dict[str, int]:
+        """Return persisted outcome counts in their canonical status buckets."""
+        from hermes.outcomes import normalise_status
+
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT helpfulness, used, COUNT(*) AS total FROM outcome_log WHERE memory_id = ? GROUP BY helpfulness, used",
+                (node_id,),
+            ).fetchall()
+        counts: dict[str, int] = {}
+        for row in rows:
+            status = normalise_status(str(row["helpfulness"]), used=bool(row["used"]))
+            counts[status] = counts.get(status, 0) + int(row["total"])
+        return counts
 
     # ------------------------------------------------------------------
     # Outcome recording (V3)
