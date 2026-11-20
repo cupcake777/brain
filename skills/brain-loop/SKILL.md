@@ -1,7 +1,7 @@
 ---
 name: brain-loop
 description: "Use when working with Brain shared experience or evidence. Retrieve relevant lessons, report actual outcomes, submit evidence-backed proposals, and keep external literature separate."
-version: 1.4.0
+version: 1.4.1
 author: Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]

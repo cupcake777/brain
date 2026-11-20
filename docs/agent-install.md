@@ -86,7 +86,7 @@ codex plugin remove brain@brain
 codex plugin add brain@brain
 ```
 
-The Codex manifest is version `1.2.1`. Review and trust the **new** hook definition in `/hooks`, then start a new thread. Codex tool events use `agent_id=codex`; the earlier `1.2.0` package mislabeled them `claude-code`. The Codex `SessionEnd` hook has a 3-second limit and starts a detached flush of the durable outbox; check `multi_agent_adapter.py stats` after a real tool call to verify uploads. Existing event labels are not rewritten.
+The Codex manifest is version `1.4.1`. Review and trust the **new** hook definition in `/hooks`, then start a new thread. Codex tool events use `agent_id=codex`; the earlier `1.2.0` package mislabeled them `claude-code`. The Codex `SessionEnd` hook has a 3-second limit and starts a detached flush of the durable outbox; check `multi_agent_adapter.py stats` after a real tool call to verify uploads. Existing event labels are not rewritten.
 
 ### Hook credential resolution
 
@@ -94,6 +94,19 @@ The Claude Code and Codex hooks run the bundled launcher, which resolves the ope
 
 1. `BRAIN_URL` / `BRAIN_TOKEN` (or `BRAIN_TOKEN_FILE`) environment variables inherited by the agent process;
 2. `~/.config/brain/url` and `~/.config/brain/token` (token file should be `0600`).
+
+For hosts whose Python trust store differs from the system trust store, put the
+absolute CA bundle path in `~/.config/brain/ca-bundle`. Both the portable
+`brain.py` client and automatic hooks read it, so correctness does not depend
+on whether Codex inherits a login-shell `SSL_CERT_FILE`. The priority is
+`BRAIN_CA_BUNDLE`, then this config file, then inherited `SSL_CERT_FILE`.
+The referenced file must be a complete CA bundle, not only one private root.
+Example:
+
+```bash
+printf '%s\n' /etc/pki/tls/certs/ca-bundle.crt > ~/.config/brain/ca-bundle
+chmod 600 ~/.config/brain/url ~/.config/brain/token ~/.config/brain/ca-bundle
+```
 
 No endpoint or token ships in the repository; configure them locally as above.
 

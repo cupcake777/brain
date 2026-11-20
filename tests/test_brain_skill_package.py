@@ -98,7 +98,108 @@ def test_service_defaults_to_repository_skill(tmp_path, monkeypatch):
 
 def test_client_defaults_local_not_private_server(monkeypatch):
     c=load();monkeypatch.delenv('BRAIN_URL',raising=False)
+    monkeypatch.setattr(c, 'config_dir', lambda: Path('/nonexistent-brain-config'))
     assert c.api_url()=='http://127.0.0.1:8083'
+
+
+def test_client_reads_url_token_and_ca_from_config(monkeypatch, tmp_path):
+    c = load()
+    cfg = tmp_path / 'brain'
+    cfg.mkdir()
+    (cfg / 'url').write_text('https://brain.example\n')
+    (cfg / 'token').write_text('scoped-token\n')
+    ca = tmp_path / 'ca-bundle.crt'
+    ca.write_text('test-ca')
+    (cfg / 'ca-bundle').write_text(f'{ca}\n')
+    for name in ('BRAIN_URL', 'BRAIN_TOKEN', 'BRAIN_TOKEN_FILE', 'BRAIN_CA_BUNDLE', 'SSL_CERT_FILE'):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(c, 'config_dir', lambda: cfg)
+    monkeypatch.setattr(c.urllib.request, 'urlopen', lambda *_a, **_k: pytest.fail('stop after config resolution'))
+
+    assert c.api_url() == 'https://brain.example'
+    assert c.resolve_token() == 'scoped-token'
+    assert c.resolve_ca_bundle() == ca
+
+
+def test_config_ca_overrides_inherited_ssl_cert_file(monkeypatch, tmp_path):
+    c = load()
+    cfg = tmp_path / 'brain'
+    cfg.mkdir()
+    configured_ca = tmp_path / 'configured-ca.crt'
+    configured_ca.write_text('configured-ca')
+    inherited_ca = tmp_path / 'inherited-ca.crt'
+    inherited_ca.write_text('inherited-ca')
+    (cfg / 'ca-bundle').write_text(f'{configured_ca}\n')
+    monkeypatch.delenv('BRAIN_CA_BUNDLE', raising=False)
+    monkeypatch.setenv('SSL_CERT_FILE', str(inherited_ca))
+    monkeypatch.setattr(c, 'config_dir', lambda: cfg)
+
+    assert c.resolve_ca_bundle() == configured_ca
+
+
+def test_http_request_ignores_stale_ca_config(monkeypatch, tmp_path):
+    c = load()
+    cfg = tmp_path / 'brain'
+    cfg.mkdir()
+    (cfg / 'ca-bundle').write_text(f'{tmp_path / "missing-ca.crt"}\n')
+    monkeypatch.setenv('BRAIN_URL', 'http://127.0.0.1:8083')
+    monkeypatch.delenv('BRAIN_CA_BUNDLE', raising=False)
+    monkeypatch.delenv('SSL_CERT_FILE', raising=False)
+    monkeypatch.setattr(c, 'config_dir', lambda: cfg)
+    captured = {}
+
+    class Reply:
+        def __enter__(self): return self
+        def __exit__(self, *_args): return None
+        def read(self): return b'{"status":"ok"}'
+
+    def urlopen(req, **kwargs):
+        captured['authorization'] = req.get_header('Authorization')
+        captured['kwargs'] = kwargs
+        return Reply()
+
+    monkeypatch.setattr(c.urllib.request, 'urlopen', urlopen)
+    assert c.command_health(None) == {'status': 'ok'}
+    assert captured == {'authorization': None, 'kwargs': {'timeout': 20}}
+
+
+def test_explicit_missing_token_file_does_not_fall_back(monkeypatch, tmp_path):
+    c = load()
+    cfg = tmp_path / 'brain'
+    cfg.mkdir()
+    (cfg / 'token').write_text('unexpected-fallback-token\n')
+    missing = tmp_path / 'missing-token'
+    monkeypatch.delenv('BRAIN_TOKEN', raising=False)
+    monkeypatch.setenv('BRAIN_TOKEN_FILE', str(missing))
+    monkeypatch.setattr(c, 'config_dir', lambda: cfg)
+
+    with pytest.raises(RuntimeError, match='BRAIN_TOKEN_FILE'):
+        c.resolve_token()
+
+
+def test_client_passes_explicit_ssl_context(monkeypatch, tmp_path):
+    c = load()
+    ca = tmp_path / 'ca-bundle.crt'
+    ca.write_text('test-ca')
+    monkeypatch.setenv('BRAIN_URL', 'https://brain.example')
+    monkeypatch.setenv('BRAIN_TOKEN', 'scoped-token')
+    monkeypatch.setenv('BRAIN_CA_BUNDLE', str(ca))
+    context_marker = object()
+    monkeypatch.setattr(c.ssl, 'create_default_context', lambda *, cafile: context_marker if cafile == str(ca) else None)
+    captured = {}
+
+    class Reply:
+        def __enter__(self): return self
+        def __exit__(self, *_args): return None
+        def read(self): return b'{"status":"ok"}'
+
+    def urlopen(_req, **kwargs):
+        captured.update(kwargs)
+        return Reply()
+
+    monkeypatch.setattr(c.urllib.request, 'urlopen', urlopen)
+    assert c.command_health(None) == {'status': 'ok'}
+    assert captured['context'] is context_marker
 
 def test_finalize_uses_auth_and_minimal_payload(monkeypatch):
     c=load();calls=[]
@@ -108,6 +209,14 @@ def test_finalize_uses_auth_and_minimal_payload(monkeypatch):
     assert calls[0][0]=='/api/v1/brain/finalize'
     assert calls[0][1]['write'] is True
     assert set(calls[0][1]['payload'])=={'agent','host_hash','session_id'}
+
+
+def test_health_uses_optional_authenticated_get(monkeypatch):
+    c=load();calls=[]
+    monkeypatch.setattr(c,'request',lambda p,**k:calls.append((p,k)) or {'status':'ok'})
+    args=c.parser().parse_args(['health'])
+    assert args.handler(args)=={'status':'ok'}
+    assert calls==[('/api/v1/brain/health',{'optional_auth':True})]
 
 def test_invalid_url_rejected_before_dispatch(monkeypatch):
     c=load();monkeypatch.setenv('BRAIN_URL','https://name:secret@example.org')

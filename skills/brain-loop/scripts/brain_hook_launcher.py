@@ -12,6 +12,8 @@ Resolution order (first non-empty wins):
 * ``BRAIN_TOKEN`` env, else the token file named by ``BRAIN_TOKEN_FILE``,
   else ``~/.config/brain/token``;
 * ``BRAIN_URL`` env, else ``~/.config/brain/url``.
+* ``BRAIN_CA_BUNDLE`` env, else the CA path stored in
+  ``~/.config/brain/ca-bundle``, else inherited ``SSL_CERT_FILE``.
 
 ``~/.config/brain/token`` must be owner-only (0600); the launcher warns and
 continues if it is not, but it never logs the token itself.
@@ -48,20 +50,51 @@ def _resolve_token() -> str:
     if token:
         return token
     token_file = os.environ.get("BRAIN_TOKEN_FILE", "").strip()
-    candidates = [Path(token_file).expanduser()] if token_file else []
-    candidates.append(_config_dir() / "token")
-    for path in candidates:
+    if token_file:
+        path = Path(token_file).expanduser()
         try:
             value = path.read_text(encoding="utf-8").strip()
-        except OSError:
-            continue
+        except OSError as exc:
+            print(f"BRAIN_TOKEN_FILE could not be read: {path}: {exc}", file=sys.stderr)
+            return ""
         if value:
             return value
+        print(f"BRAIN_TOKEN_FILE is empty: {path}", file=sys.stderr)
+        return ""
+    path = _config_dir() / "token"
+    try:
+        value = path.read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+    if value:
+        if os.name != "nt" and path.stat().st_mode & 0o077:
+            print(f"Brain token file should be owner-only (0600): {path}", file=sys.stderr)
+        return value
     return ""
 
 
+def _resolve_ca_bundle() -> str:
+    value = _first_nonempty(
+        os.environ.get("BRAIN_CA_BUNDLE", ""),
+    )
+    if not value:
+        try:
+            value = (_config_dir() / "ca-bundle").read_text(encoding="utf-8").strip()
+        except OSError:
+            value = ""
+    if not value:
+        value = _first_nonempty(os.environ.get("SSL_CERT_FILE", ""))
+    if not value:
+        return ""
+    path = Path(value).expanduser()
+    if not path.is_file():
+        print(f"Brain CA bundle is not a file: {path}", file=sys.stderr)
+        return str(path)
+    return str(path)
+
+
 def resolve_credentials(host: str = "hermes") -> dict[str, str]:
-    """Return {agent, url, token}; token may be empty when unconfigured."""
+    """Return agent endpoint, token and CA path; values may be empty."""
     agent = _first_nonempty(os.environ.get("BRAIN_AGENT", ""), host)
     url = _first_nonempty(os.environ.get("BRAIN_URL", ""))
     if not url:
@@ -69,7 +102,12 @@ def resolve_credentials(host: str = "hermes") -> dict[str, str]:
             url = (_config_dir() / "url").read_text(encoding="utf-8").strip()
         except OSError:
             url = ""
-    return {"agent": agent, "url": url, "token": _resolve_token()}
+    return {
+        "agent": agent,
+        "url": url,
+        "token": _resolve_token(),
+        "ca_bundle": _resolve_ca_bundle(),
+    }
 
 
 def _apply_credentials(host: str) -> None:
@@ -79,6 +117,9 @@ def _apply_credentials(host: str) -> None:
         os.environ["BRAIN_URL"] = creds["url"]
     if creds["token"]:
         os.environ["BRAIN_TOKEN"] = creds["token"]
+    if creds["ca_bundle"]:
+        os.environ["BRAIN_CA_BUNDLE"] = creds["ca_bundle"]
+        os.environ["SSL_CERT_FILE"] = creds["ca_bundle"]
 
 
 def main() -> int:

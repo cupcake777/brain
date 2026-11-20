@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import platform
+import ssl
 import sys
 import time
 import urllib.error
@@ -24,6 +25,56 @@ PROPOSAL_CATEGORIES = {"rule", "fact", "preference", "workflow_hint", "correctio
 PROPOSAL_RISKS = {"low", "medium", "high", "critical"}
 
 
+def config_dir() -> Path:
+    if os.name == "nt":
+        return Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming")) / "brain"
+    return Path.home() / ".config" / "brain"
+
+
+def _read_config(name: str) -> str:
+    try:
+        return (config_dir() / name).read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
+def _first_nonempty(*values: str) -> str:
+    for value in values:
+        if value and value.strip():
+            return value.strip()
+    return ""
+
+
+def resolve_token() -> str:
+    token = _first_nonempty(os.environ.get("BRAIN_TOKEN", ""))
+    if token:
+        return token
+    token_file = os.environ.get("BRAIN_TOKEN_FILE", "").strip()
+    if token_file:
+        try:
+            token = Path(token_file).expanduser().read_text(encoding="utf-8").strip()
+        except OSError as exc:
+            raise RuntimeError(f"BRAIN_TOKEN_FILE could not be read: {token_file}") from exc
+        if token:
+            return token
+        raise RuntimeError(f"BRAIN_TOKEN_FILE is empty: {token_file}")
+    return _read_config("token")
+
+
+def resolve_ca_bundle() -> Path | None:
+    value = _first_nonempty(
+        os.environ.get("BRAIN_CA_BUNDLE", ""),
+        _read_config("ca-bundle"),
+        os.environ.get("SSL_CERT_FILE", ""),
+    )
+    if not value:
+        return None
+    path = Path(value).expanduser()
+    if not path.is_file():
+        raise RuntimeError(f"configured Brain CA bundle is not a file: {path}")
+    return path
+
+
 def positive_float(value: str) -> float:
     number = float(value)
     if number <= 0:
@@ -34,7 +85,7 @@ def positive_float(value: str) -> float:
 
 def api_url() -> str:
     from urllib.parse import urlparse
-    value = os.environ.get("BRAIN_URL", DEFAULT_URL).rstrip("/")
+    value = _first_nonempty(os.environ.get("BRAIN_URL", ""), _read_config("url"), DEFAULT_URL).rstrip("/")
     try:
         parsed = urlparse(value)
         local = parsed.hostname in ("localhost", "127.0.0.1", "::1")
@@ -53,20 +104,36 @@ def host_hash() -> str:
     return hashlib.sha256(seed.encode()).hexdigest()[:24]
 
 
-def request(path: str, *, payload: dict[str, Any] | None = None, write: bool = False) -> dict[str, Any]:
+def request(
+    path: str,
+    *,
+    payload: dict[str, Any] | None = None,
+    write: bool = False,
+    optional_auth: bool = False,
+) -> dict[str, Any]:
+    origin = api_url()
     headers = {"Accept": "application/json", "User-Agent": "brain-loop-skill/1.0"}
     data = None
     if payload is not None:
         headers["Content-Type"] = "application/json"
         data = json.dumps(payload, ensure_ascii=False).encode()
     if write:
-        token = os.environ.get("BRAIN_TOKEN", "").strip()
+        token = resolve_token()
         if not token:
             raise RuntimeError("BRAIN_TOKEN is required for protected source retrieval or outcome/proposal writes")
         headers["Authorization"] = f"Bearer {token}"
-    req = urllib.request.Request(f"{api_url()}{path}", data=data, headers=headers, method="POST" if payload is not None else "GET")
+    elif optional_auth and origin.startswith("https://"):
+        token = resolve_token()
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+    req = urllib.request.Request(f"{origin}{path}", data=data, headers=headers, method="POST" if payload is not None else "GET")
     try:
-        with urllib.request.urlopen(req, timeout=20) as response:
+        kwargs: dict[str, Any] = {"timeout": 20}
+        if origin.startswith("https://"):
+            ca_bundle = resolve_ca_bundle()
+            if ca_bundle is not None:
+                kwargs["context"] = ssl.create_default_context(cafile=str(ca_bundle))
+        with urllib.request.urlopen(req, **kwargs) as response:
             return json.loads(response.read().decode())
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode(errors="replace")[:1000]
@@ -76,7 +143,7 @@ def request(path: str, *, payload: dict[str, Any] | None = None, write: bool = F
 
 
 def command_health(_: argparse.Namespace) -> dict[str, Any]:
-    return request("/api/v1/brain/health")
+    return request("/api/v1/brain/health", optional_auth=True)
 
 
 def command_retrieve(args: argparse.Namespace) -> dict[str, Any]:
