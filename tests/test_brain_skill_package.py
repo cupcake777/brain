@@ -201,6 +201,35 @@ def test_client_passes_explicit_ssl_context(monkeypatch, tmp_path):
     assert c.command_health(None) == {'status': 'ok'}
     assert captured['context'] is context_marker
 
+
+def test_uppercase_https_scheme_still_uses_tls_context_and_optional_auth(monkeypatch, tmp_path):
+    c = load()
+    ca = tmp_path / 'ca-bundle.crt'
+    ca.write_text('test-ca')
+    monkeypatch.setenv('BRAIN_URL', 'HTTPS://brain.example')
+    monkeypatch.setenv('BRAIN_TOKEN', 'scoped-token')
+    monkeypatch.setenv('BRAIN_CA_BUNDLE', str(ca))
+    context_marker = object()
+    monkeypatch.setattr(c.ssl, 'create_default_context', lambda *, cafile: context_marker)
+    captured = {}
+
+    class Reply:
+        def __enter__(self): return self
+        def __exit__(self, *_args): return None
+        def read(self): return b'{"status":"ok"}'
+
+    def urlopen(req, **kwargs):
+        captured['authorization'] = req.get_header('Authorization')
+        captured['context'] = kwargs.get('context')
+        return Reply()
+
+    monkeypatch.setattr(c.urllib.request, 'urlopen', urlopen)
+    assert c.command_health(None) == {'status': 'ok'}
+    assert captured == {
+        'authorization': 'Bearer scoped-token',
+        'context': context_marker,
+    }
+
 def test_finalize_uses_auth_and_minimal_payload(monkeypatch):
     c=load();calls=[]
     monkeypatch.setattr(c,'request',lambda p,**k:calls.append((p,k)) or {})

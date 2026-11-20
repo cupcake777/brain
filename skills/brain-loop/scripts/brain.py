@@ -111,7 +111,10 @@ def request(
     write: bool = False,
     optional_auth: bool = False,
 ) -> dict[str, Any]:
+    from urllib.parse import urlparse
+
     origin = api_url()
+    use_tls = urlparse(origin).scheme.casefold() == "https"
     headers = {"Accept": "application/json", "User-Agent": "brain-loop-skill/1.0"}
     data = None
     if payload is not None:
@@ -122,14 +125,14 @@ def request(
         if not token:
             raise RuntimeError("BRAIN_TOKEN is required for protected source retrieval or outcome/proposal writes")
         headers["Authorization"] = f"Bearer {token}"
-    elif optional_auth and origin.startswith("https://"):
+    elif optional_auth and use_tls:
         token = resolve_token()
         if token:
             headers["Authorization"] = f"Bearer {token}"
     req = urllib.request.Request(f"{origin}{path}", data=data, headers=headers, method="POST" if payload is not None else "GET")
     try:
         kwargs: dict[str, Any] = {"timeout": 20}
-        if origin.startswith("https://"):
+        if use_tls:
             ca_bundle = resolve_ca_bundle()
             if ca_bundle is not None:
                 kwargs["context"] = ssl.create_default_context(cafile=str(ca_bundle))

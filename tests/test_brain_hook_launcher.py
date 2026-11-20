@@ -172,6 +172,8 @@ def test_codex_manifest_uses_own_source_and_bounded_session_end():
 def test_codex_hook_records_codex_identity(monkeypatch, tmp_path):
     monkeypatch.setenv("BRAIN_OUTBOX", str(tmp_path / "outbox.sqlite3"))
     monkeypatch.delenv("BRAIN_AGENT", raising=False)
+    monkeypatch.delenv("BRAIN_CA_BUNDLE", raising=False)
+    monkeypatch.delenv("SSL_CERT_FILE", raising=False)
     monkeypatch.setattr(launcher, "_config_dir", lambda: tmp_path / "missing")
     monkeypatch.setattr(adapter, "drain", lambda limit: {})
     monkeypatch.setattr(sys, "argv", ["brain_hook_launcher.py", "hook", "codex"])
