@@ -29,7 +29,7 @@ hermes plugins install cupcake777/brain --enable
 hermes gateway restart
 ```
 
-The plugin requires Hermes Agent `>=0.21.1`, bundles this skill, and registers automatic `post_tool_call`, `on_session_finalize`, and `on_session_reset` hooks. The installer prompts for `BRAIN_URL` and a scoped `BRAIN_TOKEN`; it does not ship the repository author's credentials or endpoint. Start a new CLI/TUI session after installation so the enabled plugin is loaded.
+The plugin requires Hermes Agent `>=0.21.1`, bundles this skill, and registers automatic `post_tool_call`, `on_session_finalize`, and `on_session_reset` hooks. The installer prompts for `BRAIN_URL` and `BRAIN_TOKEN_FILE`, the path to a private scoped-token file; it does not ship the repository author's credentials or endpoint. Start a new CLI/TUI session after installation so the enabled plugin is loaded.
 
 Installing only the Skill URL remains a manual-mode fallback: it provides retrieve/outcome/propose commands but cannot register executable hooks because Hermes deliberately separates skills (instructions) from plugins (trusted code).
 
@@ -38,8 +38,8 @@ Installing only the Skill URL remains a manual-mode fallback: it provides retrie
 Use the bundled [stdlib client](scripts/brain.py) with Python 3.10+. Commands below are relative to this installed skill directory; on Windows use `python` or `uv run python`, elsewhere `python3`.
 
 1. Configure `BRAIN_URL` to **the user's own Brain origin**, HTTPS except local loopback. Default: `http://127.0.0.1:8083`. Never send data to the repository author's server by default.
-2. Store `BRAIN_TOKEN` in the agent's secret environment (the service's configured auth token), not command arguments, repository files, conversation or proposals. Do not generate/rotate it without permission. Local retrieval is public in the current v1 service; outcome/propose/finalize and external retrieval require authentication on protected deployments.
-3. Set a stable `BRAIN_AGENT` label and, for session closure, a unique `BRAIN_SESSION_ID` per session. Do not invent a session ID merely to backfill feedback.
+2. Set `BRAIN_TOKEN_FILE` to a private scoped-token file (preferred). The file takes precedence over the compatible `BRAIN_TOKEN` secret environment variable. Keep token values out of command arguments, repository files, conversation and proposals. Do not generate/rotate it without permission. Protected deployments require authentication for local retrieval; the client attaches a configured token over HTTPS. Outcome/propose/finalize and external retrieval also require authentication on protected deployments.
+3. Set a stable `BRAIN_AGENT` label and use a real session ID. Both retrieve and finalize resolve it from `--session-id`, then `BRAIN_SESSION_ID`, then `CODEX_THREAD_ID` in Codex. For other agents, pass their actual session ID explicitly. Do not invent a session ID merely to backfill feedback.
 4. Verify connectivity, without a write:
 
 ```bash
@@ -152,3 +152,21 @@ python3 scripts/brain.py source-retrieve --query "TET2 clonal hematopoiesis" --s
 401: check the user's token securely; never obtain the author's credentials. 403: investigate access/CSRF; do not bypass. 429: stop looping and honor quota; no automatic retries. 502/503/504: state source unavailable, retain local work, never invent prior experience or literature. Do not silently use local rules as paper evidence.
 
 Read [protocol and troubleshooting](references/protocol.md) when integrating tools or interpreting responses. Installation directions are in the repository's `docs/agent-install.md`.
+
+
+The stdlib skill client requires Python 3.10+. The separately installed
+`brain-hermes` MCP server requires Python 3.13+; its wheel supports the stdio
+MCP entrypoint, not the web UI or Hermes Agent plugin. Deploy the web service
+and plugin from the source tree for their bundled assets.
+
+MCP compatibility change: `retrieve_knowledge` requires a nonblank real
+`session_id`. Legacy calls omitting it fail with `ValueError: session_id is
+required` (an MCP tool error); no retrieval event is written and no session ID
+is synthesized. Update clients to pass their actual session ID. The Hermes
+prompt callback receives this ID from the framework session-info mapping.
+
+Lexical search bounds indexed candidates to 256 and substring/trigger fallback
+to the newest 512 eligible rows (at most 256 matches). Older trigger-only or
+Chinese substring-only matches outside that window may be missed; indexed FTS
+matches remain searchable across the collection. Mixed legacy/V2 results use
+shared term coverage before lane-local tie-breaks and a deterministic ID order.

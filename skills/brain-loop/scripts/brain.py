@@ -46,9 +46,6 @@ def _first_nonempty(*values: str) -> str:
 
 
 def resolve_token() -> str:
-    token = _first_nonempty(os.environ.get("BRAIN_TOKEN", ""))
-    if token:
-        return token
     token_file = os.environ.get("BRAIN_TOKEN_FILE", "").strip()
     if token_file:
         try:
@@ -58,7 +55,7 @@ def resolve_token() -> str:
         if token:
             return token
         raise RuntimeError(f"BRAIN_TOKEN_FILE is empty: {token_file}")
-    return _read_config("token")
+    return _first_nonempty(os.environ.get("BRAIN_TOKEN", ""), _read_config("token"))
 
 
 def resolve_ca_bundle() -> Path | None:
@@ -149,15 +146,23 @@ def command_health(_: argparse.Namespace) -> dict[str, Any]:
     return request("/api/v1/brain/health", optional_auth=True)
 
 
+def resolve_session_id(explicit: str = "") -> str:
+    return _first_nonempty(
+        explicit,
+        os.environ.get("BRAIN_SESSION_ID", ""),
+        os.environ.get("CODEX_THREAD_ID", ""),
+    )
+
+
 def command_retrieve(args: argparse.Namespace) -> dict[str, Any]:
-    return request("/api/v1/brain/retrieve", payload={
+    return request("/api/v1/brain/retrieve", optional_auth=True, payload={
         "query": args.query,
         "limit": args.limit,
         "category": args.category,
         "domain": args.domain,
         "agent": os.environ.get("BRAIN_AGENT", "brain-loop-skill"),
         "host_hash": host_hash(),
-        "session_id": os.environ.get("BRAIN_SESSION_ID", ""),
+        "session_id": resolve_session_id(args.session_id),
     })
 
 
@@ -254,7 +259,7 @@ def command_finalize(args: argparse.Namespace) -> dict[str, Any]:
     Body is exactly `agent`, `host_hash`, `session_id` — no other fields, per
     the v1 finalize contract. Requires Brain authentication on protected deployments.
     """
-    session_id = (args.session_id or os.environ.get("BRAIN_SESSION_ID", "")).strip()
+    session_id = resolve_session_id(args.session_id)
     if not session_id:
         raise RuntimeError("session_id is required (pass --session-id or set BRAIN_SESSION_ID)")
     return request("/api/v1/brain/finalize", write=True, payload={
@@ -275,6 +280,8 @@ def parser() -> argparse.ArgumentParser:
     retrieve.add_argument("--limit", type=int, default=5)
     retrieve.add_argument("--category", default="")
     retrieve.add_argument("--domain", default="")
+    retrieve.add_argument("--session-id", default="",
+                          help="Session identifier; defaults to BRAIN_SESSION_ID or CODEX_THREAD_ID")
     retrieve.set_defaults(handler=command_retrieve)
 
     source = sub.add_parser("source-retrieve")
@@ -306,7 +313,7 @@ def parser() -> argparse.ArgumentParser:
 
     finalize = sub.add_parser("finalize")
     finalize.add_argument("--session-id", default="",
-                          help="Session identifier to finalize; falls back to $BRAIN_SESSION_ID")
+                          help="Session identifier to finalize; defaults to BRAIN_SESSION_ID or CODEX_THREAD_ID")
     finalize.set_defaults(handler=command_finalize)
     return root
 

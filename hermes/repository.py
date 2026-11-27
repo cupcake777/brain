@@ -1291,19 +1291,13 @@ class HermesRepository:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _fts_query(query: str) -> str:
-        """Build an FTS5 query from a human search string."""
-        terms = [t for t in query.strip().split() if t]
-        if not terms:
-            return ""
-        quoted = []
-        for t in terms:
-            t_clean = t.strip('"').strip("'")
-            if " " in t_clean:
-                quoted.append(f'"{t_clean}"')
-            else:
-                quoted.append(t_clean + "*")
-        return " AND ".join(quoted)
+    def _knowledge_search_terms(query: str) -> list[str]:
+        return list(dict.fromkeys(re.findall(r"[a-z0-9_]+(?:-[a-z0-9_]+)*|[一-鿿]{2,}", query.casefold())))
+
+    @classmethod
+    def _fts_query(cls, query: str) -> str:
+        """Quote literal terms, allowing partial matches across query terms."""
+        return " OR ".join(f'"{term}"' for term in cls._knowledge_search_terms(query))
 
     def search_knowledge_nodes(
         self,
@@ -1315,7 +1309,8 @@ class HermesRepository:
     ) -> list[dict[str, object]]:
         """Search active knowledge nodes with FTS5 and tokenized fallback."""
         clean_query = (query or "").strip()
-        if limit <= 0:
+        terms = self._knowledge_search_terms(clean_query)
+        if limit <= 0 or not terms:
             return []
         filters = ["kn.stage IN ('canonized', 'verified', 'refined')"]
         filter_params: list[object] = []
@@ -1332,22 +1327,37 @@ class HermesRepository:
             if fts_query:
                 try:
                     rows = connection.execute(
-                        f"""SELECT kn.*, bm25(knowledge_nodes_fts) * -1 AS search_score
+                        f"""SELECT kn.*, bm25(knowledge_nodes_fts) AS search_score
                            FROM knowledge_nodes_fts
                            JOIN knowledge_nodes kn ON kn.id = knowledge_nodes_fts.id
                            WHERE knowledge_nodes_fts MATCH ? AND {where_filter}
-                           ORDER BY search_score DESC LIMIT ?""",
-                        tuple([fts_query] + filter_params + [limit]),
+                           ORDER BY search_score ASC, kn.id ASC LIMIT 256""",
+                        tuple([fts_query] + filter_params),
                     ).fetchall()
                 except sqlite3.OperationalError:
                     rows = []
-            if not rows:
-                rows = connection.execute(
-                    f"""SELECT kn.*, 0.0 AS search_score FROM knowledge_nodes kn
-                       WHERE {where_filter}
-                       ORDER BY confidence DESC, retrieval_count DESC LIMIT ?""",
-                    tuple(filter_params + [limit]),
-                ).fetchall()
+            # Bound rows BEFORE inspecting content. Fallback recalls trigger-only,
+            # Chinese substring and FTS misses within the newest 512 scoped rows.
+            # Indexed FTS remains available across the entire collection.
+            fields = ("summary", "content", "category", "domain", "trigger_terms")
+            haystack_sql = "lower(" + " || ' ' || ".join(f"COALESCE(kn.{field}, '')" for field in fields) + ")"
+            patterns = [
+                "%" + term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+                for term in terms
+            ]
+            matches_sql = " OR ".join(f"{haystack_sql} LIKE ? ESCAPE '\\'" for _ in terms)
+            fallback_rows = connection.execute(
+                f"""WITH bounded AS MATERIALIZED (
+                        SELECT kn.* FROM knowledge_nodes kn WHERE {where_filter}
+                        ORDER BY kn.rowid DESC LIMIT 512
+                    ) SELECT kn.*, 0.0 AS search_score FROM bounded kn
+                    WHERE ({matches_sql}) LIMIT 256""",
+                tuple(filter_params + patterns),
+            ).fetchall()
+            by_id = {str(row["id"]): row for row in rows}
+            for row in fallback_rows:
+                by_id.setdefault(str(row["id"]), row)
+            rows = list(by_id.values())
         semantic_scores = self._semantic_knowledge_scores(
             clean_query, category=category, domain=domain,
         ) if clean_query else {}
@@ -1367,14 +1377,19 @@ class HermesRepository:
                 by_id.setdefault(str(row["id"]), row)
             rows = list(by_id.values())
 
-        terms = [t.lower() for t in re.findall(r"[A-Za-z0-9_\-]+|[一-鿿]{2,}", clean_query)]
         scored = []
         for row in rows:
             d = dict(row)
-            hay = " ".join(str(d.get(k, "")) for k in ("summary", "content", "category", "domain", "trigger_terms")).lower()
-            lexical_score = float(d.get("search_score") or 0)
-            if terms:
-                lexical_score += sum(1 for term in terms if term in hay)
+            hay = " ".join(str(d.get(k, "")) for k in ("summary", "content", "category", "domain", "trigger_terms")).casefold()
+            tokens = set(self._knowledge_search_terms(hay))
+            matched_terms = sum(
+                term in hay if re.fullmatch(r"[一-鿿]+", term) else term in tokens
+                for term in terms
+            )
+            # BM25 breaks ties within a term-coverage level; a rare shared
+            # word must not outrank a node matching several query terms.
+            fts_score = -float(d.get("search_score") or 0)
+            lexical_score = matched_terms + fts_score / (1.0 + fts_score) if matched_terms else 0.0
             semantic_score = semantic_scores.get(str(d.get("id")), 0.0)
             if semantic_score > 0:
                 d["semantic_score"] = round(semantic_score, 6)
@@ -1383,10 +1398,10 @@ class HermesRepository:
             else:
                 d["retrieval_mode"] = "fts5"
                 score = lexical_score
-            if score > 0 or not terms:
-                d["score"] = score if score > 0 else float(d.get("confidence") or 0)
+            if score > 0:
+                d["score"] = score
                 scored.append(d)
-        scored.sort(key=lambda d: (float(d.get("score") or 0), float(d.get("confidence") or 0)), reverse=True)
+        scored.sort(key=lambda d: (-float(d.get("score") or 0), -float(d.get("confidence") or 0), str(d["id"])))
         return scored[:limit]
 
     # ------------------------------------------------------------------
@@ -1403,21 +1418,81 @@ class HermesRepository:
         category: str | None = None,
         domain: str | None = None,
         session_id: str = "",
+        v2_principal: object | None = None,
     ) -> dict[str, object]:
         """Search nodes, increment retrieval_count, store retrieval_log."""
         import logging
         now = datetime.now(timezone.utc).isoformat()
-        results = self.search_knowledge_nodes(query, limit=limit, category=category, domain=domain)
+        candidate_limit = min(100, max(20, limit * 3)) if limit > 0 else 0
+        results = self.search_knowledge_nodes(query, limit=candidate_limit, category=category, domain=domain)
+        legacy_ids = {str(item["id"]) for item in results}
+        if v2_principal is not None and limit > 0:
+            from hermes.knowledge_retrieval_v2 import retrieve as retrieve_v2
+            from hermes.knowledge_store import KnowledgeStore
+
+            v2_store = KnowledgeStore(self.db_path)
+            try:
+                v2 = retrieve_v2(
+                    v2_store,
+                    v2_principal,
+                    query,
+                    candidate_limit=min(candidate_limit, 20),
+                    limit=candidate_limit,
+                )
+            finally:
+                v2_store.close()
+            for lane in ("formal", "candidates"):
+                for item in v2[lane]:
+                    node_id = str(item["id"])
+                    if node_id in legacy_ids:
+                        continue
+                    item_category = "experience"
+                    item_domain = str(getattr(v2_principal, "project", ""))
+                    if category and category != item_category:
+                        continue
+                    if domain and domain != item_domain:
+                        continue
+                    content = str(item["content"])
+                    results.append(
+                        {
+                            "id": node_id,
+                            "summary": content[:240],
+                            "content": content,
+                            "category": item_category,
+                            "domain": item_domain,
+                            "stage": str(item["state"]),
+                            "confidence": None,
+                            "score": item.get("relevance"),
+                            "unverified": bool(item.get("unverified")),
+                            "schema": 2,
+                            "retrieval_mode": "v2",
+                        }
+                    )
+        # Compare both lanes on the same literal term coverage. Lane-local
+        # BM25/semantic scores only break coverage ties; IDs settle exact ties.
+        terms = self._knowledge_search_terms(query)
+        for item in results:
+            hay = " ".join(str(item.get(k, "")) for k in
+                           ("summary", "content", "category", "domain", "trigger_terms")).casefold()
+            tokens = set(self._knowledge_search_terms(hay))
+            coverage = sum(term in hay if re.fullmatch(r"[一-鿿]+", term) else term in tokens for term in terms)
+            local = float(item.get("score") or 0)
+            item["score"] = coverage + local / (1 + abs(local)) * 0.5
+        results.sort(key=lambda item: (-float(item["score"]), str(item["id"])))
+        results = results[:max(0, limit)]
         node_ids = [str(item["id"]) for item in results]
-        retrieval_mode = "hybrid" if any(item.get("retrieval_mode") == "hybrid" for item in results) else "fts5"
+        modes = {str(item.get("retrieval_mode", "fts5")) for item in results}
+        retrieval_mode = next(iter(modes)) if len(modes) == 1 else ("mixed" if modes else "fts5")
         event_id = str(uuid.uuid4()) if node_ids else ""
         with self._connect() as connection:
             if node_ids:
-                ph = ",".join("?" * len(node_ids))
-                connection.execute(
-                    f"UPDATE knowledge_nodes SET retrieval_count = retrieval_count + 1, last_used_at = ? WHERE id IN ({ph})",
-                    tuple([now] + node_ids),
-                )
+                legacy_result_ids = [node_id for node_id in node_ids if node_id in legacy_ids]
+                if legacy_result_ids:
+                    ph = ",".join("?" * len(legacy_result_ids))
+                    connection.execute(
+                        f"UPDATE knowledge_nodes SET retrieval_count = retrieval_count + 1, last_used_at = ? WHERE id IN ({ph})",
+                        tuple([now] + legacy_result_ids),
+                    )
                 connection.execute(
                     """INSERT INTO knowledge_retrieval_events (id, query, agent, host, node_ids, created_at, session_id, host_id)
                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
@@ -1428,7 +1503,7 @@ class HermesRepository:
                        VALUES (?, ?, ?, ?, '[]', '[]', ?, ?, '', ?)""",
                     (event_id, query, retrieval_mode, json.dumps(node_ids), agent or "unknown", session_id or "", now),
                 )
-                for node_id in node_ids:
+                for node_id in legacy_result_ids:
                     updated_row = connection.execute(
                         "SELECT retrieval_count FROM knowledge_nodes WHERE id = ?", (node_id,)
                     ).fetchone()
@@ -1437,8 +1512,8 @@ class HermesRepository:
                             "UPDATE proposals SET retrieval_count_30d = ? WHERE proposal_id = ?",
                             (int(updated_row["retrieval_count"] or 0), node_id),
                         )
-                logging.info("retrieval: +1 for %d nodes matching '%s'", len(node_ids), query[:60])
-        return {"updated": len(node_ids), "event_id": event_id, "node_ids": node_ids, "results": results}
+                logging.info("retrieval: +1 for %d nodes matching '%s'", len(legacy_result_ids), query[:60])
+        return {"updated": len([n for n in node_ids if n in legacy_ids]), "event_id": event_id, "node_ids": node_ids, "results": results}
 
     def get_retrieval_event(self, event_id: str) -> "KnowledgeRetrievalEvent | None":
         with self._connect() as connection:
@@ -1624,6 +1699,7 @@ class HermesRepository:
         used: bool = True,
         task_success: str = "unknown",
         user_validated: bool | None = None,
+        v2_principal: object | None = None,
     ) -> dict[str, object]:
         """Idempotent per-pair outcome writer (stage-1 contract).
 
@@ -1668,7 +1744,22 @@ class HermesRepository:
             kn_row = connection.execute(
                 "SELECT id FROM knowledge_nodes WHERE id = ?", (node_id,),
             ).fetchone()
-            if kn_row is None:
+            is_v2_node = False
+            if kn_row is None and v2_principal is not None:
+                from hermes.knowledge_store import KnowledgeStore
+
+                v2_store = KnowledgeStore(self.db_path)
+                try:
+                    try:
+                        v2_row = v2_store.get(v2_principal, node_id)
+                    except Exception:
+                        v2_row = None
+                    is_v2_node = bool(
+                        v2_row and v2_row.get("state") in {"candidate", "formal"}
+                    )
+                finally:
+                    v2_store.close()
+            if kn_row is None and not is_v2_node:
                 return {"recorded": False, "status": "missing_node", "conflict_status": None}
 
             existing = connection.execute(
@@ -1705,7 +1796,11 @@ class HermesRepository:
                  task_success, str(notes)[:1000], now),
             )
             # Confidence / weight updates use the same policy as v3.
-            if normalised == "applied":
+            if is_v2_node:
+                # V2 candidate/formal lifecycle and promotion credit are owned
+                # by the checked V2 workflow, never by compatibility feedback.
+                pass
+            elif normalised == "applied":
                 connection.execute(
                     "UPDATE knowledge_nodes SET outcome_count = outcome_count + 1, last_outcome_at = ?, confidence = MIN(1.0, confidence + 0.05) WHERE id = ?",
                     (now, node_id),

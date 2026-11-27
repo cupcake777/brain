@@ -42,7 +42,7 @@ hermes plugins install cupcake777/brain --enable
 hermes gateway restart
 ```
 
-The installer performs its plugin security scan, requires Hermes Agent `>=0.21.1`, prompts for the operator-owned `BRAIN_URL` and a scoped `BRAIN_TOKEN`, installs the bundled `brain-loop` skill, and enables these automatic hooks:
+The installer performs its plugin security scan, requires Hermes Agent `>=0.21.1`, prompts for the operator-owned `BRAIN_URL` and `BRAIN_TOKEN_FILE` pointing to a private scoped-token file, installs the bundled `brain-loop` skill, and enables these automatic hooks:
 
 - `post_tool_call` — sanitize and save each completed/failed tool event to a durable local outbox, then drain asynchronously;
 - `on_session_finalize` — reconcile and flush the durable outbox;
@@ -92,7 +92,7 @@ The Codex manifest is version `1.4.1`. Review and trust the **new** hook definit
 
 The Claude Code and Codex hooks run the bundled launcher, which resolves the operator-owned endpoint and token in this order (first non-empty wins):
 
-1. `BRAIN_URL` / `BRAIN_TOKEN` (or `BRAIN_TOKEN_FILE`) environment variables inherited by the agent process;
+1. `BRAIN_URL` and `BRAIN_TOKEN_FILE` (preferred over the compatible `BRAIN_TOKEN`) inherited by the agent process;
 2. `~/.config/brain/url` and `~/.config/brain/token` (token file should be `0600`).
 
 For hosts whose Python trust store differs from the system trust store, put the
@@ -112,9 +112,9 @@ No endpoint or token ships in the repository; configure them locally as above.
 
 ## Configure the destination and authorization
 
-Set `BRAIN_URL` to your service origin, `BRAIN_AGENT` to a stable client label, and optionally a real `BRAIN_SESSION_ID` per session. Default URL is local loopback `http://127.0.0.1:8083`; there is no connection to the repository author's hosted service.
+Set `BRAIN_URL` to your service origin, `BRAIN_AGENT` to a stable client label, and a real session ID per session. Retrieve and finalize resolve `--session-id` first, then `BRAIN_SESSION_ID`, then `CODEX_THREAD_ID` in Codex; other agents should pass their actual session ID explicitly. Default URL is local loopback `http://127.0.0.1:8083`; there is no connection to the repository author's hosted service.
 
-Store `BRAIN_TOKEN` using the client's secret environment mechanism. It is the operator-configured Brain auth token, not a Dify dataset key. Do not paste it into chat, command arguments, project rules or a committed `.env`. Prefer HTTPS; the portable client only permits HTTP for loopback.
+Prefer `BRAIN_TOKEN_FILE` pointing to a private scoped-token file. `BRAIN_TOKEN` remains supported; the file takes precedence when both are set. It is the operator-configured Brain auth token, not a Dify dataset key. Do not paste it into chat, command arguments, project rules or a committed `.env`. Prefer HTTPS; the portable client only permits HTTP for loopback.
 
 Example non-secret POSIX setup:
 
@@ -134,7 +134,7 @@ python3 scripts/brain.py health
 python3 scripts/brain.py retrieve "atomic configuration replacement" --limit 5
 ```
 
-On Windows use `python` or `uv run python`. A health check proves connectivity only. Do not submit fake feedback/proposals to test authorization. Missing BRAIN_TOKEN permits public local retrieval in the current v1 service, but feedback/propose/finalize and optional source retrieval require it on protected deployments.
+On Windows use `python` or `uv run python`. A health check proves connectivity only. Do not submit fake feedback/proposals to test authorization. Protected deployments require a configured token for retrieval and writes.
 
 ## What the agent learns to do
 
@@ -150,3 +150,21 @@ The skill is an operating procedure, not a scheduler: installation alone does no
 ## Staged V2 backend
 
 The repository also contains an additive V2 event/proposal and revision backend. It is not enabled by installing this skill and remains disabled by default. Operators must complete the principal-mapping, backup/restore and policy gates in `backend-convergence-operations.md` before rollout. Current portable commands above intentionally remain on schema=1 until the V2 transport and deployment are separately enabled and verified.
+
+
+The stdlib skill client requires Python 3.10+. The separately installed
+`brain-hermes` MCP server requires Python 3.13+; its wheel supports the stdio
+MCP entrypoint, not the web UI or Hermes Agent plugin. Deploy the web service
+and plugin from the source tree for their bundled assets.
+
+MCP compatibility change: `retrieve_knowledge` requires a nonblank real
+`session_id`. Legacy calls omitting it fail with `ValueError: session_id is
+required` (an MCP tool error); no retrieval event is written and no session ID
+is synthesized. Update clients to pass their actual session ID. The Hermes
+prompt callback receives this ID from the framework session-info mapping.
+
+Lexical search bounds indexed candidates to 256 and substring/trigger fallback
+to the newest 512 eligible rows (at most 256 matches). Older trigger-only or
+Chinese substring-only matches outside that window may be missed; indexed FTS
+matches remain searchable across the collection. Mixed legacy/V2 results use
+shared term coverage before lane-local tie-breaks and a deterministic ID order.

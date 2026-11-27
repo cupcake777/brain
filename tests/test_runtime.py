@@ -733,3 +733,105 @@ def test_status_publisher_reports_knowledge_stats(tmp_path: Path) -> None:
     assert "Total nodes:" in content
     assert "Total outcomes:" in content
     assert "brain.md: last rebuilt" in content
+
+
+def test_knowledge_search_does_not_match_project_name_prefixes(tmp_path: Path) -> None:
+    repo = HermesRepository(tmp_path / "search.sqlite3")
+    repo.insert_knowledge_node(_make_knowledge_node(
+        "science", summary="BrainGvex replication", content="Study Brain_Cortex QTL variants.",
+        trigger_terms="[]", domain="science", confidence=1.0,
+    ))
+
+    assert repo.search_knowledge_nodes("Brain", limit=1) == []
+
+
+def test_knowledge_search_ranks_matches_before_applying_limit(tmp_path: Path) -> None:
+    repo = HermesRepository(tmp_path / "search.sqlite3")
+    for index in range(12):
+        repo.insert_knowledge_node(_make_knowledge_node(
+            f"unrelated-{index}", summary="QTL statistics", content="Genomic replication.",
+            trigger_terms="[]", confidence=1.0,
+        ))
+    repo.insert_knowledge_node(_make_knowledge_node(
+        "relevant", summary="Atomic configuration replacement", content="Use a temporary file and rename.",
+        trigger_terms="[]", confidence=0.2,
+    ))
+
+    results = repo.search_knowledge_nodes("atomic configuration troubleshooting", limit=1)
+    assert [item["id"] for item in results] == ["relevant"]
+
+
+def test_knowledge_search_combines_chinese_and_indexed_matches(tmp_path: Path) -> None:
+    repo = HermesRepository(tmp_path / "search.sqlite3")
+    repo.insert_knowledge_node(_make_knowledge_node(
+        "english", summary="Brain service", content="Inspect the service.", trigger_terms="[]", confidence=1.0,
+    ))
+    repo.insert_knowledge_node(_make_knowledge_node(
+        "chinese", summary="排查检索反馈问题", content="先查看检索反馈的会话归因。", trigger_terms="[]", confidence=0.3,
+    ))
+
+    results = repo.search_knowledge_nodes("Brain 检索反馈", limit=5)
+    assert {item["id"] for item in results} == {"english", "chinese"}
+
+
+def test_knowledge_search_includes_trigger_only_matches(tmp_path: Path) -> None:
+    repo = HermesRepository(tmp_path / "search.sqlite3")
+    repo.insert_knowledge_node(_make_knowledge_node(
+        "trigger", summary="Feedback attribution", content="Preserve the session identifier.",
+        trigger_terms='["session_id"]',
+    ))
+
+    assert [item["id"] for item in repo.search_knowledge_nodes('"session_id"')] == ["trigger"]
+
+
+def test_knowledge_search_abstains_without_searchable_terms(tmp_path: Path) -> None:
+    repo = HermesRepository(tmp_path / "search.sqlite3")
+    repo.insert_knowledge_node(_make_knowledge_node("unrelated", confidence=1.0))
+
+    assert repo.search_knowledge_nodes("!!!", limit=1) == []
+
+
+def test_knowledge_search_prefers_term_coverage_over_rare_generic_word(tmp_path: Path) -> None:
+    repo = HermesRepository(tmp_path / "search.sqlite3")
+    repo.insert_knowledge_node(_make_knowledge_node(
+        "relevant", summary="Brain retrieval", content="Brain retrieval " + "service diagnostics " * 400,
+        trigger_terms="[]", confidence=0.4,
+    ))
+    repo.insert_knowledge_node(_make_knowledge_node(
+        "generic", summary="Candidate variants", content="Candidate variants.", trigger_terms="[]", confidence=1.0,
+    ))
+    for index in range(30):
+        repo.insert_knowledge_node(_make_knowledge_node(
+            f"background-{index}", summary="Brain retrieval background", content="Brain retrieval notes.",
+            trigger_terms="[]", confidence=0.2,
+        ))
+
+    results = repo.search_knowledge_nodes("Brain retrieval candidate", limit=5)
+    assert "generic" not in {item["id"] for item in results}
+
+
+def test_bm25_tie_break_preserves_negative_sqlite_rank(tmp_path):
+    repo = HermesRepository(tmp_path / 'rank.sqlite3')
+    for ident, content in [('a-long', 'atomic ' + 'unrelated ' * 100), ('z-short', 'atomic')]:
+        repo.insert_knowledge_node(_make_knowledge_node(ident, summary='atomic', content=content, trigger_terms='[]', confidence=0.5))
+    results = repo.search_knowledge_nodes('atomic')
+    assert [r['id'] for r in results] == ['z-short', 'a-long']
+    assert results[0]['search_score'] < results[1]['search_score'] < 0
+    assert results[0]['score'] > results[1]['score']
+
+
+def test_fallback_bounds_content_scans_and_fts_candidates(tmp_path):
+    import inspect
+    source = inspect.getsource(HermesRepository.search_knowledge_nodes)
+    assert 'WITH bounded AS MATERIALIZED' in source
+    assert 'ORDER BY kn.rowid DESC LIMIT 512' in source
+    assert 'FROM bounded kn' in source
+    assert 'kn.id ASC LIMIT 256' in source
+    repo = HermesRepository(tmp_path / 'bounded.sqlite3')
+    repo.insert_knowledge_node(_make_knowledge_node('old', summary='needle', content='old indexed needle', trigger_terms='[]'))
+    for index in range(513):
+        repo.insert_knowledge_node(_make_knowledge_node(f'new-{index}', summary='background', content='background', trigger_terms='[]'))
+    assert 'old' in {r['id'] for r in repo.search_knowledge_nodes('needle')}
+    repo.insert_knowledge_node(_make_knowledge_node('fallback', summary='排查检索反馈问题', content='content', trigger_terms='["rare_trigger"]'))
+    assert repo.search_knowledge_nodes('检索反馈')[0]['id'] == 'fallback'
+    assert repo.search_knowledge_nodes('rare_trigger')[0]['id'] == 'fallback'

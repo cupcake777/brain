@@ -9,10 +9,10 @@ requires_env:
     description: "HTTPS origin of the operator-owned Brain service"
     prompt: "Brain service URL"
     password: false
-  - name: BRAIN_TOKEN
-    description: "Scoped Brain bearer token for this agent"
-    prompt: "Brain scoped bearer token"
-    password: true
+  - name: BRAIN_TOKEN_FILE
+    description: "Path to the private file containing this agent's scoped Brain bearer token"
+    prompt: "Brain scoped token file path"
+    password: false
 optional_env:
   - name: BRAIN_AGENT
     description: "Stable agent label (defaults to hermes)"

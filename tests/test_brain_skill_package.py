@@ -1,6 +1,7 @@
 from pathlib import Path
 import importlib.util
 import json
+import re
 import pytest
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -12,6 +13,36 @@ def load():
     module=importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+def test_pyproject_declares_installable_mcp_runtime_contract():
+    """pyproject must make the MCP server installable and runnable from any cwd.
+
+    Regression for: `python -m hermes.mcp_server` only worked when cwd was the
+    repo (import via sys.path[0]) and `mcp` was an undeclared venv dependency.
+    """
+    import tomllib
+
+    data = tomllib.loads((ROOT / 'pyproject.toml').read_text())
+
+    build = data.get('build-system', {})
+    assert build.get('build-backend'), 'pyproject must declare a PEP 517 build backend'
+
+    deps = data['project']['dependencies']
+    dep_names = {re.split(r'[<>=!~;,\[]', d.strip())[0] for d in deps}
+    assert 'mcp' in dep_names, f'mcp must be a declared runtime dependency (got {sorted(dep_names)})'
+
+    scripts = data['project'].get('scripts', {})
+    assert any(
+        str(target).split(':')[0] == 'hermes.mcp_server'
+        for target in scripts.values()
+    ), f'[project.scripts] must expose a hermes.mcp_server console entrypoint (got {scripts})'
+
+    packages = data.get('tool', {}).get('setuptools', {}).get('packages')
+    assert packages and 'hermes' in packages, (
+        'setuptools package discovery must be pinned to the hermes package '
+        '(flat-layout auto-discovery fails on this repo)'
+    )
+
 
 def test_packaged_skill_and_dependencies_exist():
     for p in [
@@ -80,7 +111,15 @@ def test_native_plugin_registers_skill_and_lifecycle_hooks(monkeypatch):
     assert ctx.skills == [('brain-loop', PACKAGE/'SKILL.md')]
     assert len(ctx.prompt_sections) == 1
     assert ctx.prompt_sections[0][0] == 'brain-loop'
-    assert 'brain:brain-loop' in ctx.prompt_sections[0][1]
+    prompt = ctx.prompt_sections[0][1]
+    assert callable(prompt)
+    rendered = prompt({'session_id': 'session-real-1', 'platform': 'telegram'})
+    assert 'brain:brain-loop' in rendered
+    assert 'session-real-1' in rendered
+    assert 'retrieve_knowledge' in rendered
+    assert 'report_knowledge_outcome' in rendered
+    assert 'finalize_knowledge_session' in rendered
+    assert 'Do not retrieve for trivial tasks' in rendered
     assert {name for name, _ in ctx.hooks} == {
         'post_tool_call', 'on_session_finalize', 'on_session_reset'
     }
@@ -100,6 +139,24 @@ def test_client_defaults_local_not_private_server(monkeypatch):
     c=load();monkeypatch.delenv('BRAIN_URL',raising=False)
     monkeypatch.setattr(c, 'config_dir', lambda: Path('/nonexistent-brain-config'))
     assert c.api_url()=='http://127.0.0.1:8083'
+
+
+def test_client_accepts_owner_only_token_file(monkeypatch, tmp_path):
+    c=load()
+    token_file=tmp_path/'token'
+    token_file.write_text('file-secret\n')
+    token_file.chmod(0o600)
+    monkeypatch.delenv('BRAIN_TOKEN',raising=False)
+    monkeypatch.setenv('BRAIN_TOKEN_FILE',str(token_file))
+    monkeypatch.setattr(c.urllib.request,'urlopen',lambda request,timeout: (_ for _ in ()).throw(RuntimeError(request.headers['Authorization'])))
+    with pytest.raises(RuntimeError,match='Bearer file-secret'):
+        c.request('/api/test',payload={},write=True)
+
+
+def test_plugin_manifest_uses_token_file_without_copying_secret_into_env():
+    text=(ROOT/'plugin.yaml').read_text()
+    assert 'name: BRAIN_TOKEN_FILE' in text
+    assert 'name: BRAIN_TOKEN\n' not in text
 
 
 def test_client_reads_url_token_and_ca_from_config(monkeypatch, tmp_path):
@@ -424,3 +481,63 @@ def test_propose_wait_rejects_nonpositive_polling_arguments(tmp_path):
         c.parser().parse_args(['propose',str(proposal),'--wait','--timeout','0'])
     with pytest.raises(SystemExit):
         c.parser().parse_args(['propose',str(proposal),'--wait','--poll-interval','0'])
+
+
+@pytest.mark.parametrize('explicit,brain_session,codex_session,expected', [
+    ('explicit-session', 'brain-session', 'codex-session', 'explicit-session'),
+    ('', 'brain-session', 'codex-session', 'brain-session'),
+    ('', '  ', 'codex-session', 'codex-session'),
+    ('', '', '', ''),
+])
+def test_retrieve_and_finalize_share_real_session_resolution(monkeypatch, explicit, brain_session, codex_session, expected):
+    c = load()
+    calls = []
+    monkeypatch.setenv('BRAIN_SESSION_ID', brain_session)
+    monkeypatch.setenv('CODEX_THREAD_ID', codex_session)
+    monkeypatch.setattr(c, 'request', lambda path, **kwargs: calls.append((path, kwargs)) or {})
+    flags = ['--session-id', explicit] if explicit else []
+    retrieve = c.parser().parse_args(['retrieve', 'session attribution', *flags])
+    retrieve.handler(retrieve)
+    assert calls[0][1]['payload']['session_id'] == expected
+    assert calls[0][1]['optional_auth'] is True
+    finalize = c.parser().parse_args(['finalize', *flags])
+    if expected:
+        finalize.handler(finalize)
+        assert calls[1][1]['payload']['session_id'] == expected
+    else:
+        with pytest.raises(RuntimeError, match='session_id is required'):
+            finalize.handler(finalize)
+        assert len(calls) == 1
+
+
+def test_retrieve_attaches_configured_token_over_https(monkeypatch, tmp_path):
+    c = load()
+    monkeypatch.setenv('BRAIN_URL', 'https://brain.example')
+    monkeypatch.setenv('BRAIN_TOKEN', 'scoped-test-token')
+    monkeypatch.setattr(c, 'resolve_ca_bundle', lambda: None)
+    captured = {}
+
+    class Reply:
+        def __enter__(self): return self
+        def __exit__(self, *_args): return None
+        def read(self): return b'{"results":[]}'
+
+    def urlopen(req, **kwargs):
+        captured['authorization'] = req.get_header('Authorization')
+        captured['payload'] = json.loads(req.data)
+        return Reply()
+
+    monkeypatch.setattr(c.urllib.request, 'urlopen', urlopen)
+    args = c.parser().parse_args(['retrieve', 'Brain feedback'])
+    assert args.handler(args) == {'results': []}
+    assert captured['authorization'] == 'Bearer scoped-test-token'
+    assert captured['payload']['query'] == 'Brain feedback'
+
+
+def test_token_file_takes_precedence_over_legacy_environment(monkeypatch, tmp_path):
+    c = load()
+    token_file = tmp_path / 'token'
+    token_file.write_text('file-fixture')
+    monkeypatch.setenv('BRAIN_TOKEN_FILE', str(token_file))
+    monkeypatch.setenv('BRAIN_TOKEN', 'env-fixture')
+    assert c.resolve_token() == 'file-fixture'

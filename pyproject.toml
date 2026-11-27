@@ -1,7 +1,7 @@
 [project]
 name = "brain-hermes"
 version = "0.1.0"
-description = "Hermes MVP for Syncthing-backed shared memory workflows"
+description = "Brain MCP server (stdio); web service and agent plugin deploy from source"
 requires-python = ">=3.13"
 dependencies = [
   "fastapi>=0.122.0",
@@ -9,6 +9,7 @@ dependencies = [
   "uvicorn>=0.38.0",
   "python-multipart>=0.0.6",
   "httpx>=0.28.1",
+  "mcp>=1.30.0",
 ]
 
 [project.optional-dependencies]
@@ -16,6 +17,16 @@ dev = [
   "pytest>=9.0.2",
   "httpx2>=2.7.0",
 ]
+
+[project.scripts]
+brain-mcp-server = "hermes.mcp_server:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["hermes"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

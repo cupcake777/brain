@@ -63,8 +63,12 @@ eval/status-*/
 
 # Operator-specific production helpers; portable core does not assume hosts,
 # secret stores, absolute paths, or backup destinations.
-scripts/brain_backup.py
 scripts/check_dify_source.py
 scripts/store_brain_token_vault.py
 scripts/verify_dify_addon.py
-tests/test_brain_backup.py
+
+# Maintenance snapshots and credentials never belong in source control
+/backups/
+*.sqlite3-wal
+*.sqlite3-shm
+*.brnbk

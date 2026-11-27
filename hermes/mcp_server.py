@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 from pathlib import Path
 
 from mcp.server import Server
@@ -24,6 +25,19 @@ from mcp.server.stdio import stdio_server
 from mcp.types import Tool, TextContent
 
 from hermes.repository import HermesRepository
+
+
+def _v2_retrieval_principal(agent: str):
+    """Return the server-owned V2 retrieval scope only when fully enabled."""
+    if os.environ.get("BRAIN_V2_ENABLED", "").strip().lower() not in {"1", "true", "yes", "on"}:
+        return None
+    workspace = os.environ.get("BRAIN_V2_WORKSPACE", "").strip()
+    project = os.environ.get("BRAIN_V2_PROJECT", "").strip()
+    if not workspace or not project:
+        return None
+    from hermes.event_store import Principal
+
+    return Principal(actor=agent, workspace=workspace, project=project)
 
 logger = logging.getLogger("brain-proposal-mcp")
 
@@ -39,12 +53,12 @@ TOOLS = [
                 "query": {"type": "string", "description": "Concrete task terms (required)"},
                 "agent": {"type": "string", "default": "xiaohe"},
                 "host_id": {"type": "string", "default": "control-plane"},
-                "session_id": {"type": "string", "default": ""},
+                "session_id": {"type": "string", "description": "Session ID required to finalize the learning loop later"},
                 "limit": {"type": "integer", "default": 5, "minimum": 1, "maximum": 20},
                 "category": {"type": "string"},
                 "domain": {"type": "string"},
             },
-            "required": ["query"],
+            "required": ["query", "session_id"],
         },
     ),
     Tool(
@@ -169,15 +183,20 @@ async def _execute_tool(repo: HermesRepository, name: str, arguments: dict) -> l
         query = str(arguments.get("query") or "").strip()
         if not query:
             raise ValueError("query is required")
+        session_id = str(arguments.get("session_id") or "").strip()[:200]
+        if not session_id:
+            raise ValueError("session_id is required")
         limit = max(1, min(int(arguments.get("limit", 5)), 20))
+        agent = str(arguments.get("agent") or "xiaohe")[:120]
         event = repo.record_retrieval_for_query(
             query,
-            agent=str(arguments.get("agent") or "xiaohe")[:120],
+            agent=agent,
             host=str(arguments.get("host_id") or "control-plane")[:128],
             limit=limit,
             category=str(arguments.get("category") or "").strip() or None,
             domain=str(arguments.get("domain") or "").strip() or None,
-            session_id=str(arguments.get("session_id") or "")[:200],
+            session_id=session_id,
+            v2_principal=_v2_retrieval_principal(agent),
         )
         results = [
             {
@@ -189,6 +208,8 @@ async def _execute_tool(repo: HermesRepository, name: str, arguments: dict) -> l
                 "stage": item["stage"],
                 "confidence": item["confidence"],
                 "score": item.get("score"),
+                "unverified": bool(item.get("unverified")),
+                "schema": int(item.get("schema") or 1),
             }
             for item in event.get("results", [])
             if isinstance(item, dict)
@@ -226,6 +247,7 @@ async def _execute_tool(repo: HermesRepository, name: str, arguments: dict) -> l
             status,
             notes=str(arguments.get("note") or "")[:1000],
             used=status != "not_used",
+            v2_principal=_v2_retrieval_principal(str(event.agent or "xiaohe")[:120]),
         )
         if pair["status"] == "conflict_unresolved":
             raise ValueError("outcome status conflict")
