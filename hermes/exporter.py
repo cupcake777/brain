@@ -146,6 +146,16 @@ def _format_claude_entry(proposal: dict) -> str:
 # ExportCompiler
 # ---------------------------------------------------------------------------
 
+def shared_agent_context(repo):
+    """Rebuild from current export eligibility, never from append-only history."""
+    entries=repo.list_exportable(None)[:50]
+    header=('# Brain shared experience\n\n'
+            'Experience is advisory. Check current applicability; current user instructions take precedence. '
+            'Use environment-aware retrieval for server, user and project-specific experience.\n')
+    return header+''.join('\n### '+str(p['summary'])+'\n'+str(p['suggested_memory'])+'\n'
+                          '<!-- proposal:'+str(p['proposal_id'])+' -->\n' for p in entries)
+
+
 class ExportCompiler:
     def __init__(self, *, repo: HermesRepository, sync_root: str | Path, budgets: ExportBudgets | None = None) -> None:
         self.repo = repo
@@ -220,6 +230,7 @@ class ExportCompiler:
             "codex-instructions.md": package / "references" / "codex-workflow.md",
             "brain-sync-hpc.sh": package / "scripts" / "brain-sync-hpc.sh",
             "brain.py": package / "scripts" / "brain.py",
+            "memory-header.md": package / "references" / "memory-header.md",
         }
         export_dir = self.sync_root / "exports" / "global"
         export_dir.mkdir(parents=True, exist_ok=True)
@@ -394,21 +405,57 @@ class ExportCompiler:
     # V2: Knowledge Node export
     # -----------------------------------------------------------------------
 
+    def _exportable_knowledge_nodes(self) -> list:
+        """Require current, shared export approval for proposal-linked nodes.
+
+        Standalone knowledge retains its existing stage/confidence/scope rules.
+        A link alone is provenance, not permission to publish its knowledge.
+        """
+        nodes = self.repo.list_knowledge_nodes(
+            limit=5000,
+            order_by="confidence DESC, created_at ASC",
+        )
+        active = [
+            n for n in nodes
+            if n.stage in ("canonized", "verified", "refined") and n.confidence >= 0.5
+        ]
+        from hermes.environment_scope import global_ids
+        with self.repo._connect() as connection:
+            eligible = global_ids(connection, "knowledge", [n.id for n in active])
+            linked = {
+                row[0] for row in connection.execute(
+                    "SELECT DISTINCT knowledge_id FROM proposal_knowledge_links"
+                )
+            }
+            authorized = {
+                row[0] for row in connection.execute(
+                    """SELECT DISTINCT l.knowledge_id
+                       FROM proposal_knowledge_links l
+                       JOIN proposals p ON p.proposal_id = l.proposal_id
+                       WHERE p.state = 'approved_for_export'
+                         AND NOT EXISTS (
+                             SELECT 1 FROM brain_environment_scopes s
+                             WHERE s.entity_type = 'proposal'
+                               AND s.entity_id = p.proposal_id AND s.server_id <> ''
+                         )
+                         AND NOT EXISTS (
+                             SELECT 1 FROM proposal_knowledge_retirements r
+                             WHERE r.proposal_id = p.proposal_id
+                         )"""
+                )
+            }
+        return [
+            n for n in active
+            if n.id in eligible and (n.id not in linked or n.id in authorized)
+        ]
+
     def build_knowledge_export(self, project_key: str | None = None) -> Path:
         """Export active knowledge nodes to KNOWLEDGE.md format.
 
         Global export includes every scene (tech, science, plus any custom
         slug).  A named export keeps nodes whose domain matches that slug.
         """
-        nodes = self.repo.list_knowledge_nodes(
-            limit=5000,
-            order_by="confidence DESC, created_at ASC",
-        )
-        # Only export active, high-confidence knowledge (canonized, verified, and refined)
-        active = [
-            n for n in nodes
-            if n.stage in ("canonized", "verified", "refined") and n.confidence >= 0.5
-        ]
+        active = self._exportable_knowledge_nodes()
         if project_key is None:
             export_dir = self.sync_root / "exports" / "global"
             file_name = "KNOWLEDGE.md"
@@ -441,29 +488,22 @@ class ExportCompiler:
         )
         return path
 
-    def export_brain_context(self) -> Path | None:
-        """Copy ~/.hermes/brain-context.md to exports so agents can pull it via HTTP.
-
-        Returns the export path, or None if brain-context.md doesn't exist.
-        """
-        source = Path.home() / ".hermes" / "brain-context.md"
-        if not source.exists():
-            return None
-        export_dir = self.sync_root / "exports" / "global"
+    def export_brain_context(self) -> Path:
+        """Project only shared guidance; host experience is retrieved by context."""
+        export_dir = self.sync_root / 'exports' / 'global'
         export_dir.mkdir(parents=True, exist_ok=True)
-        dest = export_dir / "brain-context.md"
-        content = source.read_text(encoding="utf-8")
-        dest.write_text(content, encoding="utf-8")
-        self.repo.record_export(
-            scope_type="global",
-            project_key="brain-context",
-            file_name=dest.name,
-            size_bytes=dest.stat().st_size,
-        )
+        dest = export_dir / 'brain-context.md'
+        dest.write_text(shared_agent_context(self.repo), encoding='utf-8')
+        self.repo.record_export(scope_type='global', project_key='global',
+                                file_name=dest.name, size_bytes=dest.stat().st_size)
         return dest
 
     def build_lane_exports(self) -> list[Path]:
-        """Write one markdown file per scene (tech.md, science.md, …)."""
+        """Write one markdown file per scene (tech.md, science.md, …).
+
+        Discover lanes before authorization filtering so withdrawn approvals
+        also rebuild existing lane files without their formerly exported text.
+        """
         nodes = self.repo.list_knowledge_nodes(
             limit=5000,
             order_by="confidence DESC, created_at ASC",

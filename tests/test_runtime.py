@@ -835,3 +835,13 @@ def test_fallback_bounds_content_scans_and_fts_candidates(tmp_path):
     repo.insert_knowledge_node(_make_knowledge_node('fallback', summary='排查检索反馈问题', content='content', trigger_terms='["rare_trigger"]'))
     assert repo.search_knowledge_nodes('检索反馈')[0]['id'] == 'fallback'
     assert repo.search_knowledge_nodes('rare_trigger')[0]['id'] == 'fallback'
+
+
+def test_legacy_memory_header_rebuilt_from_current_governance(tmp_path):
+    repo=HermesRepository(tmp_path/'db')
+    compiler=ExportCompiler(repo=repo,sync_root=tmp_path)
+    compiler.export_agent_assets()
+    text=(tmp_path/'exports/global/memory-header.md').read_text()
+    assert 'All proposals auto-approve' not in text
+    assert 'after 2 days' not in text
+    assert 'Elapsed time alone never approves' in text

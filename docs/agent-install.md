@@ -4,7 +4,7 @@ The repository includes the complete portable Agent Skill in [`skills/brain-loop
 
 ## Hermes: install from your running service
 
-Your Brain serves the bundled package publicly; replace the example origin with **your own**:
+Your Brain serves the bundled package; protected deployments require owner authentication or a scoped token with knowledge:read for these assets. Replace the example origin with **your own**:
 
 ```bash
 hermes skills install https://YOUR-BRAIN-HOST/skills/brain-loop/SKILL.md
@@ -86,7 +86,28 @@ codex plugin remove brain@brain
 codex plugin add brain@brain
 ```
 
-The Codex manifest is version `1.4.1`. Review and trust the **new** hook definition in `/hooks`, then start a new thread. Codex tool events use `agent_id=codex`; the earlier `1.2.0` package mislabeled them `claude-code`. The Codex `SessionEnd` hook has a 3-second limit and starts a detached flush of the durable outbox; check `multi_agent_adapter.py stats` after a real tool call to verify uploads. Existing event labels are not rewritten.
+The Codex manifest is version `1.4.2`. Review and trust the **new** hook definition in `/hooks`, then start a new thread. Codex tool events use `agent_id=codex`; the earlier `1.2.0` package mislabeled them `claude-code`. The Codex `SessionEnd` hook has a 3-second limit and starts a detached flush of the durable outbox; check `multi_agent_adapter.py stats` after a real tool call to verify uploads. Existing event labels are not rewritten.
+
+### Project activity capture
+
+The Projects page uses sanitized V2 execution context, separate from reusable
+knowledge proposals. Upgrade `multi_agent_adapter.py` on **each capture host**
+to preserve session IDs, tool arguments and status in uploads. Deploy the
+adapter from the running Brain revision; updating only the server cannot
+recover fields an old uploader omitted. Keep the existing outbox and receipts.
+The served asset is `/skills/brain-loop/scripts/multi_agent_adapter.py`; protected deployments require owner authentication to download it.
+
+The Claude/Codex manifests also register `UserPromptSubmit` and `Stop`.
+After the host reloads these hooks, supplied request and final-response excerpts
+appear as the project's latest goal and session summary. Excerpts are bounded
+and sanitized; the adapter does not read transcript files. Hermes native tool
+callbacks accept `args`, `tool_call_id`, status and an explicit tool working
+directory. `.hermes-project` with `project_key: paper-name` or `BRAIN_PROJECT`
+keeps a shared project identity across worktrees and hosts.
+
+Local historical outboxes can supply missing context when the original event
+receipt and client digest match. See [Project activity recovery](../README.md#project-activity)
+for the read-only audit and append-only recovery command.
 
 ### Hook credential resolution
 
@@ -168,3 +189,12 @@ to the newest 512 eligible rows (at most 256 matches). Older trigger-only or
 Chinese substring-only matches outside that window may be missed; indexed FTS
 matches remain searchable across the collection. Mixed legacy/V2 results use
 shared term coverage before lane-local tie-breaks and a deterministic ID order.
+
+
+## Environment and feedback attribution (1.4.2)
+
+Configure a stable `BRAIN_SERVER_ID` and the actual `BRAIN_USER_ROOT`; the client defaults to hostname and home directory. `BRAIN_PROJECT_ROOT` defaults to the working directory. Files `~/.config/brain/server-id` and `user-root` supply persistent aliases. Applicability is matched by server, exact user directory, and project subtree. Proposal `source_host` remains provenance; new clients additionally send `origin_environment` with the actual server/home/project. A separate optional `environment` field constrains applicability. Historical homes remain unknown unless verified. Owner-only `/environments` and `/api/v1/brain/environments` expose grouping; `/api/v1/brain/environments/assign` resolves an existing proposal/knowledge record explicitly. Missing historical attribution is not guessed.
+
+Use `retrieve --traffic-kind task|audit|probe|evaluation`. Current clients require a real session ID. Supply `outcome --task-success ... --verification-note ...` after an actual check; `--user-validated` requires actual user validation. `/api/v1/brain/metrics` is an owner-only grouped report, never a computed causal success claim. Old unclassified events remain unknown. MCP supports the same optional fields after reconnecting.
+
+`context-export --output PATH` produces only matching machine-specific experience without writing a retrieval event. Global exports exclude scoped records. Existing native V2 workspace/project authorization remains in force; environment metadata does not grant access.

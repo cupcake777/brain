@@ -1198,6 +1198,20 @@ def _page(
     nav_scope: str = "portal",
 ) -> str:
     """Return a full HTML document with sidebar + top header layout."""
+    if show_nav and (nav_scope == "product" or nav_active == "knowledge"):
+        from hermes.workspace import shell
+        aliases = """<style>
+        .main{--card:var(--panel);--surface:var(--bg);--border:var(--line);--primary:var(--accent);--ink-muted:var(--muted);--font:inherit;--font-mono:ui-monospace,SFMono-Regular,Consolas,monospace;--r-sm:6px;--r-md:10px;--r-lg:12px;--r-xl:16px;--success:var(--green);--danger:#c35668;--warning:var(--amber)}
+        .main .page-head h1{font-family:inherit}.main .badge{display:inline-flex;padding:3px 8px;border-radius:6px;background:var(--tint);color:var(--accent);font-size:11px}.main .section{padding:18px;background:var(--panel);border:1px solid var(--line);border-radius:10px;margin-bottom:16px;overflow-wrap:anywhere}.main .section h3{font-size:14px;margin-bottom:10px}.main .section p{white-space:pre-wrap}.main textarea{width:100%;max-width:100%;min-height:100px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);padding:12px;font:inherit}.main table{width:100%;border-collapse:collapse}.main td,.main th{text-align:left;padding:12px;border-bottom:1px solid var(--line);overflow-wrap:anywhere}.main .confirm-overlay{display:none;position:fixed;inset:0;background:#10131baa;z-index:80;align-items:center;justify-content:center;padding:20px}.main .confirm-overlay.open{display:flex}.main .confirm-modal{width:min(100%,450px);padding:25px;background:var(--panel);border:1px solid var(--line);border-radius:12px}.main .confirm-actions{display:flex;gap:10px;margin-top:20px}.main .confirm-actions button{padding:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px}.main .action-bar{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}.main .meta-grid{display:grid;grid-template-columns:120px minmax(0,1fr);gap:8px;margin:22px 0;font-size:12px}.main .meta-grid .label{color:var(--muted)}.main .tabs{display:flex;gap:10px;flex-wrap:wrap;margin:20px 0}.main .tabs a{padding:9px 14px;border:1px solid var(--line);border-radius:8px}.main .engram-detail,.main .engram-knowledge{max-width:100%;padding:0;--paper:var(--panel);--sheet:var(--panel);--sheet-warm:var(--bg);--detail-ink:var(--ink);--detail-muted:var(--muted);--detail-accent:var(--accent);--detail-line:var(--line);--knowledge-ink:var(--ink)}
+        @media(max-width:760px){.main table{font-size:12px}.main td,.main th{padding:9px 5px}.main .kg-main{min-width:0}}
+        </style>"""
+        # Some self-contained modules put their controller scripts in the body.
+        if extra_js.strip().startswith("<script"):
+            body += extra_js
+            extra_js = ""
+        translations = "function _t(key){const strings=" + _json.dumps(_I18N_DICT.get("zh", {}), ensure_ascii=False) + ";return strings[key]||key;}"
+        return shell(title, aliases + body, active=nav_active, extra_js=translations + extra_js)
+
     _fab_js = """/* FAB toggle */
 function toggleFab(){
   var fab=document.getElementById('fabContainer');
@@ -1432,6 +1446,8 @@ def _nav(*, active: str = "home", scope: str = "portal") -> str:
     nav_items = (
         [
             ("home", "Home", "/", _ICON_HOME),
+            ("projects", "Projects", "/projects", _ICON_EXPORT),
+            ("environments", "服务器与目录", "/environments", _ICON_EXPORT),
             ("knowledge", "Knowledge", "/knowledge", _ICON_KNOWLEDGE),
             ("gallery", "Gallery", "/gallery", _ICON_GALLERY),
         ]

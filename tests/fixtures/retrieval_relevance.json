@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "description": "Synthetic lexical relevance checks, labelled before changing the query analyser. No production records or task-success labels.",
+  "nodes": [
+    {"id": "gateway", "summary": "Gateway lock file", "content": "Inspect the gateway lock file before restarting the gateway."},
+    {"id": "question-words", "summary": "How do I do it?", "content": "Please help me and you. How do I do it?"},
+    {"id": "feedback", "summary": "会话反馈归档", "content": "排查检索反馈问题时保留 session_id，按会话归档结果。"},
+    {"id": "trigger", "summary": "Outcome attribution", "content": "Preserve the session identifier.", "trigger_terms": ["outcome_probe"]},
+    {"id": "hyphen", "summary": "Local retrieval helper", "content": "Use brain-query to retrieve shared experience."},
+    {"id": "hyphen-decoy", "summary": "Brain query interface", "content": "The Brain query interface lists local rules."},
+    {"id": "underscore-decoy", "summary": "Session id display", "content": "Render a session id in the page."},
+    {"id": "science", "summary": "BrainGvex replication", "content": "Study Brain_Cortex QTL variants."},
+    {"id": "can-bus", "summary": "CAN bus frames", "content": "Validate CAN bus frame checksums."},
+    {"id": "accented", "summary": "Café telemetry", "content": "Inspect café telemetry counters."},
+    {"id": "accent-decoy", "summary": "CAF cabinet", "content": "The CAF cabinet needs ventilation."},
+    {"id": "retired", "summary": "Obsolete atomic replacement", "content": "Use atomic replacement for configuration files.", "stage": "deprecated"}
+  ],
+  "cases": [
+    {"id": "english-question", "query": "How do I inspect a gateway lock file?", "expected": ["gateway"]},
+    {"id": "english-keywords", "query": "gateway lock file", "expected": ["gateway"]},
+    {"id": "chinese-substring", "query": "检索反馈", "expected": ["feedback"]},
+    {"id": "mixed-language", "query": "session_id 检索反馈", "expected": ["feedback"]},
+    {"id": "exact-underscore", "query": "session_id", "expected": ["feedback"]},
+    {"id": "exact-hyphen", "query": "brain-query", "expected": ["hyphen"]},
+    {"id": "english-boundary", "query": "Brain", "expected": ["hyphen-decoy"]},
+    {"id": "unicode-word", "query": "café", "expected": ["accented"]},
+    {"id": "technical-acronym", "query": "CAN bus", "expected": ["can-bus"]},
+    {"id": "technical-acronym-alone", "query": "CAN", "expected": ["can-bus"]},
+    {"id": "explicit-literal", "query": "`do`", "expected": ["question-words"]},
+    {"id": "stopwords-only", "query": "Could you please help me?", "expected": []},
+    {"id": "no-library-coverage", "query": "xyzzymissingprotocol", "expected": []},
+    {"id": "punctuation-only", "query": "!!!", "expected": []},
+    {"id": "retired-only", "query": "atomic replacement", "expected": []},
+    {"id": "trigger-only", "query": "outcome_probe", "expected": ["trigger"], "lanes": ["legacy"]}
+  ]
+}

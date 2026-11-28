@@ -497,6 +497,11 @@ def test_retrieve_and_finalize_share_real_session_resolution(monkeypatch, explic
     monkeypatch.setattr(c, 'request', lambda path, **kwargs: calls.append((path, kwargs)) or {})
     flags = ['--session-id', explicit] if explicit else []
     retrieve = c.parser().parse_args(['retrieve', 'session attribution', *flags])
+    if not expected:
+        with pytest.raises(RuntimeError, match='session_id is required'):
+            retrieve.handler(retrieve)
+        assert calls == []
+        return
     retrieve.handler(retrieve)
     assert calls[0][1]['payload']['session_id'] == expected
     assert calls[0][1]['optional_auth'] is True
@@ -514,6 +519,7 @@ def test_retrieve_attaches_configured_token_over_https(monkeypatch, tmp_path):
     c = load()
     monkeypatch.setenv('BRAIN_URL', 'https://brain.example')
     monkeypatch.setenv('BRAIN_TOKEN', 'scoped-test-token')
+    monkeypatch.setenv('BRAIN_SESSION_ID', 'session-scoped-test')
     monkeypatch.setattr(c, 'resolve_ca_bundle', lambda: None)
     captured = {}
 

@@ -31,7 +31,7 @@ _SECRET_KEYS = frozenset({
 _SECRET_TEXT = (
     re.compile(r"(?i)(bearer\s+)[A-Za-z0-9._\-]+"),
     re.compile(r"(?i)(api[_-]?key|token|password|secret)\s*[:=]\s*\S+"),
-    re.compile(r"\b(?:sk|ghp|hf)_[A-Za-z0-9_\-]{12,}\b"),
+    re.compile(r"\b(?:sk-|sk-ant-|gsk_|ghp_|github_pat_|hf_|xox[baprs]-|AKIA|AIza)[A-Za-z0-9_\-]{12,}\b"),
 )
 _ENV_OP = re.compile(r"\b(ssh|systemctl|rm|docker|kubectl|terraform)\b", re.I)
 
@@ -85,6 +85,15 @@ def _project_from(cwd: str | None) -> str:
         return override[:64]
     path = Path(cwd or os.getcwd()).resolve()
     for candidate in (path, *path.parents):
+        marker = candidate / ".hermes-project"
+        if marker.is_file():
+            try:
+                match = re.search(r"(?m)^project_key:\s*[\"']?([A-Za-z0-9_.:-]{1,64})[\"']?\s*(?:#.*)?$", marker.read_text(encoding="utf-8")[:4096])
+                if match:
+                    return match.group(1)
+            except (OSError, UnicodeError):
+                pass
+    for candidate in (path, *path.parents):
         if (candidate / ".git").exists():
             return candidate.name[:64] or "general"
     return path.name[:64] or "general"
@@ -102,6 +111,17 @@ def _response(payload: dict[str, Any]) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
 
 
+def _inputs(payload: dict[str, Any]) -> dict[str, Any]:
+    value = payload.get("tool_input", payload.get("input", payload.get("args", {})))
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except ValueError:
+            parsed = {"command": value}
+        value = parsed
+    return value if isinstance(value, dict) else {}
+
+
 def _exit_code(payload: dict[str, Any]) -> int | None:
     value = _response(payload).get("exit_code")
     if type(value) is int:
@@ -111,7 +131,7 @@ def _exit_code(payload: dict[str, Any]) -> int | None:
 
 def _execution_status(payload: dict[str, Any]) -> str:
     response = _response(payload)
-    response_status = str(response.get("status") or "").strip().lower()
+    response_status = str(response.get("status") or payload.get("status") or "").strip().lower()
     if response_status in {"timeout", "timed_out", "timed-out"}:
         return "timeout"
     exit_code = _exit_code(payload)
@@ -119,6 +139,7 @@ def _execution_status(payload: dict[str, Any]) -> str:
         payload.get("isError") is True
         or payload.get("hook_event_name") in {"PostToolUseFailure", "StopFailure"}
         or payload.get("error")
+        or payload.get("error_message")
         or response.get("error")
         or response_status in {"failed", "failure", "error"}
         or (exit_code is not None and exit_code != 0)
@@ -130,7 +151,7 @@ def _execution_status(payload: dict[str, Any]) -> str:
 def _error_text(payload: dict[str, Any]) -> str:
     response = _response(payload)
     for value in (
-        payload.get("error"), response.get("error"), response.get("stderr"),
+        payload.get("error"), payload.get("error_message"), response.get("error"), response.get("stderr"),
         response.get("output"), response.get("message"),
     ):
         if value:
@@ -171,7 +192,7 @@ def _event_result(payload: dict[str, Any]) -> str:
 
 def _stable_id(source: str, payload: dict[str, Any], action: str) -> str:
     session = str(payload.get("session_id") or payload.get("sessionId") or "")
-    call_id = str(payload.get("tool_use_id") or payload.get("toolCallId") or "")
+    call_id = str(payload.get("tool_use_id") or payload.get("toolCallId") or payload.get("tool_call_id") or "")
     material = "|".join((source, session, call_id, action))
     if not session and not call_id:
         material += f"|{time.time_ns()}"
@@ -179,10 +200,15 @@ def _stable_id(source: str, payload: dict[str, Any], action: str) -> str:
 
 
 def capture(source: str, payload: dict[str, Any]) -> dict[str, Any]:
-    cwd = str(payload.get("cwd") or os.getcwd())
+    inputs = _inputs(payload)
+    cwd = str(payload.get("cwd") or inputs.get("workdir") or inputs.get("cwd") or os.getcwd())
     project = _project_from(cwd)
     action = _event_action(source, payload)
-    event_id = _stable_id(source, payload, action)
+    hook_event = str(payload.get("hook_event_name") or payload.get("event") or "")
+    kind = "request" if hook_event == "UserPromptSubmit" else "summary" if hook_event == "Stop" else "tool"
+    text = _redact_text(str(payload.get("prompt") or payload.get("last_assistant_message") or "")) if kind != "tool" else ""
+    identity_action = action + ("|" + hashlib.sha256(text.encode()).hexdigest() if kind != "tool" else "")
+    event_id = _stable_id(source, payload, identity_action)
     target = socket.gethostname() if _ENV_OP.search(action) else None
     event = {
         "id": event_id,
@@ -194,7 +220,10 @@ def capture(source: str, payload: dict[str, Any]) -> dict[str, Any]:
         "result": _event_result(payload),
         "source_refs": [],
         "capture": {
+            "kind": kind,
+            "text": text,
             "source": source,
+            "cwd": _redact_text(cwd)[:2048],
             "host_hash": hashlib.sha256(
                 f"{platform.node()}:{platform.system()}:{platform.machine()}".encode()
             ).hexdigest()[:24],
@@ -202,7 +231,7 @@ def capture(source: str, payload: dict[str, Any]) -> dict[str, Any]:
             "tool_name": str(payload.get("tool_name") or payload.get("toolName") or "")[:128],
             "status": _execution_status(payload),
             "exit_code": _exit_code(payload),
-            "input": _sanitize(payload.get("tool_input", payload.get("input", {}))),
+            "input": _sanitize(inputs),
         },
     }
     outbox = Outbox(_outbox_path())
@@ -236,6 +265,8 @@ def _event_wire_payload(payload: dict[str, Any]) -> dict[str, Any]:
         "id", "project_id", "agent_id", "occurred_at", "target_id",
         "action", "result", "source_refs",
     )}
+    if isinstance(payload.get("capture"), dict):
+        result["capture"] = payload["capture"]
     result["client_digest"] = hashlib.sha256(json.dumps(
         payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
         allow_nan=False,

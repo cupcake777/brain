@@ -62,7 +62,7 @@ def test_gallery_list_is_static_local_and_escapes_catalog_content() -> None:
     gallery_script = html.split('id="gallery-main"', 1)[1]
     assert "/api/gallery/feedback" not in gallery_script
     assert "/api/render" not in gallery_script
-    gallery_main = html.split('<main id="gallery-main"', 1)[1].split("</main>", 1)[0]
+    gallery_main = html.split('<div id="gallery-main"', 1)[1].split("</main>", 1)[0]
     assert "onclick=" not in gallery_main
 
 
@@ -90,9 +90,9 @@ def test_gallery_detail_allows_only_catalog_local_assets() -> None:
 
 
 def test_gallery_empty_and_missing_states_are_explicit() -> None:
-    assert "No figure templates yet" in gallery_page(charts=[])
+    assert "还没有图表模板" in gallery_page(charts=[])
     missing = gallery_detail_page(chart=None, chart_name="missing/chart")
-    assert "Figure not found" in missing
+    assert "模板不存在" in missing
     assert "/gallery" in missing
     assert "missing/chart" not in missing
 
@@ -217,4 +217,4 @@ def test_gallery_does_not_render_missing_or_unsafe_preview_assets(tmp_path: Path
     assert listing.status_code == 200
     assert "/gallery/static/demos/missing.png" not in listing.text
     assert "/gallery/static/demos/active.svg" not in listing.text
-    assert "Local figure unavailable" in client.get("/gallery/missing").text
+    assert "本地预览图尚未生成" in client.get("/gallery/missing").text

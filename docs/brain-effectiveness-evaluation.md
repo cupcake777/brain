@@ -35,6 +35,48 @@ Verified useful but no feedback => fix closure integration, not fake outcomes.
 
 Change one factor at a time, rerun the same frozen benchmark plus held-out cases. Keep baseline artifacts and do not tune to the final test set. Live shadow usage can follow a pilot: explicitly distinguish organic tasks, audits, probes and evaluation traffic; record denominators and actual verification evidence. Do not build a success-rate dashboard until its data exists.
 
-## Current status
+## Pilot executed on November 27, 2026
 
-This file defines evaluation only; no paired experiment has been executed, no success lift measured, no model or production routing changed. First intervention should be a small paired task pilot, not UI expansion, more auto-promotion, or unverified threshold changes.
+`scripts/run_feedback_pilot.py` ran 12 sanitized historical engineering task
+replays, each in independent Brain-off and Brain-on model requests, with a
+frozen production knowledge snapshot and randomized run order (24 requests).
+The requested model was `gpt-5.6`; both arms used identical system instructions
+and budgets. Brain-on used lexical retrieval only. No production retrieval or
+outcome events were created and no synthetic lesson was ingested.
+
+| Arm | Accepted | Helpful cases | Applicability traps | No-knowledge cases | Provider tokens | Sum of request seconds |
+| --- | --- | --- | --- | --- | --- | --- |
+| Off | 10/12 | 2/4 | 4/4 | 4/4 | 3,239 | 48.987 |
+| On | 12/12 | 4/4 | 4/4 | 4/4 | 5,130 | 37.675 |
+
+Acceptance uses executable predicates over returned artifacts; this was not
+an interactive execution of production tasks. The two changed acceptances
+were preservation of `.mem` goals during a UTF-8 edit and HPC scheduler usage
+for Python verification. The final validator accepts goal capitalization and
+existing scheduler-wrapper workflows. Initial validator verdicts remain in
+each result alongside the corrected verdicts; these two corrections were made
+after viewing outputs and are disclosed, so this is a development pilot.
+
+The run records, prompts, provider response IDs/usage and frozen plan are in
+`/root/ops/brain-maintenance/feedback-completion-20261127/pilot-httpx/` on the
+maintenance host. `results.json` contains the aggregate and limitations. An
+earlier urllib transport attempt returned HTTP 403; it is preserved separately
+under `pilot/` and excluded from the completed comparison. Cost is unknown.
+
+This single replay shows two useful changes on these fixtures with 58.4% more
+tokens. Duration is a sum of individual request times, not end-to-end human
+work time; one run per arm does not establish a speedup. It does not measure
+live-user success, rework reduction or statistical significance. A larger,
+held-out, repeated trial and real task outcomes remain future evaluation.
+
+The service now labels new requests as task/audit/probe/evaluation/unknown and
+stores real session/task attribution plus verification notes. Historical
+unattributed data remains unknown; it is not backfilled with invented results.
+
+
+The replay driver now accepts explicit `--config`, `--provider` and credential-source options instead of reading a fixed operator account. `--fixture` loads labelled external cases; bundled cases are labelled as the November 2026 historical deployment sample, rather than a portable benchmark. Use `--help` for the current input schema and `--prepare-only` to freeze a plan without credentials or model requests. Source and fixture changes require fresh evaluation; the numbers above remain the original run.
+
+```bash
+python scripts/run_feedback_pilot.py --help
+python scripts/eval_brain_retrieval.py --help
+```

@@ -41,7 +41,9 @@ def test_knowledge_proposal_pages_use_product_shell() -> None:
         assert 'href="/knowledge"' in page
         assert 'href="/gallery"' in page
         assert all(marker not in page for marker in forbidden)
-        assert 'href="/" class="sidebar-nav-item' in page
+        assert page.count('<aside class="sidebar" aria-label="主导航">') == 1
+        assert 'id="brainSidebar"' not in page
+        assert 'id="main-content"' in page
 
 
 def test_review_detail_exposes_structured_proposal_editor() -> None:

@@ -70,6 +70,8 @@ class ProposalWriter:
         scope: str,
         evidence: str,
         domain: str = "",
+        environment: dict | None = None,
+        origin_environment: dict | None = None,
     ) -> Path:
         proposal_id = str(uuid.uuid4())
         tmp_path = self.inbox_dir / f".tmp-{proposal_id}.md"
@@ -85,6 +87,12 @@ class ProposalWriter:
             "domain": domain,
             "status": "submitted",
         }
+        if origin_environment is not None:
+            from hermes.environment_scope import context
+            front_matter['origin_environment'] = context(origin_environment)
+        if environment is not None:
+            from hermes.environment_scope import context
+            front_matter['environment'] = context(environment)
         if not front_matter["domain"]:
             from hermes.lane import assign_lane, lane_text
             front_matter["domain"] = assign_lane(
@@ -242,7 +250,7 @@ def load_front_matter(path: str | Path) -> tuple[dict[str, str], str]:
     # Preserve any extra YAML fields for downstream use
     for k, v in yaml_overlay.items():
         if k not in data:
-            data[k] = str(v)
+            data[k] = v if k in ('environment','origin_environment') else str(v)
     return data, canonical_body
 
 

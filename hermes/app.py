@@ -42,12 +42,19 @@ from hermes.config import HermesConfig
 from hermes.exporter import ExportCompiler
 from hermes.repository import HermesRepository
 from hermes.status import StatusPublisher
+from hermes.project_activity import ProjectActivity, projects_page, project_page
 from hermes.homebase import home_page
+from hermes.review_notes import ReviewNotes
+from hermes.editorial_relations import EditorialRelations
+from hermes import workspace_relations
+from hermes.workspace_settings import settings_page as workspace_settings_page
+from hermes import workspace as experience_ui
 from hermes.cassette import cassette_page
 from hermes.orbit import orbit_page
 from hermes.lane import assign_lane as _assign_lane
 from hermes.knowledgebase import knowledge_tree_page as knowledge_page
 from hermes.knowledge_detail import knowledge_detail_page
+from hermes.knowledge_exploration import build_exploration
 from hermes.gallerybase import gallery_detail_page, gallery_page
 from hermes.templates import (
     dashboard_page,
@@ -75,7 +82,9 @@ def create_app(
     config = config or HermesConfig(sync_root=sync_root, db_path=sync_root / "hermes.sqlite3")
     exporter = exporter or ExportCompiler(repo=repo, sync_root=sync_root)
     status_publisher = StatusPublisher(repo=repo, sync_root=sync_root)
-    app = FastAPI(title="Hermes MVP")
+    app = FastAPI(title="Brain")
+    review_notes = ReviewNotes(repo)
+    editorial_relations = EditorialRelations(repo, review_notes)
     scoped_registry = (
         ScopedPrincipalRegistry(config.brain_scoped_tokens_file)
         if config.brain_scoped_tokens_file
@@ -399,61 +408,31 @@ def create_app(
     # JSON API endpoints (unchanged – tests depend on these)
     # ------------------------------------------------------------------
 
-    def _render_workbench_page() -> str:
-        """Render the Personal Workbench with live Brain and ops signals."""
-        try:
-            node_counts = repo.count_knowledge_nodes_by_stage()
-        except Exception:
-            node_counts = {"draft": 0, "refined": 0, "verified": 0, "canonized": 0, "deprecated": 0}
-        try:
-            proposal_counts = repo.counts_by_state()
-        except Exception:
-            proposal_counts = {"pending": 0, "approved_db_only": 0, "approved_for_export": 0, "rejected": 0, "superseded": 0}
-        try:
-            knowledge_health = repo.knowledge_health_report()
-        except Exception:
-            knowledge_health = {}
-        try:
-            lifecycle_overview = repo.proposal_lifecycle_overview(limit=12)
-        except Exception:
-            lifecycle_overview = {}
-        try:
-            pending_proposals = repo.list_proposals_by_state("pending")[:5]
-        except Exception:
-            pending_proposals = []
+    def _experience_topic(node: dict) -> str:
+        domain = str(node.get("domain") or "").lower()
+        if domain in {"science", "research", "apa", "eqtl", "qtl", "biology"}:
+            return "science"
+        if domain in {"tech", "devops", "network", "engineering", "development"}:
+            return "tech"
+        return "general"
 
-        import os as _os, yaml as _yaml
-        _plotting_dir = _os.environ.get("BRAIN_PLOTTING_DIR", "")
-        _cat_path = _os.path.join(_plotting_dir, "catalog.yaml")
-        chart_count = 0
-        try:
-            with open(_cat_path) as _f:
-                _cat = _yaml.safe_load(_f) or {}
-                chart_count = len(_cat.get("templates", []))
-        except Exception:
-            pass
-        recent_nodes = []
-        try:
-            _nodes = repo.list_knowledge_nodes(limit=8)
-            recent_nodes = [
-                {
-                    "id": n.id,
-                    "summary": n.summary,
-                    "stage": n.stage,
-                    "category": n.category,
-                    "created_at": n.created_at,
-                    "retrieval_count": n.retrieval_count,
-                    "outcome_count": n.outcome_count,
-                }
-                for n in _nodes
-            ]
-        except Exception:
-            pass
+    def _experience_topic_counts() -> dict:
+        result = {"science": 0, "tech": 0, "general": 0}
+        for node in repo.list_knowledge_nodes(limit=5000):
+            if node.stage != "deprecated":
+                result[_experience_topic(_asdict(node))] += 1
+        return result
+
+    def _render_workbench_page() -> str:
+        """Render the experience workspace using current records and attributed notes."""
+        nodes = [_asdict(n) for n in repo.list_knowledge_nodes(limit=5000) if n.stage != "deprecated"]
+        pending = review_notes.attach("proposal", repo.list_proposals_by_state("pending"))
         return home_page(
-            node_counts=node_counts, chart_count=chart_count, health_summary=knowledge_health,
-            recent_nodes=recent_nodes,
-            proposal_counts=proposal_counts, knowledge_health=knowledge_health,
-            lifecycle_overview=lifecycle_overview, pending_proposals=pending_proposals,
+            node_counts=repo.count_knowledge_nodes_by_stage(), chart_count=0, health_summary={},
+            recent_nodes=review_notes.attach("knowledge", nodes),
+            proposal_counts=repo.counts_by_state(),
+            reviewed_count=sum(bool(p.get("editorial_review")) for p in pending),
+            topic_counts=_experience_topic_counts(),
         )
 
     @app.get("/", response_class=HTMLResponse, response_model=None)
@@ -461,6 +440,45 @@ def create_app(
         if auth_enabled and not _has_valid_cookie(request):
             return RedirectResponse("/login", status_code=303)
         return _render_workbench_page()
+
+    # Operator pages inherit the owner cookie / bearer middleware. Agent-scoped
+    # tokens are intentionally not granted this cross-project listing.
+    project_activity = ProjectActivity(config.db_path)
+
+    @app.get("/projects", response_class=HTMLResponse)
+    def project_index(q: str = Query(default="", max_length=200)):
+        return projects_page(project_activity.projects(), query=q)
+
+    @app.get("/api/projects")
+    def project_index_data():
+        return {"projects": project_activity.projects()}
+
+    def _project_timeline(key: str, q: str, agent: str, status: str, offset: int):
+        data = project_activity.timeline(key, query=q, agent=agent, status=status, offset=offset)
+        if data is None:
+            raise HTTPException(status_code=404, detail="project not found")
+        return data
+
+    @app.get("/api/projects/{key}/activity")
+    def project_timeline_data(
+        key: str, q: str = Query(default="", max_length=200),
+        agent: str = Query(default="", max_length=128),
+        status: str = Query(default="", pattern=r"^(|completed|failed|timeout)$"),
+        offset: int = Query(default=0, ge=0, le=1000000),
+    ):
+        return _project_timeline(key, q, agent, status, offset)
+
+    @app.get("/projects/{key}", response_class=HTMLResponse)
+    def project_history(
+        key: str, q: str = Query(default="", max_length=200),
+        agent: str = Query(default="", max_length=128),
+        status: str = Query(default="", pattern=r"^(|completed|failed|timeout)$"),
+        offset: int = Query(default=0, ge=0, le=1000000),
+    ):
+        return project_page(_project_timeline(key, q, agent, status, offset),
+                            query=q, agent=agent, status=status)
+
+    app.mount("/workspace-assets", StaticFiles(directory=Path(__file__).with_name("workspace_assets")), name="workspace-assets")
 
     opening_dir = Path(__file__).with_name("opening")
     if opening_dir.is_dir():
@@ -600,7 +618,22 @@ def create_app(
         """Sync approved proposal's suggested_memory to agent-accessible context."""
         from hermes.runtime import sync_proposal_to_brain_context
         pid = str(proposal.get("proposal_id", ""))
-        return sync_proposal_to_brain_context(proposal, pid)
+        return sync_proposal_to_brain_context(proposal, pid, repo=repo)
+
+    @app.get("/api/workspace/relationships")
+    def editorial_relationship_summary():
+        snapshot = editorial_relations.snapshot()
+        return {"topics": list(snapshot["topics"].values()), "relationships": snapshot["edges"],
+                "stale": snapshot["stale"],
+                "memberships": [{"entity_type": kind, "entity_id": identity, "topic": item["topic"]}
+                                for (kind, identity), item in snapshot["entities"].items() if item.get("topic")]}
+
+    @app.get("/api/workspace/reviews")
+    def editorial_review_summary():
+        items = review_notes.attach("proposal", repo.list_proposals_by_state("pending"))
+        return {"pending": len(items), "reviewed": sum(bool(p["editorial_review"]) for p in items),
+                "items": [{"proposal_id": p["proposal_id"], "review": p["editorial_review"],
+                           "review_outdated": p["review_outdated"]} for p in items]}
 
     @app.get("/api/review/pending")
     def review_pending() -> dict[str, object]:
@@ -1158,6 +1191,11 @@ def create_app(
         content = body.get("content", "")
         if not content:
             raise HTTPException(status_code=400, detail="content is required")
+        from hermes.environment_scope import context
+        try:
+            environment = context(body.get('environment'))
+        except ValueError as error:
+            raise HTTPException(status_code=400,detail=str(error)) from error
         result = _integrate(
             content=content,
             source=body.get("source", "api"),
@@ -1166,6 +1204,7 @@ def create_app(
             parent_id=body.get("parent_id"),
             evidence=body.get("evidence"),
             repo=repo,
+            environment=environment,
         )
         return {
             "action": result.action,
@@ -1335,12 +1374,18 @@ def create_app(
     # ------------------------------------------------------------------
 
     @app.get("/review/{proposal_id}", response_class=HTMLResponse)
-    def review_detail_page_route(proposal_id: str) -> str:
+    def review_detail_page_route(proposal_id: str, view: str = Query(default="readable")) -> str:
         try:
             proposal = repo.get_proposal(proposal_id)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="proposal not found") from exc
-        return review_detail_page(proposal=proposal)
+        if view == "raw":
+            return review_detail_page(proposal=proposal)
+        proposal = editorial_relations.decorate(editorial_relations.snapshot(), "proposal", [proposal])[0]
+        from hermes.environment_scope import get_scope
+        with repo._connect() as connection:
+            environment = get_scope(connection, "proposal", proposal_id)
+        return experience_ui.proposal_detail(proposal=proposal, environment=environment)
 
     # ------------------------------------------------------------------
     # HTML pages – knowledge tree
@@ -1350,13 +1395,33 @@ def create_app(
 
     @app.get("/knowledge", response_class=HTMLResponse)
     def knowledge_route(
-        stage: str = Query(default="all"),
+        stage: str = Query(default="active"),
         category: str = Query(default=""),
         domain: str = Query(default=""),
         q: str = Query(default=""),
         view: str = Query(default="list"),
+        topic: str = Query(default=""),
+        page: int = Query(default=1, ge=1),
     ) -> str:
         requested_view = view if view in {"list", "graph"} else "list"
+        if requested_view == "list":
+            selected_stage = stage if stage in _VALID_KN_STAGES else "active"
+            items = [_asdict(n) for n in repo.list_knowledge_nodes(limit=5000)]
+            if selected_stage == "active":
+                items = [n for n in items if n["stage"] != "deprecated"]
+            elif selected_stage != "all":
+                items = [n for n in items if n["stage"] == selected_stage]
+            items = review_notes.attach("knowledge", items)
+            if topic:
+                items = [n for n in items if _experience_topic(n) == topic]
+            if category:
+                items = [n for n in items if n.get("category") == category]
+            if domain:
+                items = [n for n in items if n.get("domain") == domain]
+            if q.strip():
+                needle = q.strip().casefold()
+                items = [n for n in items if needle in (str(n.get("summary")) + " " + str(n.get("content")) + " " + str(n.get("editorial_review") or "")).casefold()]
+            return experience_ui.knowledge_index(nodes=items, counts=repo.count_knowledge_nodes_by_stage(), query=q, topic=topic, stage=selected_stage, page=page)
         if stage not in _VALID_KN_STAGES:
             stage = "all"
         node_stage = None if stage == "all" else stage
@@ -1390,10 +1455,26 @@ def create_app(
         )
 
     @app.get("/knowledge/{node_id}", response_class=HTMLResponse)
-    def knowledge_detail_page_route(node_id: str) -> str:
+    def knowledge_detail_page_route(node_id: str, view: str = Query(default="readable")) -> str:
         node = repo.get_knowledge_node(node_id)
         if node is None:
             raise HTTPException(status_code=404, detail="node not found")
+        if view != "raw":
+            try:
+                conflict_ids = json.loads(node.contradicts or "[]")
+            except (TypeError, ValueError):
+                conflict_ids = []
+            conflicts = []
+            for related_id in conflict_ids if isinstance(conflict_ids, list) else []:
+                related = repo.get_knowledge_node(str(related_id))
+                if related:
+                    conflicts.append(_asdict(related))
+            snapshot = editorial_relations.snapshot()
+            return experience_ui.knowledge_detail(
+                node=editorial_relations.decorate(snapshot, "knowledge", [_asdict(node)])[0],
+                conflicts=review_notes.attach("knowledge", conflicts),
+                exploration=build_exploration(repo, snapshot, node_id),
+            )
         chains = repo.get_thought_chains(node_id)
         children = repo.find_children(node_id)
         # Resolve parent node if parent_id exists
@@ -1657,11 +1738,27 @@ def create_app(
     @app.get("/proposals", response_class=HTMLResponse, response_model=None)
     def proposal_lifecycle_route(
         request: Request,
-        tab: str = Query(default="v2" if config.brain_v2_enabled else "flow"),
+        tab: str = Query(default="inbox"),
         state: str = Query(default="pending"),
+        q: str = Query(default="", max_length=200),
+        bucket: str = Query(default=""),
+        topic: str = Query(default="", max_length=100),
+        view: str = Query(default="topics", pattern="^(topics|list)$"),
+        page: int = Query(default=1, ge=1),
     ) -> str:
-        if tab not in {"v2", "flow", "review", "knowledge"}:
-            tab = "v2" if config.brain_v2_enabled else "flow"
+        if tab not in {"inbox", "v2", "flow", "review", "knowledge"}:
+            tab = "inbox"
+        if tab == "inbox":
+            snapshot = editorial_relations.snapshot()
+            items = editorial_relations.decorate(snapshot, "proposal", repo.list_proposals_by_state("pending"))
+            v2 = []
+            if config.brain_v2_enabled:
+                store = _v2_ui_store(request)
+                try:
+                    v2 = [p for p in store.list_current_proposals() if p["workflow_state"] not in {"accepted", "rejected"}]
+                finally:
+                    store.close()
+            return workspace_relations.proposal_queue(proposals=items, counts=repo.counts_by_state(), query=q, bucket=bucket, page=page, v2=v2, topic=topic, view=view, stale_relations=snapshot["stale"])
         if tab == "v2" and config.brain_v2_enabled:
             return v2_proposal_queue(request)
         if tab == "review":
@@ -2870,9 +2967,14 @@ def create_app(
         tmp_path.replace(_PROFILE_PATH)
         return cleaned
 
+    def _settings_page(*, error="", success=""):
+        return workspace_settings_page(profile=_read_profile(), error=error, success=success,
+                                       pipeline=knowledge_pipeline(), auth_enabled=auth_enabled,
+                                       password_enabled=bool(config.auth_username))
+
     @app.get("/settings", response_class=HTMLResponse)
     def settings_get() -> str:
-        return settings_page(profile=_read_profile())
+        return _settings_page()
 
     @app.get("/profile", response_class=HTMLResponse)
     def profile_get():
@@ -2920,23 +3022,16 @@ def create_app(
 
     @app.post("/settings/password")
     def settings_password(request: Request, current_password: str = Form(""), new_password: str = Form(""), confirm_password: str = Form("")):
-        # Verify current password: check against password first, then token
-        _authed = False
-        if config.auth_username and config.auth_password:
-            _authed = (current_password == config.auth_password)
-        if not _authed and config.auth_token:
-            _authed = (current_password == config.auth_token)
-        if not _authed:
-            return profile_page(error="当前密码不正确")
+        if not config.auth_username:
+            return HTMLResponse(_settings_page(error="当前使用访问令牌登录，令牌由服务配置管理"), status_code=400)
+        if current_password != config.auth_password:
+            return HTMLResponse(_settings_page(error="当前密码不正确"), status_code=400)
         if new_password != confirm_password:
-            return profile_page(error="两次输入的新密码不一致")
+            return HTMLResponse(_settings_page(error="两次输入的新密码不一致"), status_code=400)
         if len(new_password) < 6:
-            return profile_page(error="密码至少6个字符")
-        # Update password in config (and auth_token if set, since that's what authenticates)
-        _has_token = bool(config.auth_token)
+            return HTMLResponse(_settings_page(error="密码至少6个字符"), status_code=400)
+        # Browser login credentials and agent access tokens have separate lifetimes.
         object.__setattr__(config, "auth_password", new_password)
-        if _has_token:
-            object.__setattr__(config, "auth_token", new_password)
         # Also write to .env for persistence (store plaintext — .env is not a secrets vault,
         # and _valid_login compares plaintext, so storing a hash here would break login after restart)
         try:
@@ -2958,9 +3053,6 @@ def create_app(
                         # Update HERMES_PASSWORD (primary key in secrets file)
                         if stripped.startswith("HERMES_PASSWORD="):
                             lines.append(f"HERMES_PASSWORD={new_password}\n")
-                        # Update HERMES_AUTH_TOKEN (token-auth mode)
-                        elif stripped.startswith("HERMES_AUTH_TOKEN="):
-                            lines.append(f"HERMES_AUTH_TOKEN={new_password}\n")
                         # Update legacy HERMES_AUTH_PASSWORD if present
                         elif stripped.startswith("HERMES_AUTH_PASSWORD="):
                             lines.append(f"HERMES_AUTH_PASSWORD={new_password}\n")
@@ -2970,7 +3062,7 @@ def create_app(
                     f.writelines(lines)
         except Exception:
             pass
-        return profile_page(success="密码已更新")
+        return _set_auth_cookie(HTMLResponse(_settings_page(success="密码已更新")), request)
 
     # ------------------------------------------------------------------
     # Portable Brain loop protocol + installable skill package

@@ -34,50 +34,24 @@ def sync_proposal_to_brain_context(
     proposal: dict,
     proposal_id: str,
     *,
+    repo: HermesRepository | None = None,
     logger: logging.Logger | None = None,
 ) -> bool:
-    """Sync a proposal's suggested_memory to ~/.hermes/brain-context.md.
-
-    Module-level so both HermesRuntime and app.py API endpoints can share
-    the same implementation without duplication.
-    """
-    try:
-        suggested = str(proposal.get("suggested_memory", "")).strip()
-        if not suggested:
-            return False
-
-        category = str(proposal.get("category", "fact"))
-        summary = str(proposal.get("summary", ""))[:120]
-        pid = proposal_id[:12]
-
-        context_file = Path.home() / ".hermes" / "brain-context.md"
-        context_file.parent.mkdir(parents=True, exist_ok=True)
-
-        existing = ""
-        if context_file.exists():
-            existing = context_file.read_text(encoding="utf-8")
-
-        if pid in existing or summary[:60] in existing:
-            return False
-
-        entry = f"\n### [{category}] {summary[:100]}\n{suggested}\n<!-- proposal:{pid} -->\n"
-
-        # Keep only top 50 entries
-        entries = existing.split("<!-- proposal:")
-        if len(entries) > 50:
-            header = entries[0] if not entries[0].startswith("<!--") else ""
-            entries = entries[-49:]
-            existing = header + "<!-- proposal:" + "<!-- proposal:".join(entries)
-
-        context_file.write_text(existing + entry, encoding="utf-8")
-        if logger is not None:
-            logger.info("brain-context.md: wrote %s (%s)", pid, category)
-        else:
-            print(f"[brain.sync] wrote {pid} ({category}) to brain-context.md", flush=True)
-        return True
-    except Exception as exc:
-        print(f"[brain.sync] FAILED: {exc}", flush=True)
+    """Refresh the shared projection; never append a scoped or retired claim."""
+    if repo is None:
         return False
+    import os
+    from hermes.exporter import shared_agent_context
+    context_file=Path(os.environ.get('HERMES_CONTEXT_PATH',str(Path.home()/'.hermes'/'brain-context.md')))
+    text=shared_agent_context(repo)
+    if context_file.is_file() and context_file.read_text(encoding='utf-8')==text:return False
+    context_file.parent.mkdir(parents=True,exist_ok=True)
+    from tempfile import NamedTemporaryFile
+    with NamedTemporaryFile(mode='w',dir=context_file.parent,delete=False,encoding='utf-8') as output:
+        output.write(text);temporary=Path(output.name)
+    temporary.chmod(0o600);temporary.replace(context_file)
+    if logger:logger.info('refreshed shared Brain context from eligible proposals')
+    return True
 
 
 class HermesRuntime:
@@ -114,7 +88,7 @@ class HermesRuntime:
         except KeyError:
             return False
         return sync_proposal_to_brain_context(
-            proposal, proposal_id, logger=logging.getLogger(__name__),
+            proposal, proposal_id, repo=self.repo, logger=logging.getLogger(__name__),
         )
 
     def run_scan_cycle(self) -> ScanCycleResult:
@@ -162,10 +136,9 @@ class HermesRuntime:
     def rebuild_exports(self) -> RebuildResult:
         global_records = self.repo.list_exportable(None)
         global_updated = False
-        if global_records:
-            self.exporter.build_global_export()
-            self.exporter.build_claude_md_export()
-            global_updated = True
+        self.exporter.build_global_export()
+        self.exporter.build_claude_md_export()
+        global_updated = bool(global_records)
 
         # Always rebuild KNOWLEDGE.md from canonized knowledge nodes
         self.exporter.build_knowledge_export()
@@ -174,6 +147,7 @@ class HermesRuntime:
         # Export brain-context.md and canonical agent assets so HPC agents can
         # pull one source of truth via HTTP.
         self.exporter.export_brain_context()
+        sync_proposal_to_brain_context({},'',repo=self.repo)
         self.exporter.export_agent_assets()
 
         project_keys = self.repo.list_exportable_project_keys()

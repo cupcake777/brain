@@ -7,8 +7,10 @@ Use Brain for curated reusable experience, not as an automatic transcript or err
 Retrieve concrete relevant terms through the canonical client:
 
 ```bash
-python3 "$BRAIN_LOOP_SKILL_ROOT/scripts/brain.py" retrieve "specific task and error terms" --limit 5
+python3 "$BRAIN_LOOP_SKILL_ROOT/scripts/brain.py" retrieve "specific task and error terms" --limit 5 --traffic-kind task
 ```
+
+Requests include the current server, user directory and project. Set `BRAIN_SERVER_ID` and `BRAIN_USER_ROOT` consistently when using a stable server alias. Use `--traffic-kind audit`, `probe` or `evaluation` for non-task checks. Machine-specific experience requires matching context and is excluded from global exports.
 
 Preserve the returned `retrieval_id` and exact `node_id` values. Retrieved knowledge is advisory; verify current facts independently.
 
@@ -20,7 +22,7 @@ For every returned candidate, report an honest outcome after verification:
 
 ```bash
 python3 "$BRAIN_LOOP_SKILL_ROOT/scripts/brain.py" outcome \
-  <retrieval_id> <node_id> applied --note "Verified result"
+  <retrieval_id> <node_id> applied --task-success success --verification-note "Actual acceptance command and observed result"
 ```
 
 Use `not_used` when a result was irrelevant. Do not turn missing feedback into success or failure.

@@ -80,7 +80,7 @@ def test_existing_proposals_entry_opens_v2_review_queue(tmp_path) -> None:
     assert queue.status_code == 200
     assert str(proposal_id) in queue.text
     assert f"/proposals/{proposal_id}" in queue.text
-    assert "Proposal review" in queue.text
+    assert "待整理" in queue.text
 
     detail = client.get(f"/proposals/{proposal_id}")
     assert detail.status_code == 200

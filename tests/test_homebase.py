@@ -46,7 +46,7 @@ def _add_pending_proposal(repo: HermesRepository, sync_root: Path) -> str:
     return IngestionService(repo=repo, sync_root=sync_root).ingest_path(proposal_path).proposal_id
 
 
-def test_root_renders_engram_home_with_only_knowledge_and_gallery_modules(tmp_path: Path, monkeypatch) -> None:
+def test_root_renders_experience_workspace_with_real_counts(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
     board_path = tmp_path / "self/knowledge/daily-learnings/linuxdo-board.json"
     board_path.parent.mkdir(parents=True)
@@ -62,16 +62,15 @@ def test_root_renders_engram_home_with_only_knowledge_and_gallery_modules(tmp_pa
 
     assert response.status_code == 200
     html = response.text
-    assert "<title>Engram · Brain</title>" in html
-    assert 'class="engram-home"' in html
-    assert 'id="engram-ledger"' in html
-    assert 'id="engram-knowledge"' in html
-    assert 'id="engram-gallery"' in html
-    assert 'href="/knowledge"' in html
-    assert 'href="/gallery"' in html
-    assert 'href="/opening/"' in html
-    assert "Homebase live proposal requires a decision." in html
-    assert proposal_id in html
+    assert "<title>概览 · Brain</title>" in html
+    assert 'id="main-content"' in html
+    for href in ("/knowledge", "/proposals", "/projects", "/gallery"):
+        assert f'href="{href}"' in html
+    assert "把经验用起来" in html
+    assert "<strong>1</strong> 条待整理" in html
+    queue = client.get("/proposals")
+    assert proposal_id in queue.text
+    assert "Homebase live proposal requires a decision." in queue.text
 
     forbidden = (
         "homebase-sidebar",
@@ -126,7 +125,7 @@ def test_root_does_not_collect_infrastructure_or_linuxdo_data(tmp_path: Path, mo
     response = client.get("/")
 
     assert response.status_code == 200
-    assert 'class="engram-home"' in response.text
+    assert 'id="main-content"' in response.text
 
 
 def test_home_api_excludes_retired_infrastructure_inputs() -> None:
@@ -140,93 +139,56 @@ def test_home_api_excludes_retired_infrastructure_inputs() -> None:
     } & parameters.keys()
 
 
-def test_home_prioritizes_modules_and_exposes_keyboard_navigation() -> None:
+def test_home_exposes_search_counts_and_accessible_navigation() -> None:
     rendered = home_page(
-        node_counts={"draft": 1, "refined": 1, "verified": 1, "canonized": 1, "deprecated": 0},
-        chart_count=2,
-        health_summary={},
-        recent_nodes=[],
-        proposal_counts={"pending": 1},
-        pending_proposals=[{"proposal_id": "p-1", "summary": "Review me"}],
+        node_counts={"refined": 1, "canonized": 3, "deprecated": 9},
+        chart_count=2, health_summary={}, proposal_counts={"pending": 2},
+        reviewed_count=1, topic_counts={"science": 3, "tech": 1},
     )
-
-    assert 'class="skip-link" href="#main-content"' in rendered
-    assert '<main class="engram-main" id="main-content"' in rendered
-    assert 'href="/" aria-current="page"' in rendered
-    assert rendered.index('id="engram-knowledge"') < rendered.index('id="decision-title"')
-    assert rendered.index('id="engram-gallery"') < rendered.index('id="decision-title"')
-    assert "a:focus-visible" in rendered
-    assert "@media(max-width:760px)" in rendered
-    mobile_css = rendered.split("@media(max-width:760px)", 1)[1].split("</style>", 1)[0]
-    assert ".engram-nav a{min-height:44px" in mobile_css
-    assert ".engram-nav .utility{display:none}" not in mobile_css
-    assert ".module-card:focus-visible{outline:3px solid var(--oxide)" in rendered
-    assert "@media(max-width:380px)" in rendered
-    narrow_css = rendered.split("@media(max-width:380px)", 1)[1].split("</style>", 1)[0]
-    assert ".engram-topbar{flex-wrap:wrap" in narrow_css
-    assert ".engram-nav{width:100%" in narrow_css
-    assert ".engram-nav a{flex:1" in narrow_css
-    assert ".ledger-row,.recent-row{min-width:0" in narrow_css
-    assert "overflow-wrap:anywhere" in narrow_css
+    assert 'href="#main-content"' in rendered
+    assert '<main class="main" id="main-content"' in rendered
+    assert 'aria-current=page' in rendered
+    assert 'role="search"' in rendered
+    assert 'aria-label="搜索经验"' in rendered
+    assert '<strong>4</strong> 条在用经验' in rendered
+    assert '1 条已完成内容初审' in rendered
+    assert 'aria-label="展开导航" aria-expanded="false"' in rendered
+    assert 'a:focus-visible' in rendered
+    assert 'prefers-reduced-motion' in rendered
 
 
-def test_home_renders_empty_unicode_long_and_malicious_inputs_safely() -> None:
+def test_home_renders_empty_unicode_and_malicious_inputs_safely() -> None:
     empty = home_page(node_counts={}, chart_count=0, health_summary={})
-    assert "No decisions waiting" in empty
-    assert "No knowledge entries yet" in empty
-    assert "<strong>0</strong> records" in empty
-    # Home now includes one fixed theme controller; user data must never alter it.
+    assert "这里还没有经验" in empty
+    assert "<strong>0</strong> 条在用经验" in empty
     assert empty.count("<script>") == 1
-    theme_script = empty.split("<script>", 1)[1].split("</script>", 1)[0]
-    assert "localStorage.getItem('hermes_theme')" in theme_script
-    assert "document.getElementById('home-theme-toggle')" in theme_script
+    script = empty.split("<script>", 1)[1].split("</script>", 1)[0]
+    assert "localStorage.getItem('hermes_theme')" in script
 
     malicious = '</style><script>alert(1)</script><img src=x onerror=alert(2)>'
     rendered = home_page(
-        node_counts={"verified": 1},
-        chart_count=1,
-        health_summary={},
+        node_counts={"verified": 1}, chart_count=1, health_summary={},
         recent_nodes=[{
-            "id": '../../节点/α\" onclick=\"alert(3)',
-            "summary": "人脑 APA 🧠 " + malicious + "A" * 300,
-            "stage": 'verified\" onmouseover=\"alert(4)',
-            "category": '<svg onload=alert(5)>',
+            "id": '../../节点/α" onclick="alert(3)',
+            "summary": "人脑 APA 🧠 " + malicious,
+            "content": malicious,
+            "stage": 'verified" onmouseover="alert(4)',
+            "domain": '<svg onload=alert(5)>',
             "created_at": "2026-09-29",
         }],
-        proposal_counts={"pending": 1},
-        pending_proposals=[{
-            "proposal_id": '../提案/β\" onclick=\"alert(6)',
-            "summary": "复核证据 " + malicious + "B" * 300,
-            "risk_level": '\" autofocus onfocus=alert(7) x=\"',
-        }],
     )
-
     assert "人脑 APA 🧠" in rendered
-    assert "复核证据" in rendered
     assert malicious not in rendered
-    assert "<img src=x" not in rendered
-    assert "<svg onload" not in rendered
+    assert '<img src=x' not in rendered
+    assert '<svg onload' not in rendered
     assert "/knowledge/..%2F..%2F%E8%8A%82%E7%82%B9%2F%CE%B1%22%20onclick%3D%22alert%283%29" in rendered
-    assert "/review/..%2F%E6%8F%90%E6%A1%88%2F%CE%B2%22%20onclick%3D%22alert%286%29" in rendered
-    assert "A" * 141 not in rendered
-    assert "B" * 181 not in rendered
     assert rendered.count("<script>") == 1
-    assert rendered.split("<script>", 1)[1].split("</script>", 1)[0] == theme_script
-    assert all(marker not in rendered for marker in ("javascript:", "fetch(", "innerHTML"))
+    assert rendered.split("<script>", 1)[1].split("</script>", 1)[0] == script
 
-    class _EventAttributeParser(HTMLParser):
-        event_attributes: list[tuple[str, str | None]]
-
-        def __init__(self) -> None:
-            super().__init__()
-            self.event_attributes = []
-
-        def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-            self.event_attributes.extend((name, value) for name, value in attrs if name.lower().startswith("on"))
-
-    parser = _EventAttributeParser()
-    parser.feed(rendered)
-    assert parser.event_attributes == []
+    class EventAttributeParser(HTMLParser):
+        def handle_starttag(self, tag, attrs):
+            assert not any(name.lower().startswith("on") for name, _ in attrs)
+    EventAttributeParser().feed(rendered)
 
 
 def test_cassette_design_route_is_isolated_and_uses_live_data(tmp_path: Path, monkeypatch) -> None:
@@ -244,9 +206,9 @@ def test_cassette_design_route_is_isolated_and_uses_live_data(tmp_path: Path, mo
     candidate = client.get("/design/cassette")
 
     assert home.status_code == 200
-    assert 'class="engram-home"' in home.text
-    assert 'id="engram-knowledge"' in home.text
-    assert 'id="engram-gallery"' in home.text
+    assert 'id="main-content"' in home.text
+    assert 'href="/knowledge"' in home.text
+    assert 'href="/gallery"' in home.text
     assert "cassette-workbench" not in home.text
     assert candidate.status_code == 200
     html = candidate.text

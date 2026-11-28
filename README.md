@@ -153,6 +153,7 @@ Works with Claude Code, Codex, Hermes, Cursor, custom agents — anything that c
 
 | Feature | Description |
 |---------|-------------|
+| 🗂 **Project Activity** | Per-project timeline of captured requests, agent summaries, tool actions, file targets and errors; links to immutable event revisions |
 | 🔄 **Proposal Pipeline** | 3-layer funnel: inbox → review → approved/rejected with semantic dedup |
 | 🧬 **Lifecycle Stages** | draft → refined → canonized → deprecated with automated transitions |
 | 🪞 **Reflection Engine** | Semantic deduplication, auto-linking, contradiction detection |
@@ -223,6 +224,10 @@ brain/
 
 | Route | Purpose |
 |-------|---------|
+| `/projects` | Project activity index, grouped by authenticated workspace/project |
+| `/projects/{key}` | Searchable session timeline with agent/status filters and operation evidence |
+| `/api/projects` | Owner-only project index (existing owner session or bearer token) |
+| `/api/projects/{key}/activity` | Owner-only paginated project history |
 | `/knowledge` | Knowledge tree — browse by lifecycle stage and category |
 | `/knowledge/{id}` | Node detail — history, links, related entries |
 | `/review` | Review queue with state filters |
@@ -230,6 +235,43 @@ brain/
 | `/dashboard` | Overview: proposal counts, export status, health |
 | `/exports/global/global.md` | Global export (public) |
 | `/health` | Health check (public) |
+
+## Project activity
+
+Open **Projects** on Home to follow each captured project's development. The
+index shows recent activity, agents and associated sessions. A project opens a
+chronological timeline with search, agent/status filters, file targets, event
+IDs and revisions. Times display in the browser's local timezone; optional
+30-second refresh pauses while the tab is hidden or evidence is expanded.
+
+The portable hook adapter preserves sanitized tool context all the way through
+the V2 event API. Claude/Codex hook manifests additionally capture bounded
+`UserPromptSubmit` excerpts and `Stop.last_assistant_message` excerpts when the
+host supplies them. It does not read full transcripts or synthesize task
+completion. A successful tool call is an observed action; a session summary is
+an agent statement. Older events visibly indicate missing context.
+
+Project identity follows `BRAIN_PROJECT`, then a `.hermes-project` marker, then
+the nearest Git directory name, then the working directory name. Set a shared
+`project_key: paper-name` in `.hermes-project` (or `BRAIN_PROJECT`) to keep
+worktrees and hosts aligned. Workspace boundaries remain separate. The project
+pages and their cross-project APIs require owner access on protected servers;
+agent tokens keep their existing scoped V2 event access.
+
+Context already captured in a local outbox can be audited and recovered:
+
+```bash
+python -m hermes.project_activity_backfill --db /path/to/hermes.sqlite3 \
+  --outbox /path/to/codex-outbox.sqlite3
+# After taking a SQLite backup, append verified context revisions:
+python -m hermes.project_activity_backfill --db /path/to/hermes.sqlite3 \
+  --outbox /path/to/codex-outbox.sqlite3 --apply
+```
+
+The audit is read-only by default. Recovery requires a matching event ID,
+original client SHA-256 digest and project receipt, applies the storage privacy
+gate and appends a new revision. It preserves original facts and outbox receipts.
+It cannot reconstruct details that the original capture never recorded.
 
 ## Configuration
 

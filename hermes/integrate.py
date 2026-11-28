@@ -431,6 +431,7 @@ def integrate(
     parent_id: str | None = None,
     evidence: list[str] | None = None,
     repo: HermesRepository,
+    environment: dict | None = None,
 ) -> IntegrateResult:
     """Integrate new knowledge into the knowledge tree.
 
@@ -442,12 +443,19 @@ def integrate(
     5. Return result
     """
     now = datetime.now(timezone.utc).isoformat()
+    from hermes.environment_scope import context, get_scope, assign
+    current_environment = context(environment)
     node_id = str(uuid.uuid4())
     summary = content[:120].rstrip()  # Auto-generate summary from content
 
     # Get all active (non-deprecated) nodes for comparison
     existing_nodes = repo.list_knowledge_nodes(limit=500)  # Active nodes
     existing_active = [n for n in existing_nodes if n.stage != "deprecated"]
+    # Deduplication and contradiction checks are local to an applicability
+    # scope. A similar rule from another account must never be merged away.
+    with repo._connect() as connection:
+        existing_active = [n for n in existing_active if
+            {k: get_scope(connection,'knowledge',n.id)[k] for k in current_environment} == current_environment]
 
     # Step 1: Dedup check
     dedup = dedup_check(summary, content, existing_active)
@@ -629,7 +637,7 @@ def integrate(
         success_signal="",
         failure_signal="",
     )
-    repo.insert_knowledge_node(node)
+    repo.insert_knowledge_node(node, environment=current_environment)
     if parent_id:
         repo.insert_memory_edge(node_id, parent_id, "derived_from")
     if superseded_id:
@@ -653,7 +661,7 @@ def integrate(
         )
         repo.insert_thought_chain(tc)
         repo.insert_memory_edge(
-            node_id, dedup.target.id, "related_to", evidence_id=f"text={dedup.similarity:.3f}",
+            node_id, dedup.target.id, "review_candidate", evidence_id=f"text={dedup.similarity:.3f}",
         )
 
     action = "created_with_contradiction" if contradict_ids else "created"

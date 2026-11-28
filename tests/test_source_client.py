@@ -23,6 +23,8 @@ def test_source_requires_token_before_network(monkeypatch):
     import pytest
     client = load_client()
     monkeypatch.delenv('BRAIN_TOKEN', raising=False)
+    monkeypatch.delenv('BRAIN_TOKEN_FILE', raising=False)
+    monkeypatch.setattr(client, '_read_config', lambda name: '')
     monkeypatch.setattr(client.urllib.request, 'urlopen', lambda *a, **k: pytest.fail('unauthenticated network dispatch'))
     args = client.parser().parse_args(['source-retrieve', '--query', 'TET2'])
     with pytest.raises(RuntimeError, match='BRAIN_TOKEN'):

@@ -29,6 +29,8 @@ class KnowledgeStore:
         CREATE TABLE IF NOT EXISTS brain_v2_knowledge_current(
           id TEXT PRIMARY KEY, version INTEGER NOT NULL);
         ''')
+        from hermes.environment_scope import SCHEMA
+        self.conn.executescript(SCHEMA)
     def _validate(self, content, source_refs):
         if not isinstance(content, str) or not content.strip() or len(content)>8000:
             raise ValueError('bounded nonblank content required')

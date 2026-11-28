@@ -189,6 +189,46 @@ def test_registry_reloads_after_atomic_rotation(tmp_path):
     ).status_code == 401
 
 
+def test_scoped_health_requires_knowledge_read(tmp_path):
+    read_path = _registry(
+        tmp_path / "health-tokens.json",
+        permissions=["knowledge:read"],
+    )
+    registry = ScopedPrincipalRegistry(read_path)
+
+    class HealthRequest:
+        headers = {"authorization": "Bearer agent-token"}
+        class URL:
+            path = "/api/v1/brain/health"
+        url = URL()
+        method = "GET"
+
+    assert registry.authorize_http(HealthRequest()) is True
+
+
+def test_v1_proposal_status_requires_proposals_read(tmp_path):
+    read_path = _registry(
+        tmp_path / "read-tokens.json",
+        permissions=["proposals:read"],
+    )
+    read_registry = ScopedPrincipalRegistry(read_path)
+
+    class StatusRequest:
+        headers = {"authorization": "Bearer agent-token"}
+        class URL:
+            path = "/api/v1/brain/proposals/proposal-1"
+        url = URL()
+        method = "GET"
+
+    assert read_registry.authorize_http(StatusRequest()) is True
+
+    write_path = _registry(
+        tmp_path / "write-tokens.json",
+        permissions=["proposals:write"],
+    )
+    assert ScopedPrincipalRegistry(write_path).authorize_http(StatusRequest()) is False
+
+
 def test_transition_requires_review_permission(tmp_path):
     path = _registry(
         tmp_path / "tokens.json",

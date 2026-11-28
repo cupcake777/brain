@@ -1,5 +1,5 @@
 name: brain
-version: "1.4.1"
+version: "1.4.2"
 description: "Brain shared-experience integration for Hermes Agent. Registers the Brain skill plus automatic, sanitized, durable tool-event capture and session flush hooks."
 author: Hermes Agent
 license: MIT

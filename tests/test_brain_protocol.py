@@ -187,3 +187,50 @@ def test_skill_package_requires_auth_and_references_support_files(tmp_path: Path
     script = client.get("/skills/brain-loop/scripts/brain.py", headers=headers)
     assert script.status_code == 200
     assert "api/v1/brain/retrieve" in script.text
+
+
+def test_protocol_persists_task_verification_metadata(tmp_path: Path) -> None:
+    client, repo, _ = client_with_token(tmp_path)
+    headers = {"Authorization": "Bearer test-token"}
+    node = integrate(
+        content="Preserve session identifiers when attributing feedback.", source="test",
+        category="rule", domain="tech", evidence=["test://session-attribution"], repo=repo,
+    )
+    repo.update_knowledge_node(node.node_id, stage="verified")
+    for task_success, user_validated in [("success", True), ("partial", False), ("unknown", None)]:
+        retrieval = client.post("/api/v1/brain/retrieve", headers=headers, json={
+            "query": "session identifiers", "agent": "test-agent", "session_id": "test-session",
+        }).json()
+        response = client.post("/api/v1/brain/outcome", headers=headers, json={
+            "retrieval_id": retrieval["retrieval_id"], "node_id": node.node_id, "status": "applied",
+            "task_success": task_success, "user_validated": user_validated,
+        })
+        assert response.status_code == 200
+        with repo._connect() as connection:
+            stored = connection.execute(
+                "SELECT task_success, user_validated FROM outcome_log WHERE retrieval_log_id = ? AND memory_id = ?",
+                (retrieval["retrieval_id"], node.node_id),
+            ).fetchone()
+        assert stored["task_success"] == task_success
+        assert stored["user_validated"] == user_validated
+
+
+def test_protocol_rejects_invalid_task_verification_metadata(tmp_path: Path) -> None:
+    client, repo, _ = client_with_token(tmp_path)
+    headers = {"Authorization": "Bearer test-token"}
+    node = integrate(
+        content="Validate task results separately from knowledge usefulness.", source="test", category="rule",
+        domain="tech", evidence=["test://verification-metadata"], repo=repo,
+    )
+    repo.update_knowledge_node(node.node_id, stage="verified")
+    retrieval = client.post("/api/v1/brain/retrieve", headers=headers, json={"query": "task results"}).json()
+    for invalid in [
+        {"task_success": "passed"}, {"task_success": True}, {"task_success": []},
+        {"user_validated": "false"}, {"user_validated": 1},
+    ]:
+        response = client.post("/api/v1/brain/outcome", headers=headers, json={
+            "retrieval_id": retrieval["retrieval_id"], "node_id": node.node_id, "status": "applied", **invalid,
+        })
+        assert response.status_code == 400
+    with repo._connect() as connection:
+        assert connection.execute("SELECT COUNT(*) FROM outcome_log").fetchone()[0] == 0

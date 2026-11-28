@@ -57,7 +57,7 @@ MAX_BODY_BYTES = 65_536
 
 
 #: Current schema version produced by :meth:`EventStore.schema_version`.
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 
 # ---------------------------------------------------------------------------
@@ -215,6 +215,8 @@ def _storage_privacy_scan(payload: Any) -> tuple[str, str] | None:
     for text, field in _walk_strings(payload):
         if not text:
             continue
+        if field.lower() in {"api_key", "apikey", "token", "password", "passwd", "secret", "private_key", "authorization", "session_token"} and text != "[REDACTED]":
+            return "structured_secret", field
         if _LABELED_SECRET.search(text):
             return "labeled_secret", field or "<root>"
         if _PROVIDER_KEY_SIGNATURE.search(text):
@@ -241,6 +243,7 @@ _DIGEST_FIELDS: tuple[str, ...] = (
     "source_refs",
     "origin",
     "classification",
+    "capture",
 )
 
 
@@ -441,6 +444,12 @@ class EventStore:
             cur.execute(
                 "ALTER TABLE source_events ADD COLUMN client_digest TEXT NOT NULL DEFAULT ''"
             )
+        if "capture" not in event_columns:
+            cur.execute("ALTER TABLE source_events ADD COLUMN capture TEXT NOT NULL DEFAULT '{}'")
+        cur.execute(
+            "CREATE INDEX IF NOT EXISTS idx_source_events_project_activity "
+            "ON source_events(principal_workspace, principal_project, occurred_at DESC)"
+        )
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS source_documents (
@@ -627,6 +636,7 @@ class EventStore:
         classification: str = "production",
         expected_version: int | None = None,
         client_digest: str | None = None,
+        capture: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         principal = self._resolve_principal()
         self._enforce_scope(principal, project_id=project_id)
@@ -640,6 +650,7 @@ class EventStore:
             "action": action,
             "result": result,
             "source_refs": ref_payload,
+            "capture": dict(capture or {}),
         }
         self._enforce_body_limit(payload_for_scan)
         self._enforce_privacy(payload_for_scan)
@@ -664,16 +675,24 @@ class EventStore:
                 "result": result,
                 "origin": origin,
                 "classification": classification,
+                **({"capture": dict(capture)} if capture else {}),
             }
         )
 
         with self._conn:  # transactional
             cur = self._conn.cursor()
             existing = cur.execute(
-                "SELECT version, payload_digest, client_digest FROM source_events WHERE id = ?",
+                "SELECT version, payload_digest, client_digest, principal_workspace, principal_project "
+                "FROM source_events WHERE id = ?",
                 (event_id,),
             ).fetchall()
             if existing:
+                if any(
+                    row["principal_workspace"] != principal.workspace
+                    or row["principal_project"] != principal.project
+                    for row in existing
+                ):
+                    raise UnauthorizedError("cross-project event identity rejected")
                 versions = sorted(row["version"] for row in existing)
                 latest = versions[-1]
                 if expected_version is not None and expected_version != latest:
@@ -706,8 +725,8 @@ class EventStore:
                     id, version, project_id, agent_id, occurred_at, client_digest,
                     action, result, origin, classification,
                     payload_digest, principal_actor, principal_workspace,
-                    principal_project, received_at, source_refs
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    principal_project, received_at, source_refs, capture
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     event_id,
@@ -726,6 +745,7 @@ class EventStore:
                     principal.project,
                     received_at,
                     _serialise(ref_payload),
+                    _serialise(dict(capture or {})),
                 ),
             )
             return {
@@ -743,7 +763,7 @@ class EventStore:
             SELECT id, version, project_id, agent_id, occurred_at, client_digest, action,
                    result, origin, classification, payload_digest,
                    principal_actor, principal_workspace, principal_project,
-                   received_at, source_refs
+                   received_at, source_refs, capture
             FROM source_events
             WHERE principal_workspace = ? AND principal_project = ?
             ORDER BY received_at ASC, id ASC, version ASC
@@ -759,7 +779,7 @@ class EventStore:
             SELECT id, version, project_id, agent_id, occurred_at, client_digest, action,
                    result, origin, classification, payload_digest,
                    principal_actor, principal_workspace, principal_project,
-                   received_at, source_refs
+                   received_at, source_refs, capture
             FROM source_events
             WHERE id = ? AND version = ?
               AND principal_workspace = ? AND principal_project = ?
@@ -789,6 +809,7 @@ class EventStore:
             "principal_project": row["principal_project"],
             "received_at": row["received_at"],
             "source_refs": _deserialise(row["source_refs"]) or [],
+            "capture": _deserialise(row["capture"]) or {},
         }
 
     # -- documents -----------------------------------------------------------

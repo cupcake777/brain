@@ -176,7 +176,10 @@ def test_detail_route_uses_isolated_renderer_and_resolves_contradictions(tmp_pat
     response = client.get("/knowledge/node-main")
 
     assert response.status_code == 200
-    assert '<main class="engram-detail" id="knowledge-detail-main"' in response.text
+    assert 'id="main-content"' in response.text
+    assert "有冲突的关联经验" in response.text
+    assert '?view=raw' in response.text
+    assert 'id="knowledge-detail-main"' in client.get("/knowledge/node-main?view=raw").text
     assert "Conflicting claim" in response.text
     assert "/knowledge/node%2Fother" in response.text
     assert "onclick=\"knPromote" not in response.text

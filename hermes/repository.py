@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 import sqlite3
 
+from hermes.retrieval_lexical import query_terms, term_coverage, required_coverage
+
 
 def _reduce_outcomes_safe(observations):
     """Module-level shim around hermes.outcomes.reduce_outcomes.
@@ -80,6 +82,8 @@ class KnowledgeRetrievalEvent:
     host_id: str = ""
     finalized_at: str | None = None
     final_result: str | None = None
+    traffic_kind: str = "unknown"
+    task_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -353,12 +357,17 @@ class HermesRepository:
             ).fetchone()
         return row is not None
 
-    def find_by_semantic_hash(self, semantic_hash: str, *, excluding: str | None = None) -> str | None:
+    def find_by_semantic_hash(self, semantic_hash: str, *, excluding: str | None = None, environment: dict | None = None) -> str | None:
         query = "SELECT proposal_id FROM proposals WHERE semantic_hash = ?"
         params: list[str] = [semantic_hash]
         if excluding is not None:
             query += " AND proposal_id != ?"
             params.append(excluding)
+        if environment is not None:
+            from hermes.environment_scope import context
+            for key,value in context(environment).items():
+                query += f" AND COALESCE((SELECT s.{key} FROM brain_environment_scopes s WHERE s.entity_type='proposal' AND s.entity_id=proposals.proposal_id),'')=?"
+                params.append(value)
         with self._connect() as connection:
             row = connection.execute(query, tuple(params)).fetchone()
         return None if row is None else str(row["proposal_id"])
@@ -649,6 +658,13 @@ class HermesRepository:
     def list_exportable(self, project_key: str | None = None) -> list[dict[str, str | int | float | None]]:
         query = """SELECT p.* FROM proposals p
                    WHERE p.state = 'approved_for_export'
+                     AND NOT EXISTS (SELECT 1 FROM brain_environment_scopes s
+                         WHERE s.entity_type='proposal' AND s.entity_id=p.proposal_id AND s.server_id<>'')
+                     AND NOT EXISTS (
+                       SELECT 1 FROM proposal_knowledge_links l JOIN brain_environment_scopes s
+                       ON s.entity_type='knowledge' AND s.entity_id=l.knowledge_id
+                       WHERE l.proposal_id=p.proposal_id AND s.server_id<>''
+                     )
                      AND NOT EXISTS (
                        SELECT 1 FROM proposal_knowledge_retirements r
                        WHERE r.proposal_id = p.proposal_id
@@ -829,7 +845,7 @@ class HermesRepository:
         "use_when", "avoid_when", "success_signal", "failure_signal",
     })
 
-    def insert_knowledge_node(self, node: KnowledgeNode) -> None:
+    def insert_knowledge_node(self, node: KnowledgeNode, *, environment: dict | None = None) -> None:
         """Insert a new knowledge node into the V2 table."""
         row = {
             "id": node.id,
@@ -872,6 +888,9 @@ class HermesRepository:
                 tuple(payload.values()),
             )
             self._replace_knowledge_fts(connection, node.id, node.summary, node.content, node.category, node.domain)
+            if environment is not None:
+                from hermes.environment_scope import assign
+                assign(connection,'knowledge',node.id,environment)
         self.refresh_entity_embedding(
             "knowledge",
             node.id,
@@ -1145,6 +1164,7 @@ class HermesRepository:
         *,
         category: str | None = None,
         domain: str | None = None,
+        environment: dict | None = None,
     ) -> dict[str, float]:
         from hermes.embedding import blob_to_vector, cosine_similarity, embed_text
 
@@ -1156,6 +1176,10 @@ class HermesRepository:
             return {}
         filters = ["ee.entity_type = 'knowledge'", "ee.status = 'ready'", "kn.stage IN ('canonized', 'verified', 'refined')"]
         params: list[object] = []
+        from hermes.environment_scope import eligibility_sql
+        scope_sql, scope_params = eligibility_sql(environment=environment)
+        filters.append(scope_sql)
+        params.extend(scope_params)
         if category:
             filters.append("kn.category = ?")
             params.append(category)
@@ -1292,7 +1316,7 @@ class HermesRepository:
 
     @staticmethod
     def _knowledge_search_terms(query: str) -> list[str]:
-        return list(dict.fromkeys(re.findall(r"[a-z0-9_]+(?:-[a-z0-9_]+)*|[一-鿿]{2,}", query.casefold())))
+        return query_terms(query)
 
     @classmethod
     def _fts_query(cls, query: str) -> str:
@@ -1306,6 +1330,7 @@ class HermesRepository:
         limit: int = 10,
         category: str | None = None,
         domain: str | None = None,
+        environment: dict | None = None,
     ) -> list[dict[str, object]]:
         """Search active knowledge nodes with FTS5 and tokenized fallback."""
         clean_query = (query or "").strip()
@@ -1314,6 +1339,10 @@ class HermesRepository:
             return []
         filters = ["kn.stage IN ('canonized', 'verified', 'refined')"]
         filter_params: list[object] = []
+        from hermes.environment_scope import eligibility_sql
+        scope_sql, scope_params = eligibility_sql(environment=environment)
+        filters.append(scope_sql)
+        filter_params.extend(scope_params)
         if category:
             filters.append("kn.category = ?")
             filter_params.append(category)
@@ -1359,7 +1388,7 @@ class HermesRepository:
                 by_id.setdefault(str(row["id"]), row)
             rows = list(by_id.values())
         semantic_scores = self._semantic_knowledge_scores(
-            clean_query, category=category, domain=domain,
+            clean_query, category=category, domain=domain, environment=environment,
         ) if clean_query else {}
         if semantic_scores:
             semantic_ids = [
@@ -1380,12 +1409,10 @@ class HermesRepository:
         scored = []
         for row in rows:
             d = dict(row)
-            hay = " ".join(str(d.get(k, "")) for k in ("summary", "content", "category", "domain", "trigger_terms")).casefold()
-            tokens = set(self._knowledge_search_terms(hay))
-            matched_terms = sum(
-                term in hay if re.fullmatch(r"[一-鿿]+", term) else term in tokens
-                for term in terms
-            )
+            hay = " ".join(str(d.get(k, "")) for k in ("summary", "content", "category", "domain", "trigger_terms"))
+            matched_terms = term_coverage(terms, hay)
+            if matched_terms < required_coverage(terms):
+                continue
             # BM25 breaks ties within a term-coverage level; a rare shared
             # word must not outrank a node matching several query terms.
             fts_score = -float(d.get("search_score") or 0)
@@ -1419,12 +1446,17 @@ class HermesRepository:
         domain: str | None = None,
         session_id: str = "",
         v2_principal: object | None = None,
+        traffic_kind: str = "unknown",
+        task_id: str = "",
+        environment: dict | None = None,
     ) -> dict[str, object]:
         """Search nodes, increment retrieval_count, store retrieval_log."""
         import logging
+        from hermes.feedback_attribution import validate_provenance
+        traffic_kind, task_id = validate_provenance(traffic_kind, task_id, session_id)
         now = datetime.now(timezone.utc).isoformat()
         candidate_limit = min(100, max(20, limit * 3)) if limit > 0 else 0
-        results = self.search_knowledge_nodes(query, limit=candidate_limit, category=category, domain=domain)
+        results = self.search_knowledge_nodes(query, limit=candidate_limit, category=category, domain=domain, environment=environment)
         legacy_ids = {str(item["id"]) for item in results}
         if v2_principal is not None and limit > 0:
             from hermes.knowledge_retrieval_v2 import retrieve as retrieve_v2
@@ -1438,6 +1470,7 @@ class HermesRepository:
                     query,
                     candidate_limit=min(candidate_limit, 20),
                     limit=candidate_limit,
+                    environment=environment,
                 )
             finally:
                 v2_store.close()
@@ -1473,18 +1506,25 @@ class HermesRepository:
         terms = self._knowledge_search_terms(query)
         for item in results:
             hay = " ".join(str(item.get(k, "")) for k in
-                           ("summary", "content", "category", "domain", "trigger_terms")).casefold()
-            tokens = set(self._knowledge_search_terms(hay))
-            coverage = sum(term in hay if re.fullmatch(r"[一-鿿]+", term) else term in tokens for term in terms)
+                           ("summary", "content", "category", "domain", "trigger_terms"))
+            coverage = term_coverage(terms, hay)
             local = float(item.get("score") or 0)
             item["score"] = coverage + local / (1 + abs(local)) * 0.5
         results.sort(key=lambda item: (-float(item["score"]), str(item["id"])))
         results = results[:max(0, limit)]
+        from hermes.environment_scope import get_scope
+        with self._connect() as connection:
+            for item in results:
+                item['environment'] = get_scope(connection, 'knowledge', str(item['id']))
         node_ids = [str(item["id"]) for item in results]
         modes = {str(item.get("retrieval_mode", "fts5")) for item in results}
         retrieval_mode = next(iter(modes)) if len(modes) == 1 else ("mixed" if modes else "fts5")
         event_id = str(uuid.uuid4()) if node_ids else ""
         with self._connect() as connection:
+            from hermes.environment_scope import context
+            connection.execute('INSERT INTO brain_retrieval_requests VALUES (?,?,?,?,?,?,?)',
+                (str(uuid.uuid4()),event_id,traffic_kind,session_id,task_id,
+                 json.dumps(context(environment)),now))
             if node_ids:
                 legacy_result_ids = [node_id for node_id in node_ids if node_id in legacy_ids]
                 if legacy_result_ids:
@@ -1494,14 +1534,15 @@ class HermesRepository:
                         tuple([now] + legacy_result_ids),
                     )
                 connection.execute(
-                    """INSERT INTO knowledge_retrieval_events (id, query, agent, host, node_ids, created_at, session_id, host_id)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                    (event_id, query, agent, host, json.dumps(node_ids), now, session_id, host),
+                    """INSERT INTO knowledge_retrieval_events (id, query, agent, host, node_ids, created_at, session_id, host_id, traffic_kind, task_id)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (event_id, query, agent, host, json.dumps(node_ids), now, session_id, host, traffic_kind, task_id),
                 )
                 connection.execute(
                     """INSERT INTO retrieval_log (id, query, retrieval_mode, candidate_ids, selected_ids, used_ids, agent, session_id, task_context, created_at)
-                       VALUES (?, ?, ?, ?, '[]', '[]', ?, ?, '', ?)""",
-                    (event_id, query, retrieval_mode, json.dumps(node_ids), agent or "unknown", session_id or "", now),
+                       VALUES (?, ?, ?, ?, '[]', '[]', ?, ?, ?, ?)""",
+                    (event_id, query, retrieval_mode, json.dumps(node_ids), agent or "unknown", session_id or "",
+                     json.dumps({"traffic_kind": traffic_kind, "task_id": task_id}), now),
                 )
                 for node_id in legacy_result_ids:
                     updated_row = connection.execute(
@@ -1644,43 +1685,39 @@ class HermesRepository:
         migrated DB can re-run init without raising.
         """
         with self._connect() as connection:
+            from hermes.environment_scope import SCHEMA
+            connection.executescript(SCHEMA)
+            from hermes.feedback_attribution import REQUEST_SCHEMA
+            connection.executescript(REQUEST_SCHEMA)
             for sql in self._STAGE1_MIGRATIONS:
                 try:
                     connection.execute(sql)
                 except Exception:
                     pass  # already applied / no-op
-            # Backfill session_id/host_id from the parallel retrieval_log
-            # table when available (it has both columns). Existing retrieval
-            # rows without a matching retrieval_log row keep '' (legitimate
-            # legacy default).
-            try:
-                connection.execute(
-                    """
-                    UPDATE knowledge_retrieval_events AS kre
-                    SET session_id = COALESCE(NULLIF(rl.session_id, ''), kre.session_id),
-                        host_id    = COALESCE(NULLIF(rl.agent, ''),    kre.host_id)
-                    FROM retrieval_log AS rl
-                    WHERE rl.id = kre.id
-                      AND (kre.session_id = '' OR kre.host_id = '')
-                    """
-                )
-            except Exception:
-                # Older SQLite builds (<3.33) lack UPDATE...FROM; fall back
-                # to a row-by-row backfill which is fine for ≤ 100 rows.
-                rows = connection.execute(
-                    "SELECT id FROM knowledge_retrieval_events WHERE session_id = '' OR host_id = ''"
-                ).fetchall()
-                for row in rows:
-                    rl = connection.execute(
-                        "SELECT session_id, agent FROM retrieval_log WHERE id = ?",
-                        (row["id"],),
-                    ).fetchone()
-                    if rl is None:
-                        continue
-                    connection.execute(
-                        "UPDATE knowledge_retrieval_events SET session_id = ?, host_id = ? WHERE id = ?",
-                        (rl["session_id"] or "", rl["agent"] or "", row["id"]),
-                    )
+            # Explicit additive telemetry migration; never infer historical labels.
+            for table, column, definition in (
+                ("knowledge_retrieval_events", "traffic_kind", "TEXT NOT NULL DEFAULT 'unknown'"),
+                ("knowledge_retrieval_events", "task_id", "TEXT NOT NULL DEFAULT ''"),
+                ("outcome_log", "verification_note", "TEXT NOT NULL DEFAULT ''"),
+            ):
+                columns = {row[1] for row in connection.execute(f"PRAGMA table_info({table})")}
+                if column not in columns:
+                    connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+            # Session comes from the corresponding request; machine identity
+            # comes from kre.host. An agent label is never a host identity.
+            rows=connection.execute("""SELECT kre.id,kre.session_id,kre.host_id,kre.host,
+                       rl.session_id log_session,rl.agent log_agent
+                FROM knowledge_retrieval_events kre LEFT JOIN retrieval_log rl ON rl.id=kre.id
+                WHERE kre.session_id='' OR kre.host_id='' OR kre.host_id=rl.agent""").fetchall()
+            for row in rows:
+                session=row['session_id'] or row['log_session'] or ''
+                host=row['host_id'] or row['host'] or ''
+                # Repair only the precisely identifiable old agent-as-host
+                # backfill, using the original event's actual host evidence.
+                if row['host'] and row['host_id']==row['log_agent']:
+                    host=row['host']
+                connection.execute('UPDATE knowledge_retrieval_events SET session_id=?,host_id=? WHERE id=?',
+                                   (session,host,row['id']))
 
     # ------------------------------------------------------------------
     # Idempotent per-pair outcome recording + scoped finalisation
@@ -1700,6 +1737,7 @@ class HermesRepository:
         task_success: str = "unknown",
         user_validated: bool | None = None,
         v2_principal: object | None = None,
+        verification_note: str = "",
     ) -> dict[str, object]:
         """Idempotent per-pair outcome writer (stage-1 contract).
 
@@ -1719,6 +1757,10 @@ class HermesRepository:
             normalise_status,
         )
 
+        from hermes.feedback_attribution import validate_verification
+        task_success, user_validated, verification_note = validate_verification(
+            task_success, user_validated, verification_note,
+        )
         normalised = normalise_status(status, used=used)
         now = datetime.now(timezone.utc).isoformat()
         with self._connect() as connection:
@@ -1789,11 +1831,11 @@ class HermesRepository:
             oid = str(uuid.uuid4())
             connection.execute(
                 """INSERT INTO outcome_log
-                   (id, retrieval_log_id, memory_id, used, helpfulness, user_validated, task_success, notes, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                   (id, retrieval_log_id, memory_id, used, helpfulness, user_validated, task_success, notes, created_at, verification_note)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (oid, retrieval_log_id, node_id, int(bool(used)), helpfulness,
                  1 if user_validated else (0 if user_validated is False else None),
-                 task_success, str(notes)[:1000], now),
+                 task_success, str(notes)[:1000], now, verification_note),
             )
             # Confidence / weight updates use the same policy as v3.
             if is_v2_node:

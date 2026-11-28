@@ -237,3 +237,57 @@ def test_flush_degrades_gracefully_without_fcntl(tmp_path, monkeypatch):
     result = adapter.flush(5)
     assert set(result) == {"reconcile", "drain"}
     assert isinstance(result["drain"], dict)
+
+
+def test_wire_preserves_sanitized_activity_context(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_OUTBOX", str(tmp_path / "outbox.sqlite3"))
+    result = adapter.capture("codex", {"session_id": "s", "tool_use_id": "context", "cwd": str(tmp_path),
+                                       "tool_name": "Edit", "tool_input": {"file_path": "analysis.py", "content": "private-content"}})
+    outbox = Outbox(tmp_path / "outbox.sqlite3")
+    try:
+        payload = outbox.get(result["id"]).payload
+        wire = adapter._event_wire_payload(payload)
+        assert wire["capture"]["session_id"] == "s"
+        assert wire["capture"]["cwd"] == str(tmp_path)
+        assert wire["capture"]["input"]["file_path"] == "analysis.py"
+        assert "private-content" not in json.dumps(wire)
+    finally:
+        outbox.close()
+
+
+def test_prompt_capture_is_redacted_and_same_session_turns_keep_distinct_identity(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_OUTBOX", str(tmp_path / "outbox.sqlite3"))
+    first = adapter.capture("codex", {"session_id": "s", "hook_event_name": "UserPromptSubmit", "prompt": "Repair capture. token=private-value"})
+    second = adapter.capture("codex", {"session_id": "s", "hook_event_name": "UserPromptSubmit", "prompt": "Show project activity"})
+    ending = adapter.capture("codex", {"session_id": "s", "hook_event_name": "Stop", "last_assistant_message": "Capture repaired; tests pass."})
+    assert first["id"] != second["id"]
+    outbox = Outbox(tmp_path / "outbox.sqlite3")
+    try:
+        assert outbox.get(first["id"]).payload["capture"]["kind"] == "request"
+        assert "private-value" not in json.dumps(outbox.get(first["id"]).payload)
+        assert outbox.get(ending["id"]).payload["capture"]["kind"] == "summary"
+        assert "tests pass" in outbox.get(ending["id"]).payload["capture"]["text"]
+    finally:
+        outbox.close()
+
+
+def test_raw_hermes_hook_keeps_args_failure_and_project_marker(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_OUTBOX", str(tmp_path / "outbox.sqlite3"))
+    monkeypatch.delenv("BRAIN_PROJECT", raising=False)
+    project = tmp_path / "checkout"
+    project.mkdir()
+    (project / ".hermes-project").write_text("project_key: research-paper\n")
+    payload = {"session_id": "s", "tool_call_id": "native-hermes-call", "tool_name": "terminal",
+               "status": "error", "error_message": "ValueError: failed command", "args": {"cwd": str(project), "command": "pytest"}}
+    result = adapter.capture("hermes", payload)
+    repeated = adapter.capture("hermes", payload)
+    assert result["project"] == "research-paper"
+    assert repeated["status"] == "duplicate"
+    outbox = Outbox(tmp_path / "outbox.sqlite3")
+    try:
+        event = outbox.get(result["id"]).payload
+        assert event["capture"]["input"]["command"] == "pytest"
+        assert event["capture"]["status"] == "failed"
+        assert "ValueError" in event["result"]
+    finally:
+        outbox.close()

@@ -25,6 +25,7 @@ from mcp.server.stdio import stdio_server
 from mcp.types import Tool, TextContent
 
 from hermes.repository import HermesRepository
+from hermes.feedback_attribution import TRAFFIC_KINDS, TASK_RESULTS, validate_provenance, validate_verification
 
 
 def _v2_retrieval_principal(agent: str):
@@ -57,6 +58,12 @@ TOOLS = [
                 "limit": {"type": "integer", "default": 5, "minimum": 1, "maximum": 20},
                 "category": {"type": "string"},
                 "domain": {"type": "string"},
+                "traffic_kind": {"type": "string", "enum": list(TRAFFIC_KINDS), "default": "unknown",
+                                 "description": "Classify real tasks separately from audit, probe and evaluation traffic."},
+                "task_id": {"type": "string", "maxLength": 200},
+                "environment": {"type": "object", "properties": {
+                    "server_id": {"type": "string"}, "user_root": {"type": "string"},
+                    "project_root": {"type": "string"}}},
             },
             "required": ["query", "session_id"],
         },
@@ -74,6 +81,11 @@ TOOLS = [
                     "enum": ["applied", "partially_helped", "failed", "contradicted", "not_used"],
                 },
                 "note": {"type": "string", "default": ""},
+                "task_success": {"type": "string", "enum": list(TASK_RESULTS), "default": "unknown"},
+                "user_validated": {"type": ["boolean", "null"],
+                                   "description": "Only true when the user actually validated the result."},
+                "verification_note": {"type": "string", "maxLength": 2000,
+                                      "description": "Actual acceptance check and observed result; do not invent evidence."},
             },
             "required": ["retrieval_id", "node_id", "status"],
         },
@@ -188,6 +200,9 @@ async def _execute_tool(repo: HermesRepository, name: str, arguments: dict) -> l
             raise ValueError("session_id is required")
         limit = max(1, min(int(arguments.get("limit", 5)), 20))
         agent = str(arguments.get("agent") or "xiaohe")[:120]
+        traffic_kind, task_id = validate_provenance(
+            arguments.get("traffic_kind", "unknown"), arguments.get("task_id", ""), session_id,
+        )
         event = repo.record_retrieval_for_query(
             query,
             agent=agent,
@@ -196,6 +211,9 @@ async def _execute_tool(repo: HermesRepository, name: str, arguments: dict) -> l
             category=str(arguments.get("category") or "").strip() or None,
             domain=str(arguments.get("domain") or "").strip() or None,
             session_id=session_id,
+            traffic_kind=traffic_kind,
+            task_id=task_id,
+            environment=arguments.get('environment'),
             v2_principal=_v2_retrieval_principal(agent),
         )
         results = [
@@ -210,6 +228,7 @@ async def _execute_tool(repo: HermesRepository, name: str, arguments: dict) -> l
                 "score": item.get("score"),
                 "unverified": bool(item.get("unverified")),
                 "schema": int(item.get("schema") or 1),
+                "environment": item.get('environment', {}),
             }
             for item in event.get("results", [])
             if isinstance(item, dict)
@@ -241,12 +260,18 @@ async def _execute_tool(repo: HermesRepository, name: str, arguments: dict) -> l
             candidate_ids = set()
         if node_id not in candidate_ids:
             raise ValueError("node_id was not returned by this retrieval")
+        task_success, user_validated, verification_note = validate_verification(
+            arguments.get("task_success", "unknown"), arguments.get("user_validated"),
+            arguments.get("verification_note", ""),
+        )
         pair = repo.record_outcome_pair(
             retrieval_id,
             node_id,
             status,
             notes=str(arguments.get("note") or "")[:1000],
             used=status != "not_used",
+            task_success=task_success, user_validated=user_validated,
+            verification_note=verification_note,
             v2_principal=_v2_retrieval_principal(str(event.agent or "xiaohe")[:120]),
         )
         if pair["status"] == "conflict_unresolved":

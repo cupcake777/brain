@@ -55,8 +55,11 @@ class IngestionService:
             return IngestOutcome(proposal_id=proposal_id, route=str(stored["state"]))
 
         sections = _parse_sections(body)
+        from hermes.environment_scope import context, assign, assign_origin
+        environment = context(front_matter.get('environment'))
+        origin_environment=context(front_matter.get('origin_environment'))
         semantic_hash = _compute_semantic_hash(body)
-        duplicate_of = self.repo.find_by_semantic_hash(semantic_hash)
+        duplicate_of = self.repo.find_by_semantic_hash(semantic_hash,environment=environment)
         route = self._route(front_matter["category"], front_matter["risk_level"])
         from hermes.lane import assign_lane, lane_text
         from hermes.weight import compute_weight
@@ -99,6 +102,12 @@ class IngestionService:
         )
 
         # V3: Extract observations from evidence and insert into DB
+        if origin_environment['server_id']:
+            with self.repo._connect() as connection:
+                assign_origin(connection,'proposal',proposal_id,origin_environment)
+        if environment['server_id']:
+            with self.repo._connect() as connection:
+                assign(connection, 'proposal', proposal_id, environment)
         evidence_entries = []
         try:
             from hermes.evidence import parse_evidence_section, extract_observations
@@ -140,11 +149,13 @@ class IngestionService:
 
         if route in {"approved_db_only", "approved_for_export"}:
             self._integrate_proposal(
+                proposal_id=proposal_id,
                 category=front_matter["category"],
                 domain=domain,
                 suggested_memory=sections["Suggested durable memory"],
                 observation=sections["Observation"],
                 source=f"proposal:{proposal_id[:12]}",
+                environment=environment,
             )
 
         return IngestOutcome(proposal_id=proposal_id, route=route)
@@ -152,11 +163,13 @@ class IngestionService:
     def _integrate_proposal(
         self,
         *,
+        proposal_id: str,
         category: str,
         domain: str,
         suggested_memory: str,
         observation: str,
         source: str,
+        environment: dict | None = None,
     ) -> None:
         """Integrate already-approved proposals into knowledge nodes."""
         try:
@@ -166,13 +179,15 @@ class IngestionService:
                 content += f"\n\nObservation: {observation}"
             cat_map = {"workflow_hint": "workflow_hint"}
             cat = cat_map.get(category, category if category in ("rule", "preference", "fact") else "fact")
-            _integrate(
+            result = _integrate(
                 content=content,
                 source=source,
                 category=cat,
                 domain=domain or "tech",
                 repo=self.repo,
+                environment=environment,
             )
+            self.repo.link_proposal_knowledge(proposal_id,result.node_id,action=result.action)
         except Exception as exc:  # noqa: BLE001
             logging.warning("Knowledge Node integration failed for %s: %s", source, exc)
 

@@ -137,7 +137,7 @@ def test_pipeline_frontend_distinguishes_processed_from_materialized(tmp_path: P
     sync_approved_proposals(repo)
     app = create_app(repo=repo, sync_root=tmp_path / "sync")
 
-    page = TestClient(app).get("/proposals").text
+    page = TestClient(app).get("/proposals?tab=flow").text
 
     assert "1 / 2 materialized" in page
     assert "2 / 2 processed" in page
@@ -152,7 +152,7 @@ def test_pipeline_api_and_frontend_expose_sync_and_vector_state(tmp_path: Path) 
     client = TestClient(app)
 
     payload = client.get("/api/knowledge/pipeline").json()
-    page = client.get("/proposals").text
+    page = client.get("/proposals?tab=flow").text
 
     assert payload["proposals"]["approved"] == 1
     assert payload["proposals"]["missing"] == 0

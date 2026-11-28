@@ -122,7 +122,7 @@ def request(
         if not token:
             raise RuntimeError("BRAIN_TOKEN is required for protected source retrieval or outcome/proposal writes")
         headers["Authorization"] = f"Bearer {token}"
-    elif optional_auth and use_tls:
+    elif optional_auth:
         token = resolve_token()
         if token:
             headers["Authorization"] = f"Bearer {token}"
@@ -154,7 +154,18 @@ def resolve_session_id(explicit: str = "") -> str:
     )
 
 
+def environment_context(args=None) -> dict[str, str]:
+    return {
+        "server_id": getattr(args, 'server_id', '') or os.environ.get('BRAIN_SERVER_ID', '') or _read_config('server-id') or platform.node(),
+        "user_root": getattr(args, 'user_root', '') or os.environ.get('BRAIN_USER_ROOT', '') or _read_config('user-root') or str(Path.home()),
+        "project_root": getattr(args, 'project_root', '') or os.environ.get('BRAIN_PROJECT_ROOT', '') or str(Path.cwd()),
+    }
+
+
 def command_retrieve(args: argparse.Namespace) -> dict[str, Any]:
+    session_id = resolve_session_id(args.session_id)
+    if not session_id:
+        raise RuntimeError("session_id is required; pass --session-id or configure the actual agent session ID")
     return request("/api/v1/brain/retrieve", optional_auth=True, payload={
         "query": args.query,
         "limit": args.limit,
@@ -162,8 +173,24 @@ def command_retrieve(args: argparse.Namespace) -> dict[str, Any]:
         "domain": args.domain,
         "agent": os.environ.get("BRAIN_AGENT", "brain-loop-skill"),
         "host_hash": host_hash(),
-        "session_id": resolve_session_id(args.session_id),
+        "session_id": session_id,
+        "traffic_kind": args.traffic_kind,
+        "task_id": args.task_id or os.environ.get("BRAIN_TASK_ID", ""),
+        "environment": environment_context(args),
     })
+
+
+def command_context_export(args: argparse.Namespace) -> dict[str, Any]:
+    result=request('/api/v1/brain/environment-export',optional_auth=True,
+                   payload={'environment':environment_context(args)})
+    if args.output:
+        destination=Path(args.output).expanduser()
+        destination.parent.mkdir(parents=True,exist_ok=True)
+        temporary=destination.with_name(destination.name+'.tmp')
+        temporary.write_text(result['markdown'],encoding='utf-8')
+        temporary.replace(destination)
+        return {'status':'written','path':str(destination),'node_count':len(result['node_ids'])}
+    return result
 
 
 def command_source_retrieve(args: argparse.Namespace) -> dict[str, Any]:
@@ -181,6 +208,7 @@ def command_outcome(args: argparse.Namespace) -> dict[str, Any]:
         "note": args.note,
         "task_success": args.task_success,
         "user_validated": True if args.user_validated else None,
+        "verification_note": args.verification_note,
     })
 
 
@@ -226,6 +254,7 @@ def command_propose(args: argparse.Namespace) -> dict[str, Any]:
                 raise RuntimeError(f"replace placeholder in evidence[{index}].{field}")
     payload.setdefault("agent", os.environ.get("BRAIN_AGENT", "brain-loop-skill"))
     payload.setdefault("host_hash", host_hash())
+    payload.setdefault("origin_environment", environment_context())
     result = request("/api/v1/brain/propose", write=True, payload=payload)
     if not args.wait:
         return result
@@ -275,11 +304,27 @@ def parser() -> argparse.ArgumentParser:
     health = sub.add_parser("health")
     health.set_defaults(handler=command_health)
 
+    metrics = sub.add_parser("metrics")
+    metrics.set_defaults(handler=lambda _: request("/api/v1/brain/metrics", optional_auth=True))
+
+    scoped=sub.add_parser('context-export')
+    scoped.add_argument('--server-id',default='')
+    scoped.add_argument('--user-root',default='')
+    scoped.add_argument('--project-root',default='')
+    scoped.add_argument('--output',default='')
+    scoped.set_defaults(handler=command_context_export)
+
     retrieve = sub.add_parser("retrieve")
     retrieve.add_argument("query")
     retrieve.add_argument("--limit", type=int, default=5)
     retrieve.add_argument("--category", default="")
     retrieve.add_argument("--domain", default="")
+    retrieve.add_argument("--traffic-kind", choices=["task", "audit", "probe", "evaluation", "unknown"],
+                          default=os.environ.get("BRAIN_TRAFFIC_KIND", "task"))
+    retrieve.add_argument("--task-id", default="")
+    retrieve.add_argument('--server-id', default='')
+    retrieve.add_argument('--user-root', default='')
+    retrieve.add_argument('--project-root', default='')
     retrieve.add_argument("--session-id", default="",
                           help="Session identifier; defaults to BRAIN_SESSION_ID or CODEX_THREAD_ID")
     retrieve.set_defaults(handler=command_retrieve)
@@ -298,6 +343,7 @@ def parser() -> argparse.ArgumentParser:
     outcome.add_argument("--note", default="")
     outcome.add_argument("--task-success", choices=["success", "failure", "partial", "unknown"], default="unknown")
     outcome.add_argument("--user-validated", action="store_true")
+    outcome.add_argument("--verification-note", default="", help="Actual acceptance check and its observed result")
     outcome.set_defaults(handler=command_outcome)
 
     propose = sub.add_parser("propose")

@@ -110,6 +110,21 @@ class _EventSourceRefIn(_StrictModel):
     id: UUID
 
 
+class EventCapture(_StrictModel):
+    """Bounded, privacy-scanned activity context; never principal authority."""
+
+    kind: StrictStr = Field(default="tool", pattern=r"^(tool|request|summary)$")
+    text: StrictStr = Field(default="", max_length=4000)
+    source: StrictStr = Field(default="", max_length=128)
+    host_hash: StrictStr = Field(default="", max_length=128)
+    session_id: StrictStr = Field(default="", max_length=128)
+    tool_name: StrictStr = Field(default="", max_length=128)
+    status: StrictStr = Field(default="completed", pattern=r"^(completed|failed|timeout)$")
+    exit_code: StrictInt | None = None
+    cwd: StrictStr = Field(default="", max_length=2048)
+    input: dict[str, Any] = Field(default_factory=dict)
+
+
 class EventCreate(_StrictModel):
     """Inbound event payload.
 
@@ -128,6 +143,7 @@ class EventCreate(_StrictModel):
     result: StrictStr | None = None
     source_refs: list[_EventSourceRefIn] = Field(default_factory=list)
     client_digest: StrictStr | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    capture: EventCapture | None = None
 
 
 class EventOut(_StrictModel):
@@ -147,6 +163,7 @@ class EventOut(_StrictModel):
     principal_project: str
     received_at: str
     source_refs: list[dict[str, Any]] = Field(default_factory=list)
+    capture: dict[str, Any] = Field(default_factory=dict)
 
 
 # Proposals ------------------------------------------------------------------
@@ -353,6 +370,7 @@ def build_router(
                 result=contract.result,
                 source_refs=[{"type": r.type.value, "id": str(r.id)} for r in contract.source_refs],
                 client_digest=dto.client_digest,
+                capture=dto.capture.model_dump(exclude_unset=True) if dto.capture else None,
             )
             if result.get("id") != str(contract.id):
                 raise ConflictError("event receipt id mismatch")

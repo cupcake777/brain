@@ -6,7 +6,7 @@ Set BRAIN_URL to the user's service origin. Bundled client defaults to local loo
 
 | Method/path | Authorization in protected v1 deployment | Purpose |
 |---|---|---|
-| GET /api/v1/brain/health | Public | schema/status/counters |
+| GET /api/v1/brain/health | Bearer/session when protected | schema/status/counters |
 | POST /api/v1/brain/retrieve | Operator bearer, session, or scoped `knowledge:read` | Local curated experience + recorded retrieval event |
 | POST /api/v1/brain/outcome | Bearer/session | Feedback bound to returned local candidates |
 | POST /api/v1/brain/propose | Bearer/session | Queue a proposal, not approval |
@@ -17,7 +17,7 @@ The server's auth configuration matters. Public experience retrieval should not 
 
 ## Local retrieval
 
-Request: query required <=1000 chars; limit 1–20; optional category/domain/agent/host_hash/session_id.
+Request: query required <=1000 chars; limit 1–20; optional category/domain/agent/host_hash/session_id. The client attaches a configured bearer token over HTTPS. Its session ID resolves from `--session-id`, then `BRAIN_SESSION_ID`, then the real `CODEX_THREAD_ID`; retrieve and finalize use the same order. Without a session ID retrieval still works, but session closure is unavailable until a real ID is provided.
 Response: schema=1, retrieval_id, query, results[], outcome_required. Results include full node_id, summary/content/category/domain/stage/confidence/score.
 
 Keep IDs literal. Stage is governance state, confidence is internal knowledge assessment, score is query match; do not compare them to external similarity. This endpoint stores query and metadata, unlike external excerpt handling. Do not send private or secret query text.
@@ -26,7 +26,7 @@ Keep IDs literal. Stage is governance state, confidence is internal knowledge as
 
 Request: retrieval_id, node_id, status; optional note <=1000 chars. Status is applied/partially_helped/failed/contradicted/not_used. Candidate must belong to that retrieval. Feedback is idempotent for same status, conflicting updates return 409. Response includes recorded and proposal_recommended (a suggestion, not automatic learning).
 
-The client retains compatibility switches task_success/user_validated, but the current schema=1 handler does not persist these fields. Do not compute validated task-success statistics from them. Applied means used and helped, not scientific validation. not_used is not failure or contradiction.
+Optional `task_success` is `success`, `failure`, `partial`, or `unknown` (default). Optional `user_validated` is a JSON boolean or null (default); strings and integers are rejected. Both fields are persisted in `outcome_log`. Historical feedback is not backfilled. These are caller-reported task results, separate from knowledge usefulness, and do not establish independent validation or a causal task-success improvement. Applied means used and helped, not scientific validation. not_used is not failure or contradiction. Replaying an existing same-status pair remains a no-op and does not replace its original metadata.
 
 ## Proposal
 
@@ -63,3 +63,28 @@ No local node_id/retrieval_id/outcome_required. No local outcome for citations. 
 ## Client error semantics
 
 Success outputs JSON stdout, exit 0. HTTP/network/config errors output error JSON stderr, exit 1. Validate the status and relevant content, not merely exit code. Respect rate limits; do not loop automatically. Tokens must not appear in arguments, logs or submitted evidence.
+
+
+## Environment and request attribution (client 1.4.2)
+
+Retrieve accepts optional `environment` with `server_id`, `user_root`, and
+`project_root`. Server identity is exact; a user directory is exact; a project
+scope includes descendants. Windows absolute paths are normalized with case
+folding. Missing environment matches only shared knowledge. Context is
+applicability metadata, not access authorization. Structured proposal
+`origin_environment` records the submitting server/home/project independently
+of optional applicability `environment`. Old source_host labels remain intact.
+
+Retrieve accepts `traffic_kind` (`task`, `audit`, `probe`, `evaluation`,
+`unknown`) and optional `task_id`. Task traffic requires a real session ID.
+New requests are counted even if empty; empty requests have no outcome
+candidates. Historical empty requests are unknown and cannot be reconstructed.
+Outcome accepts optional `verification_note` up to 2,000 characters. Owner-only
+`GET /api/v1/brain/metrics` reports grouped requests and candidate outcomes.
+
+`POST /api/v1/brain/environment-export` accepts an environment and returns a
+markdown projection of matching active scoped knowledge. It creates no
+retrieval/outcome event. Knowledge-read credentials may retrieve it and fetch
+canonical skill/global export assets; inventory and scope assignment remain
+owner-only. Global projections exclude scoped records. Scope assignment also
+updates linked compatibility records and rebuilds shared projections.

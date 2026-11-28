@@ -89,7 +89,7 @@ def test_edit_proposal_rejects_invalid_taxonomy_and_sensitive_content(tmp_path) 
 def test_review_page_renders_editor_for_pending_proposal(tmp_path) -> None:
     client, _repo = _client(tmp_path)
 
-    page = client.get("/review/proposal-editable")
+    page = client.get("/review/proposal-editable?view=raw")
 
     assert page.status_code == 200
     assert 'id="proposal-editor"' in page.text
